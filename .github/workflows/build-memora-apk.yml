@@ -39,13 +39,21 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Flutter project found at: $PROJECT_DIR"
 
+      - name: Install Memora v0.3 source
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          rm -rf lib
+          cp -R "$GITHUB_WORKSPACE/memora_upgrade/lib" ./lib
+          cp "$GITHUB_WORKSPACE/memora_upgrade/pubspec.yaml" ./pubspec.yaml
+
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         run: |
-          echo "Replacing legacy Android v1 embedding with the current Flutter Android project..."
           rm -rf android
-          flutter create --platforms=android --project-name memora --no-pub .
+          flutter create --platforms=android --project-name memora --org com.memora --no-pub .
+          sed -i 's/android:label="memora"/android:label="Memora"/' android/app/src/main/AndroidManifest.xml
 
       - name: Flutter pub get
         working-directory: ${{ env.PROJECT_DIR }}
@@ -62,7 +70,7 @@ jobs:
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: Memora-release-apk
+          name: Memora-v0.3-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
