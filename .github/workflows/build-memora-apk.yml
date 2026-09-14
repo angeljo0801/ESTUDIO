@@ -1,0 +1,60 @@
+name: Build Memora APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Extract Flutter project
+        shell: bash
+        run: |
+          rm -rf extracted
+          mkdir -p extracted
+          unzip -q Memora_v0.2_Flutter.zip -d extracted
+          PROJECT_DIR="$(dirname "$(find extracted -type f -name pubspec.yaml -print -quit)")"
+          if [ -z "$PROJECT_DIR" ] || [ "$PROJECT_DIR" = "." ]; then
+            echo "No Flutter pubspec.yaml found inside Memora_v0.2_Flutter.zip"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Flutter project found at: $PROJECT_DIR"
+
+      - name: Flutter pub get
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter pub get
+
+      - name: Analyze project
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build release APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter build apk --release
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Memora-release-apk
+          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
