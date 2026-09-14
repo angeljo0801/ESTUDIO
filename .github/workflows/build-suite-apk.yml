@@ -1,0 +1,65 @@
+name: Build Personal Suite APK
+
+on:
+  push:
+    branches: ["suite-personal"]
+    paths:
+      - "personal_suite_source.zip"
+      - "personal_suite/**"
+      - ".github/workflows/build-suite-apk.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack source
+        run: unzip -o personal_suite_source.zip -d .
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create Android scaffold
+        working-directory: personal_suite
+        run: |
+          flutter create --platforms=android --org com.angelapps --project-name personal_suite .
+
+      - name: Add Android permissions and app name
+        working-directory: personal_suite
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/src/main/AndroidManifest.xml')
+          s=p.read_text()
+          if 'android.permission.INTERNET' not in s:
+              s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\\n    <uses-permission android:name="android.permission.INTERNET"/>\\n    <uses-permission android:name="android.permission.CAMERA"/>')
+          s=s.replace('android:label="personal_suite"', 'android:label="Suite Personal"')
+          p.write_text(s)
+          PY
+
+      - name: Get dependencies
+        working-directory: personal_suite
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: personal_suite
+        run: flutter analyze
+
+      - name: Build release APK
+        working-directory: personal_suite
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: cp personal_suite/build/app/outputs/flutter-apk/app-release.apk Suite-Personal-v1.0.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Suite-Personal-APK
+          path: Suite-Personal-v1.0.apk
+          retention-days: 30
