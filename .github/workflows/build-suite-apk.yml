@@ -15,8 +15,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack source
-        run: unzip -o personal_suite_source.zip -d .
+      - name: Unpack and patch source
+        run: |
+          unzip -o personal_suite_source.zip -d .
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('personal_suite/lib/main.dart')
+          s=p.read_text()
+          s=s.replace('DropdownButtonFormField<String>(value: type,', 'DropdownButtonFormField<String>(initialValue: type,')
+          s=s.replace('DropdownButtonFormField<String>(value: mode,', 'DropdownButtonFormField<String>(initialValue: mode,')
+          p.write_text(s)
+          PY
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
