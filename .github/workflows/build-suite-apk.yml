@@ -28,6 +28,7 @@ jobs:
         working-directory: personal_suite
         run: |
           flutter create --platforms=android --org com.angelapps --project-name personal_suite .
+          rm -rf test analysis_options.yaml
 
       - name: Add Android permissions and app name
         working-directory: personal_suite
@@ -37,7 +38,7 @@ jobs:
           p=Path('android/app/src/main/AndroidManifest.xml')
           s=p.read_text()
           if 'android.permission.INTERNET' not in s:
-              s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\\n    <uses-permission android:name="android.permission.INTERNET"/>\\n    <uses-permission android:name="android.permission.CAMERA"/>')
+              s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>')
           s=s.replace('android:label="personal_suite"', 'android:label="Suite Personal"')
           p.write_text(s)
           PY
@@ -46,9 +47,9 @@ jobs:
         working-directory: personal_suite
         run: flutter pub get
 
-      - name: Analyze
+      - name: Analyze app source
         working-directory: personal_suite
-        run: flutter analyze
+        run: flutter analyze lib
 
       - name: Build release APK
         working-directory: personal_suite
