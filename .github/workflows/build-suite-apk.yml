@@ -39,7 +39,7 @@ jobs:
           flutter create --platforms=android --org com.angelapps --project-name personal_suite .
           rm -rf test analysis_options.yaml
 
-      - name: Add Android permissions and app name
+      - name: Configure Android and ML Kit
         working-directory: personal_suite
         run: |
           python3 - <<'PY'
@@ -50,6 +50,13 @@ jobs:
               s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>')
           s=s.replace('android:label="personal_suite"', 'android:label="Suite Personal"')
           p.write_text(s)
+
+          g=Path('android/app/build.gradle.kts')
+          t=g.read_text()
+          marker='com.google.mlkit:text-recognition-chinese'
+          if marker not in t:
+              t += '''\n\ndependencies {\n    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")\n    implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")\n    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")\n    implementation("com.google.mlkit:text-recognition-korean:16.0.1")\n}\n'''
+          g.write_text(t)
           PY
 
       - name: Get dependencies
