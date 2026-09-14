@@ -39,6 +39,14 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Flutter project found at: $PROJECT_DIR"
 
+      - name: Regenerate modern Android project
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          echo "Replacing legacy Android v1 embedding with the current Flutter Android project..."
+          rm -rf android
+          flutter create --platforms=android --project-name memora --no-pub .
+
       - name: Flutter pub get
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter pub get
