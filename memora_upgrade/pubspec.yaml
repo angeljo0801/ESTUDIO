@@ -1,0 +1,24 @@
+name: memora
+description: Memora - convierte tus guias en repasos, tarjetas y examenes offline.
+publish_to: 'none'
+version: 0.3.0+3
+
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  file_picker: ^12.3.0
+  path_provider: ^2.1.5
+  archive: ^4.3.0
+  xml: ^7.0.1
+  pdfrx: ^2.6.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
