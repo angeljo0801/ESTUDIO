@@ -53,6 +53,7 @@ jobs:
         run: |
           rm -rf android
           flutter create --platforms=android --project-name memora --org com.memora --no-pub .
+          rm -rf test
           sed -i 's/android:label="memora"/android:label="Memora"/' android/app/src/main/AndroidManifest.xml
 
       - name: Flutter pub get
