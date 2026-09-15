@@ -7,9 +7,49 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'device_llm_service.dart';
 
 class AiService {
+  static http.Client? _activeHttpClient;
+  static int _onlineSerial = 0;
+  static int? _activeOnlineId;
+  static final Set<int> _cancelledOnline = <int>{};
+
   static String get localAccelerationLabel => DeviceLlmService.accelerationLabel;
 
-  static Future<void> cancelCurrent() => DeviceLlmService.stopCurrent();
+  static Future<void> cancelCurrent() async {
+    final id = _activeOnlineId;
+    if (id != null) _cancelledOnline.add(id);
+    final client = _activeHttpClient;
+    _activeHttpClient = null;
+    try {
+      client?.close();
+    } catch (_) {}
+    await DeviceLlmService.stopCurrent();
+  }
+
+  static Future<T> _runOnline<T>(Future<T> Function(http.Client client, int requestId) action) async {
+    final id = ++_onlineSerial;
+    final client = http.Client();
+    _activeOnlineId = id;
+    _activeHttpClient = client;
+    try {
+      final value = await action(client, id);
+      if (_cancelledOnline.contains(id)) {
+        throw Exception('Generación cancelada.');
+      }
+      return value;
+    } catch (e) {
+      if (_cancelledOnline.contains(id)) {
+        throw Exception('Generación cancelada.');
+      }
+      rethrow;
+    } finally {
+      try {
+        client.close();
+      } catch (_) {}
+      _cancelledOnline.remove(id);
+      if (_activeOnlineId == id) _activeOnlineId = null;
+      if (identical(_activeHttpClient, client)) _activeHttpClient = null;
+    }
+  }
 
   static Future<String> askConfigured({
     required String prompt,
@@ -55,11 +95,12 @@ class AiService {
       if (key.isEmpty) {
         throw Exception('Configura la clave de Gemini en Ajustes de IA.');
       }
-      final result = await askGemini(
-        apiKey: key,
-        prompt: prompt,
-        imagePaths: imagePaths,
-      );
+      final result = await _runOnline((client, _) => askGemini(
+            client: client,
+            apiKey: key,
+            prompt: prompt,
+            imagePaths: imagePaths,
+          ));
       onPartial?.call(result);
       return result;
     }
@@ -71,13 +112,14 @@ class AiService {
       if (key.isEmpty || model.isEmpty) {
         throw Exception('Configura la clave y el modelo online en Ajustes de IA.');
       }
-      final result = await askOpenAiCompatible(
-        baseUrl: baseUrl,
-        apiKey: key,
-        model: model,
-        prompt: prompt,
-        imagePaths: imagePaths,
-      );
+      final result = await _runOnline((client, _) => askOpenAiCompatible(
+            client: client,
+            baseUrl: baseUrl,
+            apiKey: key,
+            model: model,
+            prompt: prompt,
+            imagePaths: imagePaths,
+          ));
       onPartial?.call(result);
       return result;
     }
@@ -90,14 +132,13 @@ class AiService {
       if (model.isEmpty) {
         throw Exception('Indica el nombre del modelo local/Ollama en Ajustes de IA.');
       }
-      // Para máxima compatibilidad con modelos Ollama de texto, las imágenes
-      // se convierten primero a OCR en la app y ese texto ya viaja en prompt.
-      final result = await askOpenAiCompatible(
-        baseUrl: baseUrl,
-        apiKey: key,
-        model: model,
-        prompt: prompt,
-      );
+      final result = await _runOnline((client, _) => askOpenAiCompatible(
+            client: client,
+            baseUrl: baseUrl,
+            apiKey: key,
+            model: model,
+            prompt: prompt,
+          ));
       onPartial?.call(result);
       return result;
     }
@@ -106,6 +147,7 @@ class AiService {
   }
 
   static Future<String> askGemini({
+    required http.Client client,
     required String apiKey,
     required String prompt,
     List<String> imagePaths = const [],
@@ -129,7 +171,7 @@ class AiService {
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
     );
-    final response = await http
+    final response = await client
         .post(
           uri,
           headers: {'Content-Type': 'application/json'},
@@ -152,6 +194,7 @@ class AiService {
   }
 
   static Future<String> askOpenAiCompatible({
+    required http.Client client,
     required String baseUrl,
     required String apiKey,
     required String model,
@@ -182,7 +225,7 @@ class AiService {
       userContent = content;
     }
 
-    final response = await http
+    final response = await client
         .post(
           Uri.parse('$cleanBase/chat/completions'),
           headers: headers,
@@ -213,6 +256,9 @@ class AiService {
   static String userFacingError(Object error) {
     var text = error.toString().trim();
     final lower = text.toLowerCase();
+    if (lower.contains('generación cancelada') || lower.contains('generation cancelled')) {
+      return 'Generación cancelada.';
+    }
     if (lower.contains('already generating') ||
         lower.contains('context is busy') ||
         lower.contains('context busy')) {
