@@ -1,7 +1,7 @@
 name: memora
 description: Memora - convierte tus guias en repasos, tarjetas, examenes y planes con IA.
 publish_to: 'none'
-version: 0.5.0+5
+version: 0.6.0+6
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
@@ -16,6 +16,7 @@ dependencies:
   pdfrx: ^2.6.1
   http: ^1.5.0
   shared_preferences: ^2.5.3
+  fcllama: ^0.0.3
 
 dev_dependencies:
   flutter_test:
