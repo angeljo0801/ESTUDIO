@@ -47,6 +47,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/memora_upgrade/v182_exam_regex_fix.py" ./v182_exam_regex_fix.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v19_exam_pdf_export_patch.py" ./v19_exam_pdf_export_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v110_sync_and_best_ai_patch.py" ./v110_sync_and_best_ai_patch.py
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v111_exam_fragment_filter_patch.py" ./v111_exam_fragment_filter_patch.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('v14_patch.py')
@@ -95,6 +96,7 @@ jobs:
           python3 v182_exam_regex_fix.py
           python3 v19_exam_pdf_export_patch.py
           python3 v110_sync_and_best_ai_patch.py
+          python3 v111_exam_fragment_filter_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -138,7 +140,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.10-Tutor-Sync-Best-AI-Fallback-release-apk
+          name: Memora-v1.11-Exam-Fragment-Filter-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
