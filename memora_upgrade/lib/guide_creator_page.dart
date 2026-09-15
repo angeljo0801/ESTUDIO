@@ -68,7 +68,11 @@ class _GuideCreatorPageState extends State<GuideCreatorPage> {
                 ),
                 Expanded(
                   child: widget.store.guides.isEmpty
-                      ? const Center(child: Text('No hay guías todavía. Puedes crear desde un prompt.'))
+                      ? const Center(
+                          child: Text(
+                            'No hay guías todavía. Puedes crear desde un prompt.',
+                          ),
+                        )
                       : ListView(
                           children: [
                             for (final guide in widget.store.guides)
@@ -165,7 +169,10 @@ Luego crea filas útiles y completas. No uses tabuladores dentro de una celda. S
       );
       final path = format == 'pdf'
           ? await GuideFileService.createPdf(title: title, content: result)
-          : await GuideFileService.createExcel(title: title, tableContent: result);
+          : await GuideFileService.createExcel(
+              title: title,
+              tableContent: result,
+            );
       final filename = path.split(Platform.pathSeparator).last;
       final guide = StudyEngine.buildGuide(
         title: title,
@@ -178,7 +185,11 @@ Luego crea filas útiles y completas. No uses tabuladores dentro de una celda. S
       if (!mounted) return;
       setState(() => status = 'Creado: $filename. Ya está en tu biblioteca.');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${format.toUpperCase()} creado y añadido a Biblioteca.')),
+        SnackBar(
+          content: Text(
+            '${format.toUpperCase()} creado y añadido a Biblioteca.',
+          ),
+        ),
       );
     } catch (e) {
       if (mounted) setState(() => status = 'No pude crear el archivo: $e');
@@ -203,11 +214,20 @@ Luego crea filas útiles y completas. No uses tabuladores dentro de una celda. S
             const SizedBox(height: 12),
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'pdf', icon: Icon(Icons.picture_as_pdf), label: Text('PDF')),
-                ButtonSegment(value: 'xlsx', icon: Icon(Icons.table_chart), label: Text('Excel')),
+                ButtonSegment(
+                  value: 'pdf',
+                  icon: Icon(Icons.picture_as_pdf),
+                  label: Text('PDF'),
+                ),
+                ButtonSegment(
+                  value: 'xlsx',
+                  icon: Icon(Icons.table_chart),
+                  label: Text('Excel'),
+                ),
               ],
               selected: {format},
-              onSelectionChanged: (values) => setState(() => format = values.first),
+              onSelectionChanged: (values) =>
+                  setState(() => format = values.first),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -217,14 +237,33 @@ Luego crea filas útiles y completas. No uses tabuladores dentro de una celda. S
                 prefixIcon: Icon(Icons.memory),
               ),
               items: const [
-                DropdownMenuItem(value: 'global', child: Text('Configuración general de Memora')),
-                DropdownMenuItem(value: 'private', child: Text('GGUF privado de Memora')),
-                DropdownMenuItem(value: 'shared', child: Text('GGUF compartido')),
-                DropdownMenuItem(value: 'gemini', child: Text('Gemini configurado')),
-                DropdownMenuItem(value: 'openai', child: Text('OpenAI / compatible configurado')),
-                DropdownMenuItem(value: 'local', child: Text('Ollama / servidor local configurado')),
+                DropdownMenuItem(
+                  value: 'global',
+                  child: Text('Configuración general de Memora'),
+                ),
+                DropdownMenuItem(
+                  value: 'private',
+                  child: Text('GGUF privado de Memora'),
+                ),
+                DropdownMenuItem(
+                  value: 'shared',
+                  child: Text('GGUF compartido'),
+                ),
+                DropdownMenuItem(
+                  value: 'gemini',
+                  child: Text('Gemini configurado'),
+                ),
+                DropdownMenuItem(
+                  value: 'openai',
+                  child: Text('OpenAI / compatible configurado'),
+                ),
+                DropdownMenuItem(
+                  value: 'local',
+                  child: Text('Ollama / servidor local configurado'),
+                ),
               ],
-              onChanged: (value) => setState(() => aiSource = value ?? 'global'),
+              onChanged: (value) =>
+                  setState(() => aiSource = value ?? 'global'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
@@ -244,22 +283,39 @@ Luego crea filas útiles y completas. No uses tabuladores dentro de una celda. S
               decoration: const InputDecoration(
                 labelText: 'Qué quieres que contenga',
                 alignLabelWithHint: true,
-                hintText: 'Describe la guía, tabla o base de datos que quieres crear…',
+                hintText:
+                    'Describe la guía, tabla o base de datos que quieres crear…',
               ),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: busy ? null : _generate,
               icon: busy
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.auto_awesome),
-              label: Text(busy ? 'Creando archivo…' : 'Crear y guardar en Biblioteca'),
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              label: Text(
+                busy
+                    ? 'Creando archivo…'
+                    : 'Crear y guardar en Biblioteca',
+              ),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+              ),
             ),
             if (status.isNotEmpty) ...[
               const SizedBox(height: 14),
-              Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(status))),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(status),
+                ),
+              ),
             ],
           ],
         ),
       );
+}
