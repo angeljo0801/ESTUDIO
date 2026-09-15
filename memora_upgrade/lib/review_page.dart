@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import 'models.dart';
+import 'study_engine.dart';
 
 class ReviewPage extends StatefulWidget {
   const ReviewPage({super.key, required this.guide, required this.onSave});
@@ -24,8 +25,9 @@ class _ReviewPageState extends State<ReviewPage> {
   @override
   void initState() {
     super.initState();
-    final due = widget.guide.cards.where((card) => card.isDue).toList();
-    _queue = due.isNotEmpty ? due : List<StudyCard>.from(widget.guide.cards);
+    final usable = widget.guide.cards.where(StudyEngine.isCardUsable).toList();
+    final due = usable.where((card) => card.isDue).toList();
+    _queue = due.isNotEmpty ? due : usable;
     _queue.shuffle(Random());
   }
 
@@ -64,9 +66,18 @@ class _ReviewPageState extends State<ReviewPage> {
               children: [
                 const Icon(Icons.celebration_rounded, size: 80),
                 const SizedBox(height: 18),
-                const Text('Sesión completada', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+                Text(
+                  _queue.isEmpty ? 'No hay tarjetas válidas para repasar' : 'Sesión completada',
+                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 10),
-                Text('$_good bien • $_again para reforzar'),
+                Text(
+                  _queue.isEmpty
+                      ? 'Memora descartó tarjetas incompletas o fragmentadas de esta guía.'
+                      : '$_good bien • $_again para reforzar',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: () => Navigator.pop(context),
