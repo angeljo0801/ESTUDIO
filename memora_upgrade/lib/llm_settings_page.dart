@@ -23,8 +23,8 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
     if (mounted) setState(() => loading = false);
   }
   Future<void> _importGguf() async {
-    final picked = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['gguf']);
-    final sourcePath = picked?.files.single.path;
+    final picked = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['gguf']);
+    final sourcePath = picked?.path;
     if (sourcePath == null) return;
     setState(() => importingModel = true);
     try {
@@ -32,7 +32,7 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
       final modelDir = Directory('${dir.path}/models');
       await modelDir.create(recursive: true);
       final old = deviceModelPath;
-      final safeName = picked!.files.single.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+      final safeName = picked!.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
       final destination = '${modelDir.path}/$safeName';
       if (sourcePath != destination) await File(sourcePath).copy(destination);
       final p = await SharedPreferences.getInstance();
