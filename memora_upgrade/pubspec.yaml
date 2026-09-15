@@ -13,7 +13,7 @@ dependencies:
   android_file_picker: ^1.1.1
   flutter_file_dialog: ^3.3.2
   path_provider: ^2.1.5
-  archive: ^4.3.0
+  archive: ^4.0.9
   xml: ^7.0.1
   pdfrx: ^2.6.1
   pdf: ^3.13.0
