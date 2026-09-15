@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+
 import 'package:fcllama/fllama.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +12,33 @@ class DeviceLlmService {
   static double? _contextId;
   static String? _loadedKey;
   static bool _loadedFromShared = false;
+
+  // fllama no permite dos completions simultáneas sobre el mismo contexto.
+  // Todas las operaciones del motor local pasan por esta cola global, incluso
+  // cuando vienen de pantallas distintas (Tutor, Agentes, Crear, etc.).
+  static Future<void> _operationQueue = Future<void>.value();
+
+  static Future<T> _enqueue<T>(Future<T> Function() operation) {
+    final completer = Completer<T>();
+    _operationQueue = _operationQueue.then((_) async {
+      try {
+        final value = await operation();
+        if (!completer.isCompleted) completer.complete(value);
+      } catch (error, stackTrace) {
+        if (!completer.isCompleted) completer.completeError(error, stackTrace);
+      }
+    }).catchError((_) {
+      // Una operación fallida no debe romper la cola para las siguientes.
+    });
+    return completer.future;
+  }
+
+  static bool _isContextBusy(Object error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('context is busy') ||
+        text.contains('context busy') ||
+        text.contains('already running');
+  }
 
   static Future<String> _resolvePrivateModel(SharedPreferences p) async {
     final path = p.getString('device_model_path') ?? '';
@@ -69,6 +98,13 @@ class DeviceLlmService {
   static Future<String> askWithMode(
     String prompt, {
     required String mode,
+  }) {
+    return _enqueue(() => _askWithModeInternal(prompt, mode: mode));
+  }
+
+  static Future<String> _askWithModeInternal(
+    String prompt, {
+    required String mode,
   }) async {
     final p = await SharedPreferences.getInstance();
     final normalizedMode = mode == 'shared' ? 'shared' : 'private';
@@ -112,16 +148,40 @@ class DeviceLlmService {
 
     final wrapped =
         '<|system|>\nEres un tutor de Memora. Sigue cuidadosamente las instrucciones del tutor incluidas en la solicitud, responde con claridad y no inventes información.\n<|user|>\n$prompt\n<|assistant|>\n';
-    final result = await FCllama.instance()?.completion(
-      _contextId!,
-      prompt: wrapped,
-      temperature: 0.25,
-      nPredict: 768,
-      topK: 40,
-      topP: 0.9,
-      penaltyRepeat: 1.1,
-      stop: ['<|user|>', '<|end|>', '<|eot_id|>'],
-    );
+
+    dynamic result;
+    Object? lastBusyError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        result = await FCllama.instance()?.completion(
+          _contextId!,
+          prompt: wrapped,
+          temperature: 0.25,
+          nPredict: 768,
+          topK: 40,
+          topP: 0.9,
+          penaltyRepeat: 1.1,
+          stop: ['<|user|>', '<|end|>', '<|eot_id|>'],
+        );
+        lastBusyError = null;
+        break;
+      } catch (error) {
+        if (!_isContextBusy(error)) rethrow;
+        lastBusyError = error;
+        if (attempt < 2) {
+          await Future<void>.delayed(
+            Duration(milliseconds: 400 * (attempt + 1)),
+          );
+        }
+      }
+    }
+
+    if (lastBusyError != null) {
+      throw Exception(
+        'El modelo local está terminando otra tarea. Espera unos segundos y vuelve a intentarlo.',
+      );
+    }
+
     final text = result?['text']?.toString().trim() ?? '';
     if (text.isEmpty) {
       throw Exception('El modelo local no generó una respuesta.');
