@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'guide_creator_page.dart';
 import 'guide_detail_page.dart';
 import 'guide_importer.dart';
 import 'guide_store.dart';
@@ -49,19 +50,13 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Título'),
-              ),
+              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Título')),
               const SizedBox(height: 12),
               TextField(
                 controller: textController,
                 minLines: 8,
                 maxLines: 15,
-                decoration: const InputDecoration(
-                  labelText: 'Contenido de la guía',
-                  alignLabelWithHint: true,
-                ),
+                decoration: const InputDecoration(labelText: 'Contenido de la guía', alignLabelWithHint: true),
               ),
             ],
           ),
@@ -85,6 +80,111 @@ class _HomePageState extends State<HomePage> {
     textController.dispose();
   }
 
+  Future<void> _mergeGuides() async {
+    if (widget.store.guides.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Necesitas al menos dos guías para fusionar.')),
+      );
+      return;
+    }
+    final selected = <String>{};
+    final picked = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * .8,
+            child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Fusionar guías', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('Selecciona dos o más. Se creará una nueva guía sin borrar las originales.'),
+                ),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      for (final guide in widget.store.guides)
+                        CheckboxListTile(
+                          value: selected.contains(guide.id),
+                          title: Text(guide.title),
+                          subtitle: Text(guide.sourceType.toUpperCase()),
+                          onChanged: (value) {
+                            setSheetState(() {
+                              if (value == true) {
+                                selected.add(guide.id);
+                              } else {
+                                selected.remove(guide.id);
+                              }
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: FilledButton(
+                    onPressed: selected.length < 2 ? null : () => Navigator.pop(sheetContext, Set<String>.from(selected)),
+                    child: Text('Fusionar ${selected.length} guía(s)'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (picked == null || picked.length < 2 || !mounted) return;
+
+    final titleController = TextEditingController(text: 'Guía fusionada');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nombre de la guía fusionada'),
+        content: TextField(controller: titleController, autofocus: true, decoration: const InputDecoration(labelText: 'Título')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Crear')),
+        ],
+      ),
+    );
+    if (ok != true) {
+      titleController.dispose();
+      return;
+    }
+    final sources = widget.store.guides.where((g) => picked.contains(g.id)).toList();
+    final buffer = StringBuffer();
+    for (final guide in sources) {
+      buffer.writeln('===== ${guide.title} [${guide.sourceType}] =====');
+      buffer.writeln(guide.text);
+      buffer.writeln();
+    }
+    final merged = StudyEngine.buildGuide(
+      title: titleController.text.trim().isEmpty ? 'Guía fusionada' : titleController.text.trim(),
+      sourceType: 'fusion',
+      sourceName: '${sources.length} guías fusionadas',
+      text: buffer.toString(),
+    );
+    titleController.dispose();
+    await widget.store.add(merged);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Guía fusionada creada con ${sources.length} fuentes.')),
+    );
+  }
+
+  Future<void> _openCreator() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => GuideCreatorPage(store: widget.store)),
+    );
+  }
+
   Future<void> _showAddMenu() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -98,10 +198,28 @@ class _HomePageState extends State<HomePage> {
               ListTile(
                 leading: const Icon(Icons.upload_file_rounded),
                 title: const Text('Importar archivo'),
-                subtitle: const Text('PDF, DOCX, TXT o Markdown'),
+                subtitle: const Text('PDF, DOCX, TXT, Markdown o Excel'),
                 onTap: () {
                   Navigator.pop(context);
                   _importFile();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.auto_awesome),
+                title: const Text('Crear PDF o Excel con IA'),
+                subtitle: const Text('Escoge la IA y usa otras guías como fuentes si quieres'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openCreator();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.merge_type),
+                title: const Text('Fusionar guías'),
+                subtitle: const Text('Combina varias guías en una nueva'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _mergeGuides();
                 },
               ),
               ListTile(
@@ -132,7 +250,7 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Memora', style: TextStyle(fontWeight: FontWeight.w800)),
-                Text('Tu biblioteca que te repasa', style: TextStyle(fontSize: 12)),
+                Text('Biblioteca, tutores y agentes', style: TextStyle(fontSize: 12)),
               ],
             ),
           ),
@@ -141,7 +259,7 @@ class _HomePageState extends State<HomePage> {
             icon: _busy
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.add_rounded),
-            label: Text(_busy ? 'Procesando…' : 'Añadir guía'),
+            label: Text(_busy ? 'Procesando…' : 'Añadir / crear'),
           ),
           body: guides.isEmpty
               ? _EmptyLibrary(onAdd: _showAddMenu)
@@ -159,9 +277,7 @@ class _HomePageState extends State<HomePage> {
                             onTap: () async {
                               await Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (_) => GuideDetailPage(store: widget.store, guide: guide),
-                                ),
+                                MaterialPageRoute(builder: (_) => GuideDetailPage(store: widget.store, guide: guide)),
                               );
                             },
                             child: Padding(
@@ -178,20 +294,21 @@ class _HomePageState extends State<HomePage> {
                                           color: Theme.of(context).colorScheme.primaryContainer,
                                           borderRadius: BorderRadius.circular(15),
                                         ),
-                                        child: const Icon(Icons.menu_book_rounded),
+                                        child: Icon(
+                                          guide.sourceType == 'xlsx' || guide.sourceType == 'xls'
+                                              ? Icons.table_chart_rounded
+                                              : guide.sourceType == 'pdf'
+                                                  ? Icons.picture_as_pdf_rounded
+                                                  : Icons.menu_book_rounded,
+                                        ),
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                              guide.title,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                                            ),
-                                            Text('${guide.sourceType.toUpperCase()} • ${guide.cards.length} tarjetas'),
+                                            Text(guide.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                                            Text('${guide.sourceType.toUpperCase()} • ${guide.cards.length} tarjetas${guide.hasFile ? ' • exportable' : ''}'),
                                           ],
                                         ),
                                       ),
@@ -242,7 +359,7 @@ class _LibraryHeader extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                '$total ${total == 1 ? 'guía lista' : 'guías listas'} para estudiar sin conexión.',
+                '$total ${total == 1 ? 'guía disponible' : 'guías disponibles'} para estudiar o usar como conocimiento.',
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
             ),
@@ -287,12 +404,9 @@ class _EmptyLibrary extends StatelessWidget {
             children: [
               const Icon(Icons.library_books_rounded, size: 78),
               const SizedBox(height: 18),
-              const Text('Pon una guía y Memora te la repasa', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
+              const Text('Crea o importa tu primera guía', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
               const SizedBox(height: 10),
-              const Text(
-                'Importa PDF, DOCX, TXT o Markdown. Memora extrae el texto, crea preguntas y guarda el progreso en tu teléfono.',
-                textAlign: TextAlign.center,
-              ),
+              const Text('Importa PDF, Excel, DOCX, TXT o Markdown; o deja que una IA cree un PDF/Excel por ti.', textAlign: TextAlign.center),
               const SizedBox(height: 22),
               FilledButton.icon(onPressed: onAdd, icon: const Icon(Icons.add_rounded), label: const Text('Añadir mi primera guía')),
             ],
