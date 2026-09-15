@@ -41,21 +41,6 @@ class TutorProfile {
         instructions: json['instructions']?.toString() ?? '',
         isBuiltIn: json['isBuiltIn'] == true,
       );
-
-  TutorProfile copyWith({
-    String? name,
-    String? emoji,
-    String? description,
-    String? instructions,
-  }) =>
-      TutorProfile(
-        id: id,
-        name: name ?? this.name,
-        emoji: emoji ?? this.emoji,
-        description: description ?? this.description,
-        instructions: instructions ?? this.instructions,
-        isBuiltIn: isBuiltIn,
-      );
 }
 
 const List<TutorProfile> _defaultTutors = [
@@ -83,7 +68,7 @@ const List<TutorProfile> _defaultTutors = [
     emoji: '❓',
     description: 'Te guía con preguntas para que descubras la respuesta.',
     instructions:
-        'Usa el método socrático. Antes de entregar una solución completa, haz preguntas útiles que ayuden al estudiante a razonar. Si el estudiante está bloqueado, da pistas graduales y luego explica la respuesta.',
+        'Usa el método socrático. Antes de entregar una solución completa, haz preguntas útiles que ayuden al estudiante a razonar. Si está bloqueado, da pistas graduales y luego explica.',
     isBuiltIn: true,
   ),
   TutorProfile(
@@ -92,7 +77,7 @@ const List<TutorProfile> _defaultTutors = [
     emoji: '🎯',
     description: 'Busca errores, exige precisión y comprueba dominio real.',
     instructions:
-        'Actúa como un examinador exigente pero respetuoso. Señala imprecisiones, pide definiciones exactas, propone preguntas de comprobación y explica por qué una respuesta está bien o mal.',
+        'Actúa como examinador exigente pero respetuoso. Señala imprecisiones, pide definiciones exactas, formula preguntas de comprobación y explica por qué una respuesta está bien o mal.',
     isBuiltIn: true,
   ),
   TutorProfile(
@@ -101,7 +86,7 @@ const List<TutorProfile> _defaultTutors = [
     emoji: '⚡',
     description: 'Respuestas breves, ideas clave y repasos rápidos.',
     instructions:
-        'Prioriza velocidad y retención. Da respuestas concisas, usa palabras clave, mini-resúmenes, reglas fáciles de recordar y evita detalles secundarios salvo que el estudiante los pida.',
+        'Prioriza velocidad y retención. Da respuestas concisas, usa palabras clave, mini-resúmenes y reglas fáciles de recordar. Evita detalles secundarios salvo que se pidan.',
     isBuiltIn: true,
   ),
   TutorProfile(
@@ -110,14 +95,13 @@ const List<TutorProfile> _defaultTutors = [
     emoji: '💡',
     description: 'Enseña principalmente mediante ejemplos y analogías.',
     instructions:
-        'Explica cada concepto con ejemplos concretos y analogías cotidianas. Después conecta el ejemplo con la definición formal y, cuando sea útil, crea un segundo ejemplo diferente.',
+        'Explica cada concepto con ejemplos concretos y analogías cotidianas. Luego conecta el ejemplo con la definición formal y crea otro ejemplo cuando sea útil.',
     isBuiltIn: true,
   ),
 ];
 
 class TutorPage extends StatefulWidget {
   const TutorPage({super.key, required this.store});
-
   final GuideStore store;
 
   @override
@@ -129,12 +113,12 @@ class _TutorPageState extends State<TutorPage> {
   static const _activeTutorKey = 'memora_active_tutor_id';
 
   final q = TextEditingController();
+  List<TutorProfile> tutors = List<TutorProfile>.from(_defaultTutors);
+  String activeTutorId = _defaultTutors.first.id;
   String answer = 'Selecciona una guía y pregúntame cualquier cosa que aparezca en ella.';
   int selectedGuide = 0;
   bool busy = false;
   bool loadingTutors = true;
-  List<TutorProfile> tutors = List<TutorProfile>.from(_defaultTutors);
-  String activeTutorId = _defaultTutors.first.id;
 
   TutorProfile get activeTutor => tutors.firstWhere(
         (t) => t.id == activeTutorId,
@@ -156,14 +140,12 @@ class _TutorPageState extends State<TutorPage> {
   Future<void> _loadTutors() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_profilesKey);
-    final savedActive = prefs.getString(_activeTutorKey);
-
     if (raw != null && raw.isNotEmpty) {
       try {
         final decoded = jsonDecode(raw) as List<dynamic>;
         final loaded = decoded
-            .whereType<Map<String, dynamic>>()
-            .map(TutorProfile.fromJson)
+            .whereType<Map>()
+            .map((e) => TutorProfile.fromJson(Map<String, dynamic>.from(e)))
             .where((t) => t.id.isNotEmpty)
             .toList();
         if (loaded.isNotEmpty) tutors = loaded;
@@ -172,6 +154,7 @@ class _TutorPageState extends State<TutorPage> {
       }
     }
 
+    final savedActive = prefs.getString(_activeTutorKey);
     if (savedActive != null && tutors.any((t) => t.id == savedActive)) {
       activeTutorId = savedActive;
     } else {
@@ -214,9 +197,8 @@ class _TutorPageState extends State<TutorPage> {
 
   Future<void> _ask() async {
     if (widget.store.guides.isEmpty || q.text.trim().isEmpty || busy) return;
-    final guide = widget.store.guides[
-      selectedGuide.clamp(0, widget.store.guides.length - 1),
-    ];
+    final safeIndex = selectedGuide.clamp(0, widget.store.guides.length - 1);
+    final guide = widget.store.guides[safeIndex];
     final tutor = activeTutor;
     final question = q.text.trim();
     setState(() => busy = true);
@@ -242,8 +224,8 @@ $text
 
 PREGUNTA DEL ESTUDIANTE: $question
 ''';
-      final r = await AiService.askConfigured(prompt: prompt);
-      if (mounted) setState(() => answer = r);
+      final result = await AiService.askConfigured(prompt: prompt);
+      if (mounted) setState(() => answer = result);
     } catch (e) {
       if (mounted) setState(() => answer = 'No pude consultar la IA: $e');
     } finally {
@@ -314,8 +296,7 @@ PREGUNTA DEL ESTUDIANTE: $question
               Navigator.pop(
                 dialogContext,
                 TutorProfile(
-                  id: existing?.id ??
-                      'custom_${DateTime.now().microsecondsSinceEpoch}',
+                  id: existing?.id ?? 'custom_${DateTime.now().microsecondsSinceEpoch}',
                   name: name.text.trim(),
                   emoji: emoji.text.trim().isEmpty ? '🧑‍🏫' : emoji.text.trim(),
                   description: description.text.trim().isEmpty
@@ -352,9 +333,9 @@ PREGUNTA DEL ESTUDIANTE: $question
     if (edited == null) return;
     final index = tutors.indexWhere((t) => t.id == current.id);
     if (index < 0) return;
+    final updated = List<TutorProfile>.from(tutors);
+    updated[index] = edited;
     setState(() {
-      final updated = List<TutorProfile>.from(tutors);
-      updated[index] = edited;
       tutors = updated;
       answer = '${edited.emoji} Soy ${edited.name}. ${edited.description}';
     });
@@ -402,23 +383,18 @@ PREGUNTA DEL ESTUDIANTE: $question
     await _saveTutors();
   }
 
-  void _openTutorManager() {
-    showModalBottomSheet<void>(
+  Future<void> _openTutorManager() async {
+    final action = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, refreshSheet) => SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              16 + MediaQuery.of(sheetContext).viewInsets.bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(sheetContext).size.height * 0.78,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                child: Row(
                   children: [
                     const Expanded(
                       child: Text(
@@ -427,88 +403,83 @@ PREGUNTA DEL ESTUDIANTE: $question
                       ),
                     ),
                     IconButton(
-                      onPressed: () async {
-                        Navigator.pop(sheetContext);
-                        await _addTutor();
-                      },
+                      onPressed: () => Navigator.pop(sheetContext, 'add'),
                       tooltip: 'Crear tutor',
                       icon: const Icon(Icons.person_add_alt_1),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: [
-                      for (final tutor in tutors)
-                        Card(
-                          child: ListTile(
-                            leading: Text(
-                              tutor.emoji,
-                              style: const TextStyle(fontSize: 28),
-                            ),
-                            title: Text(tutor.name),
-                            subtitle: Text(
-                              tutor.description,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: tutor.id == activeTutorId
-                                ? const Icon(Icons.check_circle)
-                                : null,
-                            onTap: () async {
-                              await _selectTutor(tutor.id);
-                              refreshSheet(() {});
-                            },
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: [
+                    for (final tutor in tutors)
+                      Card(
+                        child: ListTile(
+                          leading: Text(tutor.emoji, style: const TextStyle(fontSize: 28)),
+                          title: Text(tutor.name),
+                          subtitle: Text(
+                            tutor.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: tutor.id == activeTutorId
+                              ? const Icon(Icons.check_circle)
+                              : null,
+                          onTap: () {
+                            _selectTutor(tutor.id);
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => Navigator.pop(sheetContext, 'edit'),
+                            icon: const Icon(Icons.edit_outlined),
+                            label: const Text('Editar activo'),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(sheetContext);
-                          await _editActiveTutor();
-                        },
-                        icon: const Icon(Icons.edit_outlined),
-                        label: const Text('Editar activo'),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: tutors.length <= 1
+                                ? null
+                                : () => Navigator.pop(sheetContext, 'delete'),
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('Eliminar'),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: tutors.length <= 1
-                            ? null
-                            : () async {
-                                Navigator.pop(sheetContext);
-                                await _deleteActiveTutor();
-                              },
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Eliminar'),
-                      ),
+                    TextButton.icon(
+                      onPressed: () => Navigator.pop(sheetContext, 'restore'),
+                      icon: const Icon(Icons.restore),
+                      label: const Text('Restaurar tutores predeterminados'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(sheetContext);
-                    await _restoreDefaults();
-                  },
-                  icon: const Icon(Icons.restore),
-                  label: const Text('Restaurar tutores predeterminados'),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
+
+    if (!mounted) return;
+    if (action == 'add') await _addTutor();
+    if (action == 'edit') await _editActiveTutor();
+    if (action == 'delete') await _deleteActiveTutor();
+    if (action == 'restore') await _restoreDefaults();
   }
 
   @override
@@ -552,10 +523,7 @@ PREGUNTA DEL ESTUDIANTE: $question
                     onChanged: _selectTutor,
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    activeTutor.description,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                  Text(activeTutor.description, style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 16),
                   if (widget.store.guides.isEmpty)
                     const Text('Añade primero una guía a tu biblioteca.')
@@ -587,10 +555,7 @@ PREGUNTA DEL ESTUDIANTE: $question
                         children: [
                           Row(
                             children: [
-                              Text(
-                                activeTutor.emoji,
-                                style: const TextStyle(fontSize: 26),
-                              ),
+                              Text(activeTutor.emoji, style: const TextStyle(fontSize: 26)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
