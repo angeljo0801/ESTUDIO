@@ -21,6 +21,19 @@ class StudyEngine {
     'objective', 'objectives', 'objetivo', 'objetivos',
   };
 
+  static final Set<String> _badDefinitionStarts = {
+    'how', 'what', 'why', 'when', 'where', 'who', 'whom', 'whose', 'which',
+    'como', 'cómo', 'que', 'qué', 'por', 'cuando', 'cuándo', 'donde', 'dónde',
+    'quien', 'quién', 'cual', 'cuál',
+    'each', 'every', 'whenever', 'while', 'during', 'after', 'before', 'because',
+    'although', 'though', 'unless', 'once',
+  };
+
+  static final Set<String> _badDefinitionEndWords = {
+    'quickly', 'slowly', 'often', 'usually', 'generally', 'typically', 'annually',
+    'monthly', 'weekly', 'daily', 'yearly', 'today', 'tomorrow', 'yesterday',
+  };
+
   static StudyGuide buildGuide({
     required String title,
     required String sourceType,
@@ -90,15 +103,18 @@ class StudyEngine {
       final a = answer.trim();
       if (q.length < 5 || a.length < 2) return;
       if (_normalizedKey(q) == _normalizedKey(a)) return;
-      final key = '${_normalizedKey(q)}|${_normalizedKey(a)}';
-      if (!seen.add(key)) return;
-      cards.add(StudyCard(
-        id: '${now.microsecondsSinceEpoch}-${counter++}',
+      final candidate = StudyCard(
+        id: '${now.microsecondsSinceEpoch}-${counter}',
         question: q,
         answer: a,
         source: source,
         dueAt: now,
-      ));
+      );
+      if (!isCardUsable(candidate)) return;
+      final key = '${_normalizedKey(q)}|${_normalizedKey(a)}';
+      if (!seen.add(key)) return;
+      counter += 1;
+      cards.add(candidate);
     }
 
     final lines = text
@@ -144,9 +160,10 @@ class StudyEngine {
         final definition = line.substring(colonIndex + 1).trim();
         final termWords = _words(term);
         if (!_isStructuralLabel(term) &&
+            _looksLikeDefinitionTerm(term) &&
             termWords.isNotEmpty &&
             termWords.length <= 10 &&
-            definition.length >= 12 &&
+            _looksLikeDefinitionAnswer(definition) &&
             !_looksLikePureTitle(definition)) {
           addCard('¿Qué significa o cómo se explica “$term”?', definition, currentTopic);
         }
@@ -155,8 +172,15 @@ class StudyEngine {
       final match = definitionRegex.firstMatch(line);
       if (match != null) {
         final term = match.group(1)!.trim();
+        final connector = match.group(2)!.trim().toLowerCase();
         final definition = match.group(3)!.trim();
-        if (!_isStructuralLabel(term) && _words(term).length <= 14) {
+        if (!_isStructuralLabel(term) &&
+            _looksLikeDefinitionPair(
+              term: term,
+              definition: definition,
+              connector: connector,
+              fullLine: line,
+            )) {
           addCard('¿Qué es o qué significa $term?', definition, currentTopic);
         }
       }
@@ -188,6 +212,7 @@ class StudyEngine {
         if (cards.length >= 40) break;
         final line = raw.replaceFirst(RegExp(r'^[\-•*\d\s\.\)\(]+'), '').trim();
         if (_looksLikeHeading(line) || line.length < 30 || line.length > 280) continue;
+        if (line.endsWith('?')) continue;
         final words = _words(line);
         if (words.length < 6) continue;
         final cue = words.take(min(7, words.length)).join(' ');
@@ -196,6 +221,96 @@ class StudyEngine {
     }
 
     return cards;
+  }
+
+  /// Final safety check used both when generating new cards and when opening
+  /// older guides that may already contain cards produced by previous parsers.
+  static bool isCardUsable(StudyCard card) {
+    final q = card.question.trim();
+    final a = card.answer.trim();
+    if (q.length < 5 || a.length < 3) return false;
+    if (_normalizedKey(q) == _normalizedKey(a)) return false;
+    if (a.endsWith('?') || a.endsWith('¿')) return false;
+
+    final definitionQuestion = RegExp(
+      r'^¿?(?:qué es o qué significa|qué significa o cómo se explica)\s+[“"]?(.+?)[”"]?\?$',
+      caseSensitive: false,
+    ).firstMatch(q);
+    if (definitionQuestion != null) {
+      final term = definitionQuestion.group(1)!.trim();
+      if (!_looksLikeDefinitionTerm(term) || !_looksLikeDefinitionAnswer(a)) {
+        return false;
+      }
+    }
+
+    if (q.startsWith('Completa la idea:')) {
+      if (!q.contains('______') || a.length < 3) return false;
+    }
+
+    return true;
+  }
+
+  static bool _looksLikeDefinitionPair({
+    required String term,
+    required String definition,
+    required String connector,
+    required String fullLine,
+  }) {
+    if (fullLine.trim().endsWith('?')) return false;
+    if (!_looksLikeDefinitionTerm(term) || !_looksLikeDefinitionAnswer(definition)) {
+      return false;
+    }
+
+    // Bare copulas are especially easy to confuse with ordinary prose such as
+    // “Growth is applied to a larger base.” Keep them only when the predicate
+    // looks noun-like/adjectival rather than like a passive/action fragment.
+    if (connector == 'is' || connector == 'are' || connector == 'es' || connector == 'son') {
+      final first = _words(definition).firstOrNull ?? '';
+      if (_looksLikeVerbFragment(first)) return false;
+    }
+    return true;
+  }
+
+  static bool _looksLikeDefinitionTerm(String value) {
+    final term = value.trim();
+    if (term.length < 2 || term.length > 90) return false;
+    if (RegExp(r'[?!;:,]').hasMatch(term)) return false;
+    final words = _words(term);
+    if (words.isEmpty || words.length > 10) return false;
+    final first = words.first;
+    final last = words.last;
+    if (_badDefinitionStarts.contains(first)) return false;
+    if (_badDefinitionEndWords.contains(last)) return false;
+    return true;
+  }
+
+  static bool _looksLikeDefinitionAnswer(String value) {
+    final answer = value.trim();
+    if (answer.length < 8 || answer.length > 320) return false;
+    if (answer.endsWith('?')) return false;
+    final words = _words(answer);
+    if (words.length < 3) return false;
+    final first = words.first;
+    if ({'and', 'or', 'but', 'because', 'which', 'who', 'whose', 'y', 'o', 'pero'}.contains(first)) {
+      return false;
+    }
+    return true;
+  }
+
+  static bool _looksLikeVerbFragment(String word) {
+    final w = word.toLowerCase();
+    if ({
+      'applied', 'paid', 'used', 'measured', 'calculated', 'created', 'generated',
+      'added', 'subtracted', 'divided', 'multiplied', 'issued', 'received', 'made',
+      'taken', 'given', 'shown', 'based', 'determined', 'expressed', 'recorded',
+      'aplica', 'aplicado', 'aplicada', 'pagado', 'pagada', 'usado', 'usada',
+      'medido', 'medida', 'calculado', 'calculada', 'creado', 'creada',
+    }.contains(w)) return true;
+    if (w.length >= 6 && (w.endsWith('ed') || w.endsWith('ing'))) return true;
+    if (w.length >= 6 && (w.endsWith('ado') || w.endsWith('ada') || w.endsWith('ido') || w.endsWith('ida'))) {
+      return true;
+    }
+    return false;
   }
 
   static bool _isStructuralLabel(String value) {
@@ -268,4 +383,8 @@ class StudyEngine {
     originalWords.sort((a, b) => b.length.compareTo(a.length));
     return originalWords.first;
   }
+}
+
+extension<T> on List<T> {
+  T? get firstOrNull => isEmpty ? null : first;
 }
