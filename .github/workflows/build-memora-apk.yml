@@ -45,6 +45,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/memora_upgrade/v18_exam_quality_patch.py" ./v18_exam_quality_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v181_exam_storage_reset.py" ./v181_exam_storage_reset.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v182_exam_regex_fix.py" ./v182_exam_regex_fix.py
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v19_exam_pdf_export_patch.py" ./v19_exam_pdf_export_patch.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('v14_patch.py')
@@ -91,6 +92,7 @@ jobs:
           python3 v18_exam_quality_patch.py
           python3 v181_exam_storage_reset.py
           python3 v182_exam_regex_fix.py
+          python3 v19_exam_pdf_export_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -134,7 +136,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.8-Exam-Quality-Novelty-release-apk
+          name: Memora-v1.9-Exam-PDF-Export-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
