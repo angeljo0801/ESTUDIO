@@ -91,7 +91,7 @@ class QueryExtrasBarState extends State<QueryExtrasBar> {
     setState(() => _listening = true);
     await _speech.listen(
       onResult: _onSpeechResult,
-      listenOptions: const SpeechListenOptions(
+      listenOptions: SpeechListenOptions(
         partialResults: true,
         cancelOnError: true,
         listenMode: ListenMode.dictation,
