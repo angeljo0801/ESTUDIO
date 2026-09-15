@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:excel/excel.dart';
+import 'package:excel_community/excel_community.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -56,7 +56,10 @@ class GuideFileService {
           ...safeContent.split(RegExp(r'\n{2,}')).map(
                 (paragraph) => pw.Padding(
                   padding: const pw.EdgeInsets.only(bottom: 10),
-                  child: pw.Text(paragraph.trim(), style: const pw.TextStyle(fontSize: 11)),
+                  child: pw.Text(
+                    paragraph.trim(),
+                    style: const pw.TextStyle(fontSize: 11),
+                  ),
                 ),
               ),
         ],
