@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import 'models.dart';
+import 'study_engine.dart';
 
 class QuizPage extends StatefulWidget {
   const QuizPage({super.key, required this.guide, required this.onSave});
@@ -24,7 +25,8 @@ class _QuizPageState extends State<QuizPage> {
   @override
   void initState() {
     super.initState();
-    _questions = List<StudyCard>.from(widget.guide.cards)..shuffle(Random());
+    _questions = widget.guide.cards.where(StudyEngine.isCardUsable).toList()
+      ..shuffle(Random());
     if (_questions.length > 20) {
       _questions.removeRange(20, _questions.length);
     }
@@ -34,7 +36,9 @@ class _QuizPageState extends State<QuizPage> {
 
   List<String> _optionsFor(StudyCard card) {
     final options = <String>{card.answer};
-    final pool = widget.guide.cards.where((item) => item.id != card.id).toList()
+    final pool = widget.guide.cards
+        .where((item) => item.id != card.id && StudyEngine.isCardUsable(item))
+        .toList()
       ..shuffle(Random());
     for (final other in pool) {
       if (other.answer.trim().isEmpty) continue;
@@ -87,10 +91,30 @@ class _QuizPageState extends State<QuizPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(percent >= 70 ? Icons.emoji_events_rounded : Icons.replay_rounded, size: 84),
+                Icon(
+                  _questions.isEmpty
+                      ? Icons.auto_fix_high_outlined
+                      : percent >= 70
+                          ? Icons.emoji_events_rounded
+                          : Icons.replay_rounded,
+                  size: 84,
+                ),
                 const SizedBox(height: 18),
-                Text('$percent%', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w900)),
-                Text('$_score de ${_questions.length} correctas'),
+                if (_questions.isEmpty) ...[
+                  const Text(
+                    'No hay preguntas válidas',
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Memora descartó tarjetas incompletas o fragmentadas de esta guía.',
+                    textAlign: TextAlign.center,
+                  ),
+                ] else ...[
+                  Text('$percent%', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w900)),
+                  Text('$_score de ${_questions.length} correctas'),
+                ],
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: () => Navigator.pop(context),
