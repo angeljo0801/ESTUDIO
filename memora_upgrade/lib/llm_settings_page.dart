@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:android_file_picker/android_file_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
@@ -104,10 +105,12 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
       final picked = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['gguf'],
-        androidSafOptions: const AndroidSAFOptions(
-          grant: AndroidSAFGrant.lifetime,
-          accessMode: AndroidSAFAccessMode.readOnly,
-          persistGrant: true,
+        androidOptions: const FilePickerAndroidOptions(
+          safOptions: AndroidSAFOptions(
+            grant: AndroidSAFGrant.lifetime,
+            accessMode: AndroidSAFAccessMode.readOnly,
+            persistGrant: true,
+          ),
         ),
       );
       if (picked == null) return;
