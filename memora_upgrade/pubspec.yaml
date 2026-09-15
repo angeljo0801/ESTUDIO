@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   file_picker: ^12.3.0
+  android_file_picker: ^1.1.1
   flutter_file_dialog: ^3.3.2
   path_provider: ^2.1.5
   archive: ^4.3.0
