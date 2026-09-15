@@ -95,6 +95,7 @@ class StudyGuide {
     required this.summary,
     required this.cards,
     required this.createdAt,
+    this.filePath,
     this.lastStudiedAt,
   });
 
@@ -106,8 +107,10 @@ class StudyGuide {
   String summary;
   List<StudyCard> cards;
   final DateTime createdAt;
+  final String? filePath;
   DateTime? lastStudiedAt;
 
+  bool get hasFile => filePath != null && filePath!.trim().isNotEmpty;
   int get dueCount => cards.where((card) => card.isDue).length;
   int get totalCorrect => cards.fold(0, (sum, card) => sum + card.correct);
   int get totalWrong => cards.fold(0, (sum, card) => sum + card.wrong);
@@ -124,6 +127,7 @@ class StudyGuide {
         'summary': summary,
         'cards': cards.map((card) => card.toJson()).toList(),
         'createdAt': createdAt.toIso8601String(),
+        'filePath': filePath,
         'lastStudiedAt': lastStudiedAt?.toIso8601String(),
       };
 
@@ -138,6 +142,7 @@ class StudyGuide {
             .map((item) => StudyCard.fromJson(Map<String, dynamic>.from(item as Map)))
             .toList(),
         createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? '') ?? DateTime.now(),
+        filePath: json['filePath']?.toString(),
         lastStudiedAt: json['lastStudiedAt'] == null
             ? null
             : DateTime.tryParse(json['lastStudiedAt'] as String),
