@@ -75,14 +75,14 @@ helper = r'''  Future<void> _copyPlan() async {
       final objective = goal.text.trim().isEmpty
           ? 'Plan de aprendizaje'
           : goal.text.trim();
-      final metadata = '''Objetivo: $objective
+      final metadata = """Objetivo: $objective
 Minutos diarios: ${minutes.text.trim()}
 Intensidad: $intensity
 Modalidad: ${dated ? 'Fecha objetivo' : 'Aprendizaje continuo'}
 Creado por: ${createdBy.isEmpty ? 'Memora' : createdBy}
 Fuente de IA: ${usedSource.isEmpty ? 'No indicada' : usedSource}
 
-$plan''';
+$plan""";
       final path = await GuideFileService.createPdf(
         title: 'Plan de aprendizaje - $objective',
         content: metadata,
