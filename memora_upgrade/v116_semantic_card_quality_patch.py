@@ -62,8 +62,12 @@ s = s.replace(loop_anchor, """    final contentWordFrequencies = _contentWordFre
 
     for (final raw in lines) {""", 1)
 
+# v1.11 already wraps this condition with _isCompleteClozeSentence, so replace
+# that post-v1.11 form rather than the older base-source form.
 old = """      for (final sentence in _sentences(line)) {
-        if (sentence.length >= 40 && sentence.length <= 320) {
+        if (sentence.length >= 40 &&
+            sentence.length <= 320 &&
+            _isCompleteClozeSentence(sentence)) {
           sentenceCandidates.add((text: sentence, topic: currentTopic));
         }
       }
