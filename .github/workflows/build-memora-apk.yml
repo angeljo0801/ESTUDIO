@@ -49,6 +49,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/memora_upgrade/v110_sync_and_best_ai_patch.py" ./v110_sync_and_best_ai_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v111_exam_fragment_filter_patch.py" ./v111_exam_fragment_filter_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v112_speed_plan_export_ui_patch.py" ./v112_speed_plan_export_ui_patch.py
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v113_exam_timer_notifications_patch.py" ./v113_exam_timer_notifications_patch.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('v14_patch.py')
@@ -99,6 +100,7 @@ jobs:
           python3 v110_sync_and_best_ai_patch.py
           python3 v111_exam_fragment_filter_patch.py
           python3 v112_speed_plan_export_ui_patch.py
+          python3 v113_exam_timer_notifications_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -106,7 +108,7 @@ jobs:
           flutter create --platforms=android --project-name memora --org com.memora --no-pub .
           rm -rf test
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 26/' android/app/build.gradle.kts
           sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MainActivity.kt" android/app/src/main/kotlin/com/memora/memora/MainActivity.kt
@@ -142,7 +144,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.12-Faster-Exams-Plan-PDF-UI-Fix-release-apk
+          name: Memora-v1.13-Exam-Timer-20s-Notifications-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
