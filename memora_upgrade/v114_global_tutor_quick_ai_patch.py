@@ -32,28 +32,22 @@ if old not in s:
     raise RuntimeError('Tutor source label anchor not found')
 s = s.replace(old, new, 1)
 
-old = """    if (mounted) {
-      setState(() => globalLocalModel = model);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$model seleccionado como modelo general de Ollama.')),
-      );
-    }
-  }
-
-  Future<void> _selectTutor(String? id) async {
-"""
-new = """    if (mounted) {
-      setState(() {
+# Recommended Ollama models are still a fast way to change the global model.
+old = "      setState(() => globalLocalModel = model);"
+new = """      setState(() {
         globalLocalModel = model;
         globalProvider = 'local';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$model seleccionado como modelo general de Ollama.')),
-      );
-    }
-  }
+      });"""
+if old not in s:
+    raise RuntimeError('Tutor recommended model state anchor not found')
+s = s.replace(old, new, 1)
 
-  Future<void> _setGlobalProvider(String provider) async {
+# v1.5 inserts chat helpers between _useRecommendedModel and _selectTutor, so
+# insert these helpers directly before the still-stable _selectTutor method.
+selector_anchor = "  Future<void> _selectTutor(String? id) async {"
+if selector_anchor not in s:
+    raise RuntimeError('Tutor select method anchor not found')
+selector_methods = r'''  Future<void> _setGlobalProvider(String provider) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('llm_provider', provider);
     if (!mounted) return;
@@ -123,11 +117,8 @@ new = """    if (mounted) {
     if (selected != null) await _setGlobalProvider(selected);
   }
 
-  Future<void> _selectTutor(String? id) async {
-"""
-if old not in s:
-    raise RuntimeError('Tutor quick selector insertion anchor not found')
-s = s.replace(old, new, 1)
+'''
+s = s.replace(selector_anchor, selector_methods + selector_anchor, 1)
 
 # Tutor requests always follow the global AI selected in Memora.
 s = s.replace("providerOverride: tutor.modelSource,", "providerOverride: 'global',")
