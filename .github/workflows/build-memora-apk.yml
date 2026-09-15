@@ -55,10 +55,19 @@ jobs:
           convert "$ICON" -resize 96x96 android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
           convert "$ICON" -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
           convert "$ICON" -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-      - name: Install dependencies
+      - name: Install Android native toolchain and dependencies
         working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
         run: |
-          yes | sdkmanager "cmake;3.31.0" "ndk;28.0.12674087" || true
+          ANDROID_SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$ANDROID_SDK/cmdline-tools" -type f -path '*/bin/sdkmanager' 2>/dev/null | sort | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_SDK" -type f -name sdkmanager 2>/dev/null | sort | tail -n 1)"
+          fi
+          test -n "$SDKMANAGER"
+          chmod +x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "cmake;3.31.0" "ndk;28.0.12674087"
           flutter pub get
           FCLLAMA_GRADLE="$(find "$HOME/.pub-cache" -path '*/fcllama-0.0.3/android/build.gradle' -print -quit)"
           test -n "$FCLLAMA_GRADLE"
