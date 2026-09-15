@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'models.dart';
+import 'study_engine.dart';
 
 class GuideStore extends ChangeNotifier {
   final List<StudyGuide> guides = [];
@@ -26,7 +27,22 @@ class GuideStore extends ChangeNotifier {
             (item) => StudyGuide.fromJson(Map<String, dynamic>.from(item as Map)),
           ),
         );
+
+      var repaired = false;
+      for (final guide in guides) {
+        final cleaned = guide.cards.where(StudyEngine.isCardUsable).toList();
+        if (cleaned.length != guide.cards.length) {
+          guide.cards = cleaned;
+          repaired = true;
+        }
+        if (guide.cards.isEmpty && guide.text.trim().isNotEmpty) {
+          guide.cards = StudyEngine.buildCards(guide.text);
+          repaired = true;
+        }
+      }
+
       guides.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      if (repaired) await _persist();
     } catch (_) {
       guides.clear();
     }
