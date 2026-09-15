@@ -13,9 +13,6 @@ class DeviceLlmService {
   static String? _loadedKey;
   static bool _loadedFromShared = false;
 
-  // fllama no permite dos completions simultáneas sobre el mismo contexto.
-  // Todas las operaciones del motor local pasan por esta cola global, incluso
-  // cuando vienen de pantallas distintas (Tutor, Agentes, Crear, etc.).
   static Future<void> _operationQueue = Future<void>.value();
 
   static Future<T> _enqueue<T>(Future<T> Function() operation) {
@@ -27,9 +24,7 @@ class DeviceLlmService {
       } catch (error, stackTrace) {
         if (!completer.isCompleted) completer.completeError(error, stackTrace);
       }
-    }).catchError((_) {
-      // Una operación fallida no debe romper la cola para las siguientes.
-    });
+    }).catchError((_) {});
     return completer.future;
   }
 
@@ -57,12 +52,8 @@ class DeviceLlmService {
         'No hay un modelo compartido seleccionado. Ve a Ajustes de IA y elige un GGUF compartido.',
       );
     }
-
     final uri = Uri.tryParse(uriText);
-    if (uri == null) {
-      throw Exception('La ubicación del modelo compartido no es válida.');
-    }
-
+    if (uri == null) throw Exception('La ubicación del modelo compartido no es válida.');
     if (uri.scheme == 'file') {
       final path = uri.toFilePath();
       if (!File(path).existsSync()) {
@@ -70,7 +61,6 @@ class DeviceLlmService {
       }
       return path;
     }
-
     final fdPath = await _sharedModelChannel.invokeMethod<String>(
       'openSharedModel',
       {'uri': uriText},
@@ -84,9 +74,7 @@ class DeviceLlmService {
   static Future<void> _closeSharedModelHandle() async {
     try {
       await _sharedModelChannel.invokeMethod<void>('closeSharedModel');
-    } catch (_) {
-      // Si Android ya cerró el descriptor, no hace falta interrumpir el tutor.
-    }
+    } catch (_) {}
   }
 
   static Future<String> ask(String prompt) async {
@@ -95,10 +83,7 @@ class DeviceLlmService {
     return askWithMode(prompt, mode: mode);
   }
 
-  static Future<String> askWithMode(
-    String prompt, {
-    required String mode,
-  }) {
+  static Future<String> askWithMode(String prompt, {required String mode}) {
     return _enqueue(() => _askWithModeInternal(prompt, mode: mode));
   }
 
@@ -123,10 +108,7 @@ class DeviceLlmService {
         _loadedFromShared = false;
       }
 
-      final path = isShared
-          ? await _openSharedModel(p)
-          : await _resolvePrivateModel(p);
-
+      final path = isShared ? await _openSharedModel(p) : await _resolvePrivateModel(p);
       final result = await FCllama.instance()?.initContext(
         path,
         nCtx: 4096,
@@ -147,7 +129,7 @@ class DeviceLlmService {
     }
 
     final wrapped =
-        '<|system|>\nEres un tutor de Memora. Sigue cuidadosamente las instrucciones del tutor incluidas en la solicitud, responde con claridad y no inventes información.\n<|user|>\n$prompt\n<|assistant|>\n';
+        '<|system|>\nEres un tutor de Memora. Sigue cuidadosamente las instrucciones incluidas en la solicitud, responde con claridad y no inventes información.\n<|user|>\n$prompt\n<|assistant|>\n';
 
     dynamic result;
     Object? lastBusyError;
@@ -157,7 +139,7 @@ class DeviceLlmService {
           _contextId!,
           prompt: wrapped,
           temperature: 0.25,
-          nPredict: 768,
+          nPredict: 448,
           topK: 40,
           topP: 0.9,
           penaltyRepeat: 1.1,
@@ -169,9 +151,7 @@ class DeviceLlmService {
         if (!_isContextBusy(error)) rethrow;
         lastBusyError = error;
         if (attempt < 2) {
-          await Future<void>.delayed(
-            Duration(milliseconds: 400 * (attempt + 1)),
-          );
+          await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
         }
       }
     }
@@ -183,9 +163,7 @@ class DeviceLlmService {
     }
 
     final text = result?['text']?.toString().trim() ?? '';
-    if (text.isEmpty) {
-      throw Exception('El modelo local no generó una respuesta.');
-    }
+    if (text.isEmpty) throw Exception('El modelo local no generó una respuesta.');
     return text;
   }
 }
