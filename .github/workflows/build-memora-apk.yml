@@ -37,6 +37,8 @@ jobs:
           rm -rf lib
           cp -R "$GITHUB_WORKSPACE/memora_upgrade/lib" ./lib
           cp "$GITHUB_WORKSPACE/memora_upgrade/pubspec.yaml" ./pubspec.yaml
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v14_patch.py" ./v14_patch.py
+          python3 v14_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -44,9 +46,11 @@ jobs:
           flutter create --platforms=android --project-name memora --org com.memora --no-pub .
           rm -rf test
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 26/' android/app/build.gradle.kts
           sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MainActivity.kt" android/app/src/main/kotlin/com/memora/memora/MainActivity.kt
+          cat android/app/src/main/AndroidManifest.xml
           grep -A8 'defaultConfig {' android/app/build.gradle.kts
           grep -A8 'release {' android/app/build.gradle.kts
       - name: Install brain launcher icon
@@ -81,7 +85,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.3-Streaming-GPU-Speed-Modes-release-apk
+          name: Memora-v1.4-Attachments-Camera-OCR-Voice-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
