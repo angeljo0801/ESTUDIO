@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'device_llm_service.dart';
 
 class AiService {
   static Future<String> askConfigured({required String prompt}) async {
     final prefs = await SharedPreferences.getInstance();
     final provider = prefs.getString('llm_provider') ?? 'gemini';
+    if (provider == 'device') return DeviceLlmService.ask(prompt);
     if (provider == 'gemini') {
       final key = prefs.getString('gemini_key')?.trim() ?? '';
       if (key.isEmpty) throw Exception('Configura la clave de Gemini en Ajustes de IA.');
