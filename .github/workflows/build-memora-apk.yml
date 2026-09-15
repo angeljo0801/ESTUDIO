@@ -57,6 +57,16 @@ jobs:
           p.write_text(s)
           PY
           python3 v14_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/agent_page.dart')
+          s = p.read_text()
+          broken = "query: '${agent.prompt}\n$request\n${QueryAttachmentService.buildTextContext(attachments)}',"
+          fixed = "query: '${agent.prompt} $request ${QueryAttachmentService.buildTextContext(attachments)}',"
+          if broken not in s:
+              raise RuntimeError('Generated agent attachment query pattern not found')
+          p.write_text(s.replace(broken, fixed, 1))
+          PY
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
