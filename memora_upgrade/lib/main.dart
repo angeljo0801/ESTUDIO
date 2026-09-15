@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'guide_store.dart';
 import 'app_shell.dart';
+import 'completion_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -9,6 +10,7 @@ Future<void> main() async {
   final store = GuideStore();
   await store.load();
   runApp(MemoraApp(store: store));
+  await CompletionNotificationService.initialize();
 }
 
 class MemoraApp extends StatelessWidget {
