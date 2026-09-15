@@ -38,6 +38,7 @@ jobs:
           cp -R "$GITHUB_WORKSPACE/memora_upgrade/lib" ./lib
           cp "$GITHUB_WORKSPACE/memora_upgrade/pubspec.yaml" ./pubspec.yaml
           cp "$GITHUB_WORKSPACE/memora_upgrade/v14_patch.py" ./v14_patch.py
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v15_chat_patch.py" ./v15_chat_patch.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('v14_patch.py')
@@ -67,6 +68,7 @@ jobs:
               raise RuntimeError('Generated agent attachment query pattern not found')
           p.write_text(s.replace(broken, fixed, 1))
           PY
+          python3 v15_chat_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -78,9 +80,6 @@ jobs:
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 26/' android/app/build.gradle.kts
           sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MainActivity.kt" android/app/src/main/kotlin/com/memora/memora/MainActivity.kt
-          cat android/app/src/main/AndroidManifest.xml
-          grep -A8 'defaultConfig {' android/app/build.gradle.kts
-          grep -A8 'release {' android/app/build.gradle.kts
       - name: Install brain launcher icon
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -113,7 +112,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.4-Attachments-Camera-OCR-Voice-release-apk
+          name: Memora-v1.5-Chat-History-Cancel-PDF-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
