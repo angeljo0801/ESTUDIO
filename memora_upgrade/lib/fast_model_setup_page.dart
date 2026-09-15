@@ -73,6 +73,15 @@ class _FastModelSetupPageState extends State<FastModelSetupPage> {
     return '${(bytes / mb).toStringAsFixed(0)} MB';
   }
 
+  Future<void> _cleanupPartial(File partialFile, IOSink? sink) async {
+    try {
+      await sink?.close();
+    } catch (_) {}
+    try {
+      if (await partialFile.exists()) await partialFile.delete();
+    } catch (_) {}
+  }
+
   Future<void> _download() async {
     if (downloading) return;
     final dir = await _modelDirectory();
@@ -115,6 +124,7 @@ class _FastModelSetupPageState extends State<FastModelSetupPage> {
           });
         }
       }
+      if (cancelled) throw const _DownloadCancelled();
       await sink.flush();
       await sink.close();
       sink = null;
@@ -137,24 +147,16 @@ class _FastModelSetupPageState extends State<FastModelSetupPage> {
         const SnackBar(content: Text('Fast on-device model installed.')),
       );
     } on _DownloadCancelled {
-      try {
-        await sink?.close();
-      } catch (_) {}
+      await _cleanupPartial(partialFile, sink);
       sink = null;
-      try {
-        if (await partialFile.exists()) await partialFile.delete();
-      } catch (_) {}
       if (mounted) setState(() => status = 'Download cancelled.');
     } catch (e) {
-      try {
-        await sink?.close();
-      } catch (_) {}
+      await _cleanupPartial(partialFile, sink);
       sink = null;
-      try {
-        if (await partialFile.exists()) await partialFile.delete();
-      } catch (_) {}
       if (mounted) {
-        setState(() => status = 'Download failed: $e');
+        setState(() {
+          status = cancelled ? 'Download cancelled.' : 'Download failed: $e';
+        });
       }
     } finally {
       client.close();
@@ -191,7 +193,9 @@ class _FastModelSetupPageState extends State<FastModelSetupPage> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = total <= 0 ? null : (received / total).clamp(0.0, 1.0);
+    final progress = total <= 0
+        ? null
+        : (received / total).clamp(0.0, 1.0).toDouble();
     return Scaffold(
       appBar: AppBar(title: const Text('Fast local model')),
       body: ListView(
