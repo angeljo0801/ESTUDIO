@@ -65,8 +65,7 @@ jobs:
             SDKMANAGER="$(find "$ANDROID_SDK" -type f -name sdkmanager 2>/dev/null | sort | tail -n 1)"
           fi
           test -n "$SDKMANAGER"
-          chmod +x "$SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" "cmake;3.31.0" "ndk;28.0.12674087"
           flutter pub get
           FCLLAMA_GRADLE="$(find "$HOME/.pub-cache" -path '*/fcllama-0.0.3/android/build.gradle' -print -quit)"
