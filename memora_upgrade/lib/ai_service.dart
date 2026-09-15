@@ -4,32 +4,56 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'device_llm_service.dart';
 
 class AiService {
+  static String get localAccelerationLabel => DeviceLlmService.accelerationLabel;
+
+  static Future<void> cancelCurrent() => DeviceLlmService.stopCurrent();
+
   static Future<String> askConfigured({
     required String prompt,
     String? deviceModeOverride,
     String? providerOverride,
+    String responseMode = 'normal',
+    void Function(String text)? onPartial,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
     final explicit = providerOverride?.trim();
     if (explicit == 'private' || explicit == 'shared') {
-      return DeviceLlmService.askWithMode(prompt, mode: explicit!);
+      return DeviceLlmService.askWithMode(
+        prompt,
+        mode: explicit!,
+        responseMode: responseMode,
+        onPartial: onPartial,
+      );
     }
     if (deviceModeOverride == 'private' || deviceModeOverride == 'shared') {
-      return DeviceLlmService.askWithMode(prompt, mode: deviceModeOverride!);
+      return DeviceLlmService.askWithMode(
+        prompt,
+        mode: deviceModeOverride!,
+        responseMode: responseMode,
+        onPartial: onPartial,
+      );
     }
 
     final provider = (explicit == null || explicit.isEmpty || explicit == 'global')
         ? (prefs.getString('llm_provider') ?? 'gemini')
         : explicit;
 
-    if (provider == 'device') return DeviceLlmService.ask(prompt);
+    if (provider == 'device') {
+      return DeviceLlmService.ask(
+        prompt,
+        responseMode: responseMode,
+        onPartial: onPartial,
+      );
+    }
     if (provider == 'gemini') {
       final key = prefs.getString('gemini_key')?.trim() ?? '';
       if (key.isEmpty) {
         throw Exception('Configura la clave de Gemini en Ajustes de IA.');
       }
-      return askGemini(apiKey: key, prompt: prompt);
+      final result = await askGemini(apiKey: key, prompt: prompt);
+      onPartial?.call(result);
+      return result;
     }
     if (provider == 'openai') {
       final key = prefs.getString('openai_key')?.trim() ?? '';
@@ -39,12 +63,14 @@ class AiService {
       if (key.isEmpty || model.isEmpty) {
         throw Exception('Configura la clave y el modelo online en Ajustes de IA.');
       }
-      return askOpenAiCompatible(
+      final result = await askOpenAiCompatible(
         baseUrl: baseUrl,
         apiKey: key,
         model: model,
         prompt: prompt,
       );
+      onPartial?.call(result);
+      return result;
     }
 
     if (provider == 'local' || provider == 'ollama') {
@@ -55,12 +81,14 @@ class AiService {
       if (model.isEmpty) {
         throw Exception('Indica el nombre del modelo local/Ollama en Ajustes de IA.');
       }
-      return askOpenAiCompatible(
+      final result = await askOpenAiCompatible(
         baseUrl: baseUrl,
         apiKey: key,
         model: model,
         prompt: prompt,
       );
+      onPartial?.call(result);
+      return result;
     }
 
     throw Exception('Fuente de IA no reconocida: $provider');
@@ -139,7 +167,9 @@ class AiService {
   static String userFacingError(Object error) {
     var text = error.toString().trim();
     final lower = text.toLowerCase();
-    if (lower.contains('context is busy') || lower.contains('context busy')) {
+    if (lower.contains('already generating') ||
+        lower.contains('context is busy') ||
+        lower.contains('context busy')) {
       return 'El modelo local está ocupado con otra tarea. Espera unos segundos y vuelve a intentarlo.';
     }
     if (text.startsWith('Exception: ')) {
