@@ -28,9 +28,15 @@ class GuideStore extends ChangeNotifier {
         );
       guides.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     } catch (_) {
-      // Keep the app usable even if an older/corrupt local file cannot be read.
       guides.clear();
     }
+  }
+
+  StudyGuide? findById(String id) {
+    for (final guide in guides) {
+      if (guide.id == id) return guide;
+    }
+    return null;
   }
 
   Future<void> add(StudyGuide guide) async {
@@ -47,9 +53,19 @@ class GuideStore extends ChangeNotifier {
   }
 
   Future<void> remove(String id) async {
+    final existing = findById(id);
     guides.removeWhere((guide) => guide.id == id);
     await _persist();
     notifyListeners();
+    final path = existing?.filePath;
+    if (path != null && path.isNotEmpty) {
+      try {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      } catch (_) {
+        // La guía ya fue retirada de la biblioteca; un fallo al limpiar el archivo no debe bloquear la app.
+      }
+    }
   }
 
   Future<void> _persist() async {
