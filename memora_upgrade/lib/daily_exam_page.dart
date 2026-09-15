@@ -1,0 +1,16 @@
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'guide_store.dart';
+import 'models.dart';
+
+class DailyExamPage extends StatefulWidget { const DailyExamPage({super.key,required this.store}); final GuideStore store; @override State<DailyExamPage> createState()=>_DailyExamPageState(); }
+class _DailyExamPageState extends State<DailyExamPage>{
+ List<({StudyGuide guide,StudyCard card})> questions=[]; int index=0,correct=0; bool reveal=false; String? lastResult;
+ @override void initState(){super.initState();_prepare();_loadResult();}
+ String get today{final d=DateTime.now();return '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';}
+ void _prepare(){final all=<({StudyGuide guide,StudyCard card})>[];for(final g in widget.store.guides){for(final c in g.cards){all.add((guide:g,card:c));}}all.sort((a,b){final aw=a.card.wrong*4+(a.card.isDue?3:0)-a.card.correct;final bw=b.card.wrong*4+(b.card.isDue?3:0)-b.card.correct;return bw.compareTo(aw);});final priority=all.take(6).toList();final rest=all.skip(6).toList()..shuffle(Random());questions=[...priority,...rest.take(4)];}
+ Future<void> _loadResult()async{final p=await SharedPreferences.getInstance();if(mounted)setState(()=>lastResult=p.getString('daily_exam_$today'));}
+ Future<void> _answer(bool knew)async{final current=questions[index];current.card.rate(knew?2:0);if(knew)correct++;await widget.store.update(current.guide);if(index+1>=questions.length){final result='$correct/${questions.length}';final p=await SharedPreferences.getInstance();await p.setString('daily_exam_$today',result);if(mounted)setState(()=>lastResult=result);return;}setState((){index++;reveal=false;});}
+ @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Examen diario')),body:questions.isEmpty?const Center(child:Padding(padding:EdgeInsets.all(24),child:Text('Añade una guía para crear tu examen diario.'))):lastResult!=null?Center(child:Card(child:Padding(padding:const EdgeInsets.all(28),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.verified_rounded,size:64),const Text('Examen de hoy completado',style:TextStyle(fontSize:20,fontWeight:FontWeight.bold)),Text(lastResult!,style:const TextStyle(fontSize:34)),TextButton(onPressed:(){setState((){lastResult=null;index=0;correct=0;_prepare();});},child:const Text('Practicar otra vez'))])))):Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[Text('Pregunta ${index+1} de ${questions.length}  •  Puntos: $correct'),const SizedBox(height:18),Card(child:Padding(padding:const EdgeInsets.all(22),child:Column(children:[Text(questions[index].guide.title,style:const TextStyle(fontWeight:FontWeight.bold)),const SizedBox(height:18),Text(questions[index].card.question,style:const TextStyle(fontSize:20)),if(reveal)...[const Divider(height:32),Text(questions[index].card.answer)]]))),const Spacer(),if(!reveal)FilledButton(onPressed:()=>setState(()=>reveal=true),child:const Text('Mostrar respuesta'))else Row(children:[Expanded(child:OutlinedButton(onPressed:()=>_answer(false),child:const Text('No la sabía'))),const SizedBox(width:10),Expanded(child:FilledButton(onPressed:()=>_answer(true),child:const Text('La sabía')))])])));
+}
