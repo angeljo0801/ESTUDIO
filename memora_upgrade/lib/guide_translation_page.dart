@@ -69,9 +69,9 @@ class _GuideTranslationPageState extends State<GuideTranslationPage> {
         flush();
         var start = 0;
         while (start < p.length) {
-          var end = (start + maxChars).clamp(0, p.length);
+          var end = (start + maxChars).clamp(0, p.length).toInt();
           if (end < p.length) {
-            final searchStart = (end - 500).clamp(start, end);
+            final searchStart = (end - 500).clamp(start, end).toInt();
             final sentenceBreak = p.lastIndexOf(RegExp(r'[.!?]\s'), end);
             final lineBreak = p.lastIndexOf('\n', end);
             final candidate = sentenceBreak > searchStart ? sentenceBreak + 1 : lineBreak;
