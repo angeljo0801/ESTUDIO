@@ -38,6 +38,24 @@ jobs:
           cp -R "$GITHUB_WORKSPACE/memora_upgrade/lib" ./lib
           cp "$GITHUB_WORKSPACE/memora_upgrade/pubspec.yaml" ./pubspec.yaml
           cp "$GITHUB_WORKSPACE/memora_upgrade/v14_patch.py" ./v14_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('v14_patch.py')
+          s = p.read_text()
+          for marker in ('new_ask', 'new_run'):
+              opening = marker + " = r'''"
+              start = s.index(opening)
+              s = s[:start] + s[start:].replace(opening, marker + ' = r"""', 1)
+              end_marker = "\ns, n = re.subn("
+              end = s.index(end_marker, start)
+              segment = s[start:end]
+              close = segment.rfind("'''\n")
+              if close < 0:
+                  raise RuntimeError(f'Could not find closing quote for {marker}')
+              segment = segment[:close] + '"""\n' + segment[close + 4:]
+              s = s[:start] + segment + s[end:]
+          p.write_text(s)
+          PY
           python3 v14_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
