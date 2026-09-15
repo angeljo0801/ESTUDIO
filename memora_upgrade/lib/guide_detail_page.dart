@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'guide_file_service.dart';
 import 'guide_store.dart';
 import 'models.dart';
 import 'quiz_page.dart';
@@ -27,10 +28,7 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ReviewPage(
-          guide: widget.guide,
-          onSave: _save,
-        ),
+        builder: (_) => ReviewPage(guide: widget.guide, onSave: _save),
       ),
     );
     if (mounted) setState(() {});
@@ -45,9 +43,7 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
     }
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => QuizPage(guide: widget.guide, onSave: _save),
-      ),
+      MaterialPageRoute(builder: (_) => QuizPage(guide: widget.guide, onSave: _save)),
     );
     if (mounted) setState(() {});
   }
@@ -60,6 +56,21 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${regenerated.length} tarjetas regeneradas.')),
     );
+  }
+
+  Future<void> _export() async {
+    try {
+      final destination = await GuideFileService.exportGuideFile(widget.guide);
+      if (!mounted || destination == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Archivo exportado al teléfono.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No pude exportar esta guía: $e')),
+      );
+    }
   }
 
   Future<void> _delete() async {
@@ -98,6 +109,7 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
   Widget build(BuildContext context) {
     final guide = widget.guide;
     final accuracy = (guide.accuracy * 100).round();
+    final fileType = guide.sourceType.toUpperCase();
     return Scaffold(
       appBar: AppBar(
         title: Text(guide.title, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -105,13 +117,19 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'text') _showText();
+              if (value == 'export') _export();
               if (value == 'regen') _regenerate();
               if (value == 'delete') _delete();
             },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'text', child: Text('Ver texto original')),
-              PopupMenuItem(value: 'regen', child: Text('Regenerar preguntas')),
-              PopupMenuItem(value: 'delete', child: Text('Eliminar guía')),
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'text', child: Text('Ver contenido extraído')),
+              PopupMenuItem(
+                value: 'export',
+                enabled: guide.hasFile,
+                child: Text(guide.hasFile ? 'Exportar archivo al móvil' : 'Sin archivo exportable'),
+              ),
+              const PopupMenuItem(value: 'regen', child: Text('Regenerar preguntas')),
+              const PopupMenuItem(value: 'delete', child: Text('Eliminar guía')),
             ],
           ),
         ],
@@ -127,12 +145,18 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
                 children: [
                   Row(
                     children: [
-                      Expanded(
-                        child: Text(guide.sourceName, style: Theme.of(context).textTheme.bodySmall),
-                      ),
-                      Chip(label: Text(guide.sourceType.toUpperCase())),
+                      Expanded(child: Text(guide.sourceName, style: Theme.of(context).textTheme.bodySmall)),
+                      Chip(label: Text(fileType)),
                     ],
                   ),
+                  if (guide.hasFile) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _export,
+                      icon: const Icon(Icons.download_outlined),
+                      label: Text('Exportar $fileType al teléfono'),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   const Text('Resumen automático', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                   const SizedBox(height: 10),
@@ -175,7 +199,7 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
           const Text('Cómo funciona el repaso', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           const SizedBox(height: 8),
           const Text(
-            'Memora vuelve a mostrar antes lo que fallas y separa por más días lo que ya dominas. Todo el progreso se guarda en el teléfono y puedes seguir estudiando sin conexión.',
+            'Memora vuelve a mostrar antes lo que fallas y separa por más días lo que ya dominas. Los tutores y agentes pueden usar esta guía como base de conocimiento.',
             style: TextStyle(height: 1.45),
           ),
         ],
@@ -186,7 +210,6 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
 
 class _StatCard extends StatelessWidget {
   const _StatCard({required this.value, required this.label, required this.icon});
-
   final String value;
   final String label;
   final IconData icon;
