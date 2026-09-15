@@ -136,6 +136,30 @@ class AiService {
         'No pude generar una respuesta.';
   }
 
+  static String userFacingError(Object error) {
+    var text = error.toString().trim();
+    final lower = text.toLowerCase();
+    if (lower.contains('context is busy') || lower.contains('context busy')) {
+      return 'El modelo local está ocupado con otra tarea. Espera unos segundos y vuelve a intentarlo.';
+    }
+    if (text.startsWith('Exception: ')) {
+      text = text.substring('Exception: '.length).trim();
+    }
+    if (text.startsWith('PlatformException(')) {
+      final firstLine = text.split('\n').first;
+      final parts = firstLine.split(',');
+      if (parts.length >= 2) {
+        final message = parts[1].trim();
+        if (message.isNotEmpty) return message;
+      }
+      return 'La IA encontró un error interno. Inténtalo nuevamente.';
+    }
+    if (text.length > 320) {
+      return '${text.substring(0, 320).trim()}…';
+    }
+    return text.isEmpty ? 'La IA no pudo completar la solicitud.' : text;
+  }
+
   static String _message(String body) {
     try {
       final data = jsonDecode(body);
