@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +22,7 @@ class _FastModelSetupPageState extends State<FastModelSetupPage> {
   http.Client? _client;
   bool checking = true;
   bool downloading = false;
+  bool exporting = false;
   bool installed = false;
   bool cancelled = false;
   int received = 0;
@@ -177,6 +179,50 @@ class _FastModelSetupPageState extends State<FastModelSetupPage> {
     );
   }
 
+  Future<void> _exportInstalled() async {
+    if (!installed || installedPath.isEmpty || exporting) return;
+    final source = File(installedPath);
+    if (!await source.exists()) {
+      if (mounted) {
+        setState(() {
+          installed = false;
+          status = 'The downloaded model file is no longer available.';
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      exporting = true;
+      status = 'Choose where to save the GGUF file…';
+    });
+    try {
+      final destination = await FlutterFileDialog.saveFile(
+        params: SaveFileDialogParams(
+          sourceFilePath: source.path,
+          fileName: _fileName,
+          mimeTypesFilter: const ['application/octet-stream'],
+          localOnly: true,
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        status = destination == null
+            ? 'Export cancelled.'
+            : 'GGUF exported. The private copy remains inside Memora and can still be used.';
+      });
+      if (destination != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('GGUF exported successfully.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => status = 'Export failed: $e');
+    } finally {
+      if (mounted) setState(() => exporting = false);
+    }
+  }
+
   void _cancel() {
     if (!downloading) return;
     cancelled = true;
@@ -230,16 +276,24 @@ class _FastModelSetupPageState extends State<FastModelSetupPage> {
             FilledButton.icon(
               onPressed: downloading ? null : _download,
               icon: const Icon(Icons.download_rounded),
-              label: const Text('Download fast model'),
+              label: const Text('Download fast model for Memora'),
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
             )
-          else
+          else ...[
             FilledButton.icon(
-              onPressed: downloading ? null : _useInstalled,
+              onPressed: downloading || exporting ? null : _useInstalled,
               icon: const Icon(Icons.bolt_rounded),
               label: const Text('Use this model in Memora'),
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
             ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: downloading || exporting ? null : _exportInstalled,
+              icon: const Icon(Icons.file_download_outlined),
+              label: Text(exporting ? 'Exporting GGUF…' : 'Export GGUF to phone'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            ),
+          ],
           if (downloading) ...[
             const SizedBox(height: 14),
             LinearProgressIndicator(value: progress),
@@ -268,7 +322,7 @@ class _FastModelSetupPageState extends State<FastModelSetupPage> {
           ],
           const SizedBox(height: 14),
           const Text(
-            'Use Wi-Fi and keep enough free storage. The model is stored inside Memora as its private GGUF. You can export it later from AI Settings if you want to reuse the file elsewhere.',
+            'Memora can keep its own private copy of this model. You can export that GGUF to normal phone storage at any time. The existing Private / Shared GGUF controls in AI Settings remain unchanged, so a GGUF already stored in Downloads or another folder can still be selected as Shared without making another copy.',
           ),
         ],
       ),
