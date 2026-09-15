@@ -1,7 +1,7 @@
 name: memora
 description: Memora - convierte tus guias en repasos, tarjetas, examenes y planes con IA.
 publish_to: 'none'
-version: 1.8.0+19
+version: 1.9.0+20
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
