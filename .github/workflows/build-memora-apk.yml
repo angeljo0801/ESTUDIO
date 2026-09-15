@@ -56,6 +56,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/memora_upgrade/v117_plan_local_context_patch.py" ./v117_plan_local_context_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v118_english_system_patch.py" ./v118_english_system_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v1181_english_cleanup_patch.py" ./v1181_english_cleanup_patch.py
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v119_translation_fast_model_patch.py" ./v119_translation_fast_model_patch.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('v14_patch.py')
@@ -113,6 +114,7 @@ jobs:
           python3 v117_plan_local_context_patch.py
           python3 v118_english_system_patch.py
           python3 v1181_english_cleanup_patch.py
+          python3 v119_translation_fast_model_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -156,7 +158,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.18.1-English-System-release-apk
+          name: Memora-v1.19-Guide-Translation-Fast-Model-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
