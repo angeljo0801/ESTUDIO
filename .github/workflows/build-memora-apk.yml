@@ -45,6 +45,7 @@ jobs:
           rm -rf test
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
           sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
+          cp "$GITHUB_WORKSPACE/memora_upgrade/android/MainActivity.kt" android/app/src/main/kotlin/com/memora/memora/MainActivity.kt
           grep -A8 'release {' android/app/build.gradle.kts
       - name: Install brain launcher icon
         working-directory: ${{ env.PROJECT_DIR }}
@@ -81,7 +82,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v0.6-Autonomous-GGUF-release-apk
+          name: Memora-v0.8-Private-Shared-GGUF-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
