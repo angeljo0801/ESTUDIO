@@ -143,4 +143,23 @@ if anchor not in s:
 s = s.replace(anchor, insert + anchor, 1)
 p.write_text(s)
 
+# -----------------------------------------------------------------------------
+# Compatibility anchor for the v1.18 English migration. v1.16 rebuilds cards
+# with semantic quality checks; keep that behavior but expose the stable line
+# the migration uses to insert translated-card handling.
+# -----------------------------------------------------------------------------
+p = Path('lib/guide_store.dart')
+s = p.read_text()
+old = """      for (final guide in guides) {
+        final hasRejectedCard = guide.cards.any((card) => !StudyEngine.isCardUsable(card));
+"""
+new = """      for (final guide in guides) {
+        final cleaned = guide.cards.where(StudyEngine.isCardUsable).toList();
+        final hasRejectedCard = guide.cards.any((card) => !StudyEngine.isCardUsable(card));
+"""
+if old not in s:
+    raise RuntimeError('GuideStore English migration compatibility anchor not found')
+s = s.replace(old, new, 1)
+p.write_text(s)
+
 print('Memora v1.17 local study-plan context patch applied successfully')
