@@ -13,7 +13,9 @@ class DeviceLlmService {
   static String? _loadedKey;
   static bool _loadedFromShared = false;
   static Future<void> _operationQueue = Future<void>.value();
-  static bool _cancelRequested = false;
+  static int _requestSerial = 0;
+  static int? _activeRequestId;
+  static final Set<int> _cancelledRequests = <int>{};
   static String _accelerationLabel = 'Sin cargar';
 
   static String get accelerationLabel => _accelerationLabel;
@@ -49,9 +51,7 @@ class DeviceLlmService {
       );
     }
     final uri = Uri.tryParse(uriText);
-    if (uri == null) {
-      throw Exception('La ubicación del modelo compartido no es válida.');
-    }
+    if (uri == null) throw Exception('La ubicación del modelo compartido no es válida.');
     if (uri.scheme == 'file') {
       final path = uri.toFilePath();
       if (!File(path).existsSync()) {
@@ -113,9 +113,7 @@ class DeviceLlmService {
     if (_controller != null && _loadedKey == modelKey) return;
 
     await _disposeController();
-    final path = isShared
-        ? await _openSharedModel(prefs)
-        : await _resolvePrivateModel(prefs);
+    final path = isShared ? await _openSharedModel(prefs) : await _resolvePrivateModel(prefs);
 
     final threads = (Platform.numberOfProcessors - 2).clamp(2, 8).toInt();
     var controller = LlamaController();
@@ -125,9 +123,7 @@ class DeviceLlmService {
     try {
       final gpu = await controller.detectGpu();
       gpuName = gpu.gpuName;
-      if (gpu.vulkanSupported) {
-        gpuLayers = gpu.recommendedGpuLayers;
-      }
+      if (gpu.vulkanSupported) gpuLayers = gpu.recommendedGpuLayers;
     } catch (_) {
       gpuLayers = 0;
     }
@@ -142,7 +138,7 @@ class DeviceLlmService {
       _accelerationLabel = gpuLayers > 0
           ? 'GPU Vulkan${gpuName.isEmpty ? '' : ' • $gpuName'}'
           : 'CPU • $threads hilos';
-    } catch (gpuError) {
+    } catch (_) {
       if (gpuLayers <= 0) {
         if (isShared) await _closeSharedModelHandle();
         rethrow;
@@ -187,7 +183,9 @@ class DeviceLlmService {
     String responseMode = 'normal',
     void Function(String text)? onPartial,
   }) {
+    final requestId = ++_requestSerial;
     return _enqueue(() => _askInternal(
+          requestId,
           prompt,
           mode: mode,
           responseMode: responseMode,
@@ -196,55 +194,67 @@ class DeviceLlmService {
   }
 
   static Future<String> _askInternal(
+    int requestId,
     String prompt, {
     required String mode,
     required String responseMode,
     void Function(String text)? onPartial,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await _ensureLoaded(prefs: prefs, mode: mode);
-    final controller = _controller;
-    if (controller == null) throw Exception('No se pudo iniciar el modelo GGUF.');
+    _activeRequestId = requestId;
+    try {
+      if (_cancelledRequests.contains(requestId)) return 'Generación cancelada.';
+      final prefs = await SharedPreferences.getInstance();
+      await _ensureLoaded(prefs: prefs, mode: mode);
+      if (_cancelledRequests.contains(requestId)) return 'Generación cancelada.';
 
-    _cancelRequested = false;
-    final buffer = StringBuffer();
-    var lastUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+      final controller = _controller;
+      if (controller == null) throw Exception('No se pudo iniciar el modelo GGUF.');
 
-    final stream = controller.generateChat(
-      messages: [
-        ChatMessage(
-          role: 'system',
-          content:
-              'Eres la inteligencia local de Memora. Sigue cuidadosamente las instrucciones del tutor o agente, responde con claridad y no inventes información.',
-        ),
-        ChatMessage(role: 'user', content: prompt),
-      ],
-      temperature: 0.25,
-      maxTokens: _maxTokens(responseMode),
-    );
+      final buffer = StringBuffer();
+      var lastUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+      final stream = controller.generateChat(
+        messages: [
+          ChatMessage(
+            role: 'system',
+            content:
+                'Eres la inteligencia local de Memora. Sigue cuidadosamente las instrucciones del tutor o agente, responde con claridad y no inventes información.',
+          ),
+          ChatMessage(role: 'user', content: prompt),
+        ],
+        temperature: 0.25,
+        maxTokens: _maxTokens(responseMode),
+      );
 
-    await for (final token in stream) {
-      if (_cancelRequested) break;
-      buffer.write(token);
-      final now = DateTime.now();
-      if (onPartial != null &&
-          now.difference(lastUiUpdate) >= const Duration(milliseconds: 55)) {
-        onPartial(buffer.toString());
-        lastUiUpdate = now;
+      await for (final token in stream) {
+        if (_cancelledRequests.contains(requestId)) break;
+        buffer.write(token);
+        final now = DateTime.now();
+        if (onPartial != null &&
+            now.difference(lastUiUpdate) >= const Duration(milliseconds: 55)) {
+          onPartial(buffer.toString());
+          lastUiUpdate = now;
+        }
       }
-    }
 
-    final text = buffer.toString().trim();
-    if (text.isNotEmpty) {
-      onPartial?.call(text);
-      return text;
+      final text = buffer.toString().trim();
+      if (_cancelledRequests.contains(requestId)) {
+        if (text.isNotEmpty) onPartial?.call(text);
+        return text.isEmpty ? 'Generación cancelada.' : text;
+      }
+      if (text.isNotEmpty) {
+        onPartial?.call(text);
+        return text;
+      }
+      throw Exception('El modelo local no generó una respuesta.');
+    } finally {
+      _cancelledRequests.remove(requestId);
+      if (_activeRequestId == requestId) _activeRequestId = null;
     }
-    if (_cancelRequested) return 'Generación cancelada.';
-    throw Exception('El modelo local no generó una respuesta.');
   }
 
   static Future<void> stopCurrent() async {
-    _cancelRequested = true;
+    final id = _activeRequestId;
+    if (id != null) _cancelledRequests.add(id);
     final controller = _controller;
     if (controller != null) {
       try {
