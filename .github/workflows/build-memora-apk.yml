@@ -60,6 +60,9 @@ jobs:
         run: |
           yes | sdkmanager "cmake;3.31.0" "ndk;28.0.12674087" || true
           flutter pub get
+          FCLLAMA_GRADLE="$(find "$HOME/.pub-cache" -path '*/fcllama-0.0.3/android/build.gradle' -print -quit)"
+          test -n "$FCLLAMA_GRADLE"
+          sed -i "s/proguard-android.txt/proguard-android-optimize.txt/g" "$FCLLAMA_GRADLE"
       - name: Analyze
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
