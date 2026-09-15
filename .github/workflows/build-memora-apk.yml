@@ -57,7 +57,9 @@ jobs:
           convert "$ICON" -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter pub get
+        run: |
+          yes | sdkmanager "cmake;3.31.0" "ndk;28.0.12674087" || true
+          flutter pub get
       - name: Analyze
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
@@ -66,7 +68,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v0.5-Online-Local-LLM-release-apk
+          name: Memora-v0.6-Autonomous-GGUF-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
