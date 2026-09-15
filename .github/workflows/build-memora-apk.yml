@@ -44,6 +44,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/memora_upgrade/v17_task_isolation_patch.py" ./v17_task_isolation_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v18_exam_quality_patch.py" ./v18_exam_quality_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v181_exam_storage_reset.py" ./v181_exam_storage_reset.py
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v182_exam_regex_fix.py" ./v182_exam_regex_fix.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('v14_patch.py')
@@ -89,6 +90,7 @@ jobs:
           python3 v17_task_isolation_patch.py
           python3 v18_exam_quality_patch.py
           python3 v181_exam_storage_reset.py
+          python3 v182_exam_regex_fix.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
