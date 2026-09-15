@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,7 +12,7 @@ class LlmSettingsPage extends StatefulWidget {
 
 class _LlmSettingsPageState extends State<LlmSettingsPage> {
   String provider = 'gemini'; bool loading = true;
-  String deviceModelPath = ''; bool importingModel = false;
+  String deviceModelPath = ''; bool importingModel = false; bool exportingModel = false;
   final geminiKey = TextEditingController(), onlineUrl = TextEditingController(), onlineModel = TextEditingController(), onlineKey = TextEditingController(), localUrl = TextEditingController(), localModel = TextEditingController(), localKey = TextEditingController();
   @override void initState() { super.initState(); _load(); }
   Future<void> _load() async {
@@ -45,6 +46,36 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
       if (mounted) setState(() => importingModel = false);
     }
   }
+  Future<void> _exportGguf() async {
+    if (deviceModelPath.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Primero importa un modelo GGUF.')));
+      return;
+    }
+    final source = File(deviceModelPath);
+    if (!await source.exists()) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El modelo guardado ya no existe en el almacenamiento de Memora.')));
+      return;
+    }
+    setState(() => exportingModel = true);
+    try {
+      final modelName = source.uri.pathSegments.isEmpty ? 'memora-model.gguf' : source.uri.pathSegments.last;
+      final result = await FlutterFileDialog.saveFile(
+        params: SaveFileDialogParams(
+          sourceFilePath: source.path,
+          fileName: modelName,
+          mimeTypesFilter: const ['application/octet-stream'],
+          localOnly: true,
+        ),
+      );
+      if (result != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Modelo exportado correctamente.')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No pude exportar el modelo: $e')));
+    } finally {
+      if (mounted) setState(() => exportingModel = false);
+    }
+  }
   Future<void> _save() async {
     final p = await SharedPreferences.getInstance();
     await p.setString('llm_provider', provider); await p.setString('gemini_key', geminiKey.text.trim()); await p.setString('openai_base_url', onlineUrl.text.trim()); await p.setString('openai_model', onlineModel.text.trim()); await p.setString('openai_key', onlineKey.text.trim()); await p.setString('local_base_url', localUrl.text.trim()); await p.setString('local_model', localModel.text.trim()); await p.setString('local_key', localKey.text.trim());
@@ -60,7 +91,17 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
     if (provider == 'gemini') TextField(controller: geminiKey, obscureText: true, decoration: const InputDecoration(labelText: 'Clave de Gemini', prefixIcon: Icon(Icons.key))),
     if (provider == 'openai') ...[TextField(controller: onlineUrl, decoration: const InputDecoration(labelText: 'URL base', hintText: 'https://api.openai.com/v1')), const SizedBox(height: 12), TextField(controller: onlineModel, decoration: const InputDecoration(labelText: 'Modelo', hintText: 'gpt-4.1-mini')), const SizedBox(height: 12), TextField(controller: onlineKey, obscureText: true, decoration: const InputDecoration(labelText: 'API key'))],
     if (provider == 'local') ...[TextField(controller: localUrl, decoration: const InputDecoration(labelText: 'URL del LLM local', hintText: 'http://192.168.1.20:11434/v1')), const SizedBox(height: 12), TextField(controller: localModel, decoration: const InputDecoration(labelText: 'Nombre del modelo', hintText: 'llama3.2:3b')), const SizedBox(height: 12), TextField(controller: localKey, obscureText: true, decoration: const InputDecoration(labelText: 'Clave opcional')), const SizedBox(height: 10), const Text('El servidor debe exponer una API compatible con OpenAI. Si corre en otro equipo, usa su IP local; 127.0.0.1 solo sirve si el servidor corre en el propio teléfono.')],
-    if (provider == 'device') ...[FilledButton.icon(onPressed: importingModel ? null : _importGguf, icon: const Icon(Icons.folder_open), label: Text(importingModel ? 'Copiando modelo…' : 'Importar archivo .gguf')), const SizedBox(height: 10), Text(deviceModelPath.isEmpty ? 'Todavía no hay un modelo importado.' : 'Modelo: ${deviceModelPath.split('/').last}'), const SizedBox(height: 8), const Text('Recomendado: modelo instruct de 1B a 4B, cuantización Q4. La primera carga puede tardar y los modelos grandes consumen mucha memoria.')],
+    if (provider == 'device') ...[
+      FilledButton.icon(onPressed: importingModel || exportingModel ? null : _importGguf, icon: const Icon(Icons.folder_open), label: Text(importingModel ? 'Copiando modelo…' : 'Importar archivo .gguf')),
+      const SizedBox(height: 10),
+      OutlinedButton.icon(onPressed: deviceModelPath.isEmpty || importingModel || exportingModel ? null : _exportGguf, icon: const Icon(Icons.file_download_outlined), label: Text(exportingModel ? 'Exportando modelo…' : 'Exportar modelo')),
+      const SizedBox(height: 10),
+      Text(deviceModelPath.isEmpty ? 'Todavía no hay un modelo importado.' : 'Modelo: ${deviceModelPath.split('/').last}'),
+      const SizedBox(height: 8),
+      const Text('Exportar modelo abre el selector de Android para que elijas dónde guardar una copia visible del archivo GGUF. El modelo original permanece dentro de Memora.'),
+      const SizedBox(height: 8),
+      const Text('Recomendado: modelo instruct de 1B a 4B, cuantización Q4. La primera carga puede tardar y los modelos grandes consumen mucha memoria.')
+    ],
     const SizedBox(height: 22), FilledButton.icon(onPressed: _save, icon: const Icon(Icons.save), label: const Text('Guardar y usar esta opción')),
   ]));
 }
