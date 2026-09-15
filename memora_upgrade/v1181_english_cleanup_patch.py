@@ -5,7 +5,8 @@ from pathlib import Path
 
 # Fix the old-card label migration inserted by v1.18. Dart String.replaceFirst
 # does not use regex capture substitutions in the replacement text, so use
-# replaceFirstMapped instead.
+# replaceFirstMapped instead. Also migrate the semantic question form introduced
+# in v1.16 so old guides do not keep Spanish wrappers around English content.
 p = Path('lib/guide_store.dart')
 s = p.read_text()
 s = s.replace(
@@ -20,10 +21,28 @@ s = s.replace(
     "q = q.replaceFirst(RegExp(r'^¿Qué es o qué significa (.+)\\?$'), 'What is or what does \\$1 mean?');",
     "q = q.replaceFirstMapped(RegExp(r'^¿Qué es o qué significa (.+)\\?$'), (m) => 'What is or what does ${m.group(1)} mean?');",
 )
+# Add the v1.16 semantic wrapper migration directly before returning q.
+old_return = """        q = q.replaceFirst('Explica esta idea:', 'Explain this idea:');
+        return q;
+"""
+new_return = """        q = q.replaceFirst('Explica esta idea:', 'Explain this idea:');
+        q = q.replaceFirstMapped(
+          RegExp(r'^¿Qué explica el contenido sobre [“\"](.+)[”\"]\\?$'),
+          (m) => 'What does the content explain about “${m.group(1)}”?',
+        );
+        return q;
+"""
+if old_return not in s:
+    raise RuntimeError('GuideStore semantic English migration anchor not found')
+s = s.replace(old_return, new_return, 1)
 p.write_text(s)
 
 # Strings added by the timer/notification/PDF patches after their base files.
 translations = {
+    'lib/study_engine.dart': [
+        ("'¿Qué explica el contenido sobre “$keyword”?'", "'What does the content explain about “$keyword”?'"),
+        ("q.startsWith('¿Qué explica el contenido sobre')", "q.startsWith('What does the content explain about')"),
+    ],
     'lib/daily_exam_page.dart': [
         ("'La IA superó el límite de 20 segundos.'", "'The AI exceeded the 20-second limit.'"),
         ("' • límite 20 s; completado con contenido verificado'", "' • 20 s limit; completed with verified content'"),
