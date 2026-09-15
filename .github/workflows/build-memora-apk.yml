@@ -44,6 +44,8 @@ jobs:
           flutter create --platforms=android --project-name memora --org com.memora --no-pub .
           rm -rf test
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
+          sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
+          grep -A8 'release {' android/app/build.gradle.kts
       - name: Install brain launcher icon
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
