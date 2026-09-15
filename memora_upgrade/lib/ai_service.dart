@@ -7,17 +7,22 @@ class AiService {
   static Future<String> askConfigured({
     required String prompt,
     String? deviceModeOverride,
+    String? providerOverride,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
+    final explicit = providerOverride?.trim();
+    if (explicit == 'private' || explicit == 'shared') {
+      return DeviceLlmService.askWithMode(prompt, mode: explicit!);
+    }
     if (deviceModeOverride == 'private' || deviceModeOverride == 'shared') {
-      return DeviceLlmService.askWithMode(
-        prompt,
-        mode: deviceModeOverride!,
-      );
+      return DeviceLlmService.askWithMode(prompt, mode: deviceModeOverride!);
     }
 
-    final provider = prefs.getString('llm_provider') ?? 'gemini';
+    final provider = (explicit == null || explicit.isEmpty || explicit == 'global')
+        ? (prefs.getString('llm_provider') ?? 'gemini')
+        : explicit;
+
     if (provider == 'device') return DeviceLlmService.ask(prompt);
     if (provider == 'gemini') {
       final key = prefs.getString('gemini_key')?.trim() ?? '';
@@ -32,9 +37,7 @@ class AiService {
       final baseUrl = prefs.getString('openai_base_url')?.trim() ??
           'https://api.openai.com/v1';
       if (key.isEmpty || model.isEmpty) {
-        throw Exception(
-          'Configura la clave y el modelo online en Ajustes de IA.',
-        );
+        throw Exception('Configura la clave y el modelo online en Ajustes de IA.');
       }
       return askOpenAiCompatible(
         baseUrl: baseUrl,
@@ -43,19 +46,24 @@ class AiService {
         prompt: prompt,
       );
     }
-    final baseUrl = prefs.getString('local_base_url')?.trim() ??
-        'http://127.0.0.1:11434/v1';
-    final model = prefs.getString('local_model')?.trim() ?? '';
-    final key = prefs.getString('local_key')?.trim() ?? '';
-    if (model.isEmpty) {
-      throw Exception('Indica el nombre del modelo local en Ajustes de IA.');
+
+    if (provider == 'local' || provider == 'ollama') {
+      final baseUrl = prefs.getString('local_base_url')?.trim() ??
+          'http://127.0.0.1:11434/v1';
+      final model = prefs.getString('local_model')?.trim() ?? '';
+      final key = prefs.getString('local_key')?.trim() ?? '';
+      if (model.isEmpty) {
+        throw Exception('Indica el nombre del modelo local/Ollama en Ajustes de IA.');
+      }
+      return askOpenAiCompatible(
+        baseUrl: baseUrl,
+        apiKey: key,
+        model: model,
+        prompt: prompt,
+      );
     }
-    return askOpenAiCompatible(
-      baseUrl: baseUrl,
-      apiKey: key,
-      model: model,
-      prompt: prompt,
-    );
+
+    throw Exception('Fuente de IA no reconocida: $provider');
   }
 
   static Future<String> askGemini({
@@ -110,7 +118,7 @@ class AiService {
               {
                 'role': 'system',
                 'content':
-                    'Eres un tutor de Memora. Sigue cuidadosamente las instrucciones específicas del tutor incluidas en la solicitud.',
+                    'Eres la inteligencia de Memora. Sigue cuidadosamente las instrucciones específicas incluidas en la solicitud.',
               },
               {'role': 'user', 'content': prompt},
             ],
