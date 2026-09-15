@@ -12,6 +12,11 @@ from pathlib import Path
 p = Path('lib/study_plan_page.dart')
 s = p.read_text()
 
+import_anchor = "import 'guide_store.dart';\n"
+if import_anchor not in s:
+    raise RuntimeError('StudyPlan models import anchor not found')
+s = s.replace(import_anchor, import_anchor + "import 'models.dart';\n", 1)
+
 helper_anchor = "  Future<void> _copyPlan() async {"
 helper = r'''  static bool _isLocalPlanProvider(String provider) {
     return provider == 'private' ||
