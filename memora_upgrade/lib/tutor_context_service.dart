@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -133,20 +134,73 @@ class TutorContextService {
     return store.guides.where((g) => ids.contains(g.id)).toList();
   }
 
-  static Future<String?> bestAvailableProvider() async {
+  static Future<bool> _endpointReachable(String rawUrl) async {
+    var value = rawUrl.trim();
+    if (value.isEmpty) return false;
+    if (!value.contains('://')) value = 'http://$value';
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.host.isEmpty) return false;
+    final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        uri.host,
+        port,
+        timeout: const Duration(milliseconds: 1200),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      socket?.destroy();
+    }
+  }
+
+  static Future<List<String>> bestAvailableProviders() async {
     final prefs = await SharedPreferences.getInstance();
+    final providers = <String>[];
+
+    void add(String provider) {
+      if (!providers.contains(provider)) providers.add(provider);
+    }
+
+    // Prefer configured cloud providers first. If one fails at request time,
+    // callers using "Best AI" can continue through this list automatically.
     final gemini = prefs.getString('gemini_key')?.trim() ?? '';
-    if (gemini.isNotEmpty) return 'gemini';
+    if (gemini.isNotEmpty) add('gemini');
 
     final openAiKey = prefs.getString('openai_key')?.trim() ?? '';
     final openAiModel = prefs.getString('openai_model')?.trim() ?? '';
-    if (openAiKey.isNotEmpty && openAiModel.isNotEmpty) return 'openai';
+    if (openAiKey.isNotEmpty && openAiModel.isNotEmpty) add('openai');
 
+    // Direct GGUF is a real on-device fallback and does not require an Ollama
+    // server. Respect the user's preferred private/shared mode first.
+    final privatePath = prefs.getString('device_model_path')?.trim() ?? '';
+    final sharedUri = prefs.getString('shared_model_uri')?.trim() ?? '';
+    final preferredMode = prefs.getString('device_model_mode')?.trim() ?? 'private';
+    final privateReady = privatePath.isNotEmpty && await File(privatePath).exists();
+    final sharedReady = sharedUri.isNotEmpty;
+
+    if (preferredMode == 'shared' && sharedReady) add('shared');
+    if (preferredMode != 'shared' && privateReady) add('private');
+    if (privateReady) add('private');
+    if (sharedReady) add('shared');
+
+    // Ollama/local-server is only considered available when the endpoint is
+    // actually listening. A model name alone is not enough.
     final localModel = prefs.getString('local_model')?.trim() ?? '';
-    if (localModel.isNotEmpty) return 'local';
+    final localBase = prefs.getString('local_base_url')?.trim() ??
+        'http://127.0.0.1:11434/v1';
+    if (localModel.isNotEmpty && await _endpointReachable(localBase)) {
+      add('local');
+    }
 
-    final provider = prefs.getString('llm_provider')?.trim();
-    return (provider == null || provider.isEmpty) ? null : provider;
+    return providers;
+  }
+
+  static Future<String?> bestAvailableProvider() async {
+    final providers = await bestAvailableProviders();
+    return providers.isEmpty ? null : providers.first;
   }
 
   static String sourceLabel(String source) {
