@@ -63,7 +63,16 @@ class DeviceLlmService {
   static Future<String> ask(String prompt) async {
     final p = await SharedPreferences.getInstance();
     final mode = p.getString('device_model_mode') ?? 'private';
-    final isShared = mode == 'shared';
+    return askWithMode(prompt, mode: mode);
+  }
+
+  static Future<String> askWithMode(
+    String prompt, {
+    required String mode,
+  }) async {
+    final p = await SharedPreferences.getInstance();
+    final normalizedMode = mode == 'shared' ? 'shared' : 'private';
+    final isShared = normalizedMode == 'shared';
     final sharedUri = p.getString('shared_model_uri') ?? '';
     final privatePath = p.getString('device_model_path') ?? '';
     final modelKey = isShared ? 'shared:$sharedUri' : 'private:$privatePath';
@@ -102,7 +111,7 @@ class DeviceLlmService {
     }
 
     final wrapped =
-        '<|system|>\nEres el tutor de Memora. Responde en español, de forma clara y únicamente con la información proporcionada.\n<|user|>\n$prompt\n<|assistant|>\n';
+        '<|system|>\nEres un tutor de Memora. Sigue cuidadosamente las instrucciones del tutor incluidas en la solicitud, responde con claridad y no inventes información.\n<|user|>\n$prompt\n<|assistant|>\n';
     final result = await FCllama.instance()?.completion(
       _contextId!,
       prompt: wrapped,
