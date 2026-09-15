@@ -16,8 +16,8 @@ class KnowledgeRetriever {
       final normalized = guide.text.replaceAll('\r\n', '\n').trim();
       if (normalized.isEmpty) continue;
       final parts = _chunk(normalized, 900);
-      for (var i = 0; i < parts.length; i++) {
-        final text = parts[i].trim();
+      for (final raw in parts) {
+        final text = raw.trim();
         if (text.isEmpty) continue;
         var score = 0.0;
         final lower = text.toLowerCase();
@@ -25,10 +25,10 @@ class KnowledgeRetriever {
         for (final term in terms) {
           if (title.contains(term)) score += 3;
           final matches = term.allMatches(lower).length;
-          if (matches > 0) score += 1 + matches.clamp(0, 4);
+          if (matches > 0) score += 1 + matches.clamp(0, 4).toDouble();
         }
         if (terms.isEmpty) score = 1;
-        chunks.add(_Chunk(guide: guide, text: text, index: i, score: score));
+        chunks.add(_Chunk(guide: guide, text: text, score: score));
       }
     }
 
@@ -74,7 +74,7 @@ class KnowledgeRetriever {
           current = StringBuffer();
         }
         for (var start = 0; start < paragraph.length; start += size) {
-          final end = (start + size).clamp(0, paragraph.length);
+          final end = (start + size).clamp(0, paragraph.length).toInt();
           result.add(paragraph.substring(start, end));
         }
       } else {
@@ -104,15 +104,8 @@ class KnowledgeRetriever {
 }
 
 class _Chunk {
-  const _Chunk({
-    required this.guide,
-    required this.text,
-    required this.index,
-    required this.score,
-  });
-
+  const _Chunk({required this.guide, required this.text, required this.score});
   final StudyGuide guide;
   final String text;
-  final int index;
   final double score;
 }
