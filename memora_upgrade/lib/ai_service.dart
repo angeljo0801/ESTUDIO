@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'device_llm_service.dart';
 
 class AiService {
@@ -14,6 +17,7 @@ class AiService {
     String? providerOverride,
     String responseMode = 'normal',
     void Function(String text)? onPartial,
+    List<String> imagePaths = const [],
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -51,7 +55,11 @@ class AiService {
       if (key.isEmpty) {
         throw Exception('Configura la clave de Gemini en Ajustes de IA.');
       }
-      final result = await askGemini(apiKey: key, prompt: prompt);
+      final result = await askGemini(
+        apiKey: key,
+        prompt: prompt,
+        imagePaths: imagePaths,
+      );
       onPartial?.call(result);
       return result;
     }
@@ -68,6 +76,7 @@ class AiService {
         apiKey: key,
         model: model,
         prompt: prompt,
+        imagePaths: imagePaths,
       );
       onPartial?.call(result);
       return result;
@@ -81,6 +90,8 @@ class AiService {
       if (model.isEmpty) {
         throw Exception('Indica el nombre del modelo local/Ollama en Ajustes de IA.');
       }
+      // Para máxima compatibilidad con modelos Ollama de texto, las imágenes
+      // se convierten primero a OCR en la app y ese texto ya viaja en prompt.
       final result = await askOpenAiCompatible(
         baseUrl: baseUrl,
         apiKey: key,
@@ -97,7 +108,24 @@ class AiService {
   static Future<String> askGemini({
     required String apiKey,
     required String prompt,
+    List<String> imagePaths = const [],
   }) async {
+    final parts = <Map<String, dynamic>>[
+      {'text': prompt},
+    ];
+    for (final path in imagePaths.take(4)) {
+      final file = File(path);
+      if (!await file.exists()) continue;
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) continue;
+      parts.add({
+        'inline_data': {
+          'mime_type': _imageMime(path),
+          'data': base64Encode(bytes),
+        },
+      });
+    }
+
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
     );
@@ -107,11 +135,7 @@ class AiService {
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'contents': [
-              {
-                'parts': [
-                  {'text': prompt},
-                ],
-              },
+              {'parts': parts},
             ],
             'generationConfig': {'temperature': 0.25},
           }),
@@ -132,10 +156,32 @@ class AiService {
     required String apiKey,
     required String model,
     required String prompt,
+    List<String> imagePaths = const [],
   }) async {
     final cleanBase = baseUrl.replaceAll(RegExp(r'/+$'), '');
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (apiKey.isNotEmpty) headers['Authorization'] = 'Bearer $apiKey';
+
+    dynamic userContent = prompt;
+    if (imagePaths.isNotEmpty) {
+      final content = <Map<String, dynamic>>[
+        {'type': 'text', 'text': prompt},
+      ];
+      for (final path in imagePaths.take(4)) {
+        final file = File(path);
+        if (!await file.exists()) continue;
+        final bytes = await file.readAsBytes();
+        if (bytes.isEmpty) continue;
+        content.add({
+          'type': 'image_url',
+          'image_url': {
+            'url': 'data:${_imageMime(path)};base64,${base64Encode(bytes)}',
+          },
+        });
+      }
+      userContent = content;
+    }
+
     final response = await http
         .post(
           Uri.parse('$cleanBase/chat/completions'),
@@ -148,7 +194,7 @@ class AiService {
                 'content':
                     'Eres la inteligencia de Memora. Sigue cuidadosamente las instrucciones específicas incluidas en la solicitud.',
               },
-              {'role': 'user', 'content': prompt},
+              {'role': 'user', 'content': userContent},
             ],
             'temperature': 0.25,
           }),
@@ -188,6 +234,15 @@ class AiService {
       return '${text.substring(0, 320).trim()}…';
     }
     return text.isEmpty ? 'La IA no pudo completar la solicitud.' : text;
+  }
+
+  static String _imageMime(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.heic') || lower.endsWith('.heif')) return 'image/heic';
+    return 'image/jpeg';
   }
 
   static String _message(String body) {
