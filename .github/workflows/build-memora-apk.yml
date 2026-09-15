@@ -49,10 +49,10 @@ jobs:
               end_marker = "\ns, n = re.subn("
               end = s.index(end_marker, start)
               segment = s[start:end]
-              close = segment.rfind("'''\n")
+              close = segment.rfind("'''")
               if close < 0:
                   raise RuntimeError(f'Could not find closing quote for {marker}')
-              segment = segment[:close] + '"""\n' + segment[close + 4:]
+              segment = segment[:close] + '"""' + segment[close + 3:]
               s = s[:start] + segment + s[end:]
           p.write_text(s)
           PY
