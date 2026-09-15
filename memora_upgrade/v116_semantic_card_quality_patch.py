@@ -15,7 +15,7 @@ old = """    'although', 'though', 'unless', 'once',
 """
 new = """    'although', 'though', 'unless', 'once',
     'imagine', 'suppose', 'consider', 'picture', 'remember', 'note', 'assume',
-    'let', 'lets', 'let\'s', 'think', 'say', 'look', 'try',
+    'let', 'lets', 'think', 'say', 'look', 'try',
   };
 """
 if old not in s:
@@ -35,7 +35,7 @@ insert = anchor + """  static final Set<String> _badSentenceStarts = {
     'why', 'how', 'what', 'when', 'where', 'who', 'which',
     'because', 'and', 'or', 'but', 'so', 'then',
     'esto', 'eso', 'estos', 'estas', 'ellos', 'ellas', 'nosotros', 'usted',
-    'ustedes', 'imagina', 'imagine', 'suponga', 'supongamos', 'considera',
+    'ustedes', 'imagina', 'suponga', 'supongamos', 'considera',
     'considere', 'recuerda', 'recuerde', 'nota', 'mira', 'piense', 'piensa',
     'porqué', 'por', 'cómo', 'como', 'qué', 'que', 'cuándo', 'cuando',
   };
