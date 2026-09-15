@@ -44,6 +44,17 @@ jobs:
           flutter create --platforms=android --project-name memora --org com.memora --no-pub .
           rm -rf test
           sed -i 's/android:label="memora"/android:label="Memora"/' android/app/src/main/AndroidManifest.xml
+      - name: Install brain launcher icon
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+          ICON="$GITHUB_WORKSPACE/memora_upgrade/assets/memora_brain.png"
+          convert "$ICON" -resize 48x48 android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          convert "$ICON" -resize 72x72 android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          convert "$ICON" -resize 96x96 android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          convert "$ICON" -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          convert "$ICON" -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter pub get
@@ -55,7 +66,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v0.4-AI-release-apk
+          name: Memora-v0.4-Brain-Icon-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
