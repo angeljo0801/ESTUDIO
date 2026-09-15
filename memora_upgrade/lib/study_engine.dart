@@ -26,6 +26,7 @@ class StudyEngine {
     required String sourceType,
     required String sourceName,
     required String text,
+    String? filePath,
   }) {
     final clean = _normalize(text);
     final now = DateTime.now();
@@ -38,6 +39,7 @@ class StudyEngine {
       summary: buildSummary(clean),
       cards: buildCards(clean),
       createdAt: now,
+      filePath: filePath,
     );
   }
 
