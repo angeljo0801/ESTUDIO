@@ -48,21 +48,32 @@ if '_scenarioStemFromCardQuestion(' not in s:
         raise RuntimeError('v1.42 card-question helper anchor not found')
     s = s.replace(card_anchor, scenario_helper + card_anchor, 1)
 
-# Do not synthesize a comparison by blindly pairing two unrelated cards. The AI
-# generator may still create comparison questions semantically; the deterministic
-# fallback should omit this modality when it cannot establish a valid relation.
+# Keep comparison questions. The problem was not the comparison modality itself,
+# but answers that visually stacked two source flashcards. Preserve the familiar
+# comparison question while rendering one clean comparative answer.
 comparison_pattern = re.compile(
     r'''    // 2\) Compare two concepts instead of asking either definition directly\.\n.*?\n    // 3\) Reverse-definition multiple choice\.''',
     re.S,
 )
-comparison_replacement = r'''    // 2) Comparisons are intentionally not synthesized by blindly pairing
-    // unrelated cards. Semantic AI generation handles true comparisons; the
-    // deterministic fallback leaves this group empty when no relationship is known.
+comparison_replacement = r'''    // 2) Compare two concepts instead of asking either definition directly.
+    if (withConcept.length >= 2) {
+      for (var i = 0; i < withConcept.length - 1; i++) {
+        final a = withConcept[i];
+        final b = withConcept[(i + 1) % withConcept.length];
+        if (a.concept!.toLowerCase() == b.concept!.toLowerCase()) continue;
+        final q = 'Comparison: a learner is confusing ${a.concept} with ${b.concept}. What is the key distinction between them?';
+        final left = _examDescription(a.item.answer, a.concept).trim();
+        final right = _examDescription(b.item.answer, b.concept).trim();
+        if (left.length < 8 || right.length < 8) continue;
+        final ans = '${a.concept}: $left. By contrast, ${b.concept}: $right.';
+        addTo(comparisons, q, ans, '${a.guide.title} • Comparison');
+      }
+    }
 
     // 3) Reverse-definition multiple choice.'''
 s, n = comparison_pattern.subn(lambda _m: comparison_replacement, s, count=1)
 if n != 1:
-    raise RuntimeError('v1.42 comparison fallback block not found')
+    raise RuntimeError('v1.42 comparison cleanup block not found')
 
 # Multiple-choice and true/false answers should contain only the actual answer,
 # not a copy of the source card beneath it.
@@ -181,7 +192,7 @@ s = s.replace(parsed_guard, parsed_guard_new, 1)
 prompt_anchor = "- NEVER paste a long study-card answer into the question stem as a quotation.\n"
 prompt_extra = """- NEVER paste a long study-card answer into the question stem as a quotation.
 - The JSON answer field must contain only the answer to the generated exam question. Never append the source flashcard question, a second flashcard, card metadata, Topic/Question/Answer labels, or unrelated study text beneath the answer.
-- If a comparison is generated, compare only concepts that are genuinely comparable in the supplied material; otherwise choose another modality.
+- Comparison questions remain valid. When generating one, return one clean comparative answer rather than stacking two source cards or source excerpts.
 """
 if prompt_anchor not in s:
     raise RuntimeError('v1.42 AI clean-answer prompt anchor not found')
