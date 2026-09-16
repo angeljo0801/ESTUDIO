@@ -132,3 +132,5 @@ print('Memora v1.30 non-repeating random tutor patch applied successfully')
 import os
 _v131 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v131_random_tutor_card_fallback_patch.py'
 exec(compile(_v131.read_text(), str(_v131), 'exec'))
+_v132 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v132_semantic_intent_router_patch.py'
+exec(compile(_v132.read_text(), str(_v132), 'exec'))
