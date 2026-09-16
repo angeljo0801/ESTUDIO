@@ -25,15 +25,10 @@ helper = r'''  static const List<String> defaultCascade = <String>[
     void Function(String text)? onPartial,
     List<String> imagePaths = const [],
   }) async {
-    final preferred = (preferredProvider == null ||
-            preferredProvider.trim().isEmpty ||
-            preferredProvider == 'global')
+    final preferred = (preferredProvider == null || preferredProvider.trim().isEmpty || preferredProvider == 'global')
         ? await providerForTask(task)
         : preferredProvider.trim();
-    final order = <String>[preferred, ...defaultCascade]
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList();
+    final order = <String>[preferred, ...defaultCascade].where((e) => e.isNotEmpty).toSet().toList();
     Object? lastError;
     for (final provider in order) {
       try {
@@ -44,9 +39,7 @@ helper = r'''  static const List<String> defaultCascade = <String>[
           onPartial: onPartial,
           imagePaths: imagePaths,
         );
-      } catch (e) {
-        lastError = e;
-      }
+      } catch (e) { lastError = e; }
     }
     throw Exception('No AI provider in the cascade is available. ${lastError ?? ''}');
   }
@@ -58,7 +51,7 @@ if 'static const List<String> defaultCascade' not in s:
 p.write_text(s)
 
 # AI Settings: task-specific providers, Gemini on fresh install.
-# Preserve the existing provider cards/names exactly; only add a task section before Save.
+# Existing provider cards/names remain untouched.
 p = Path('lib/llm_settings_page.dart')
 s = p.read_text()
 field_anchor = "  String provider = 'gemini';\n"
@@ -88,6 +81,7 @@ save = """    await p.setString('ai_task_exam', examProvider);
 if "p.setString('ai_task_exam'" not in s:
     if save_anchor not in s: raise RuntimeError('v1.44 AI settings save anchor not found')
     s = s.replace(save_anchor, save_anchor + save, 1)
+
 ui = r'''                  const SizedBox(height: 22),
                   const Divider(),
                   const SizedBox(height: 10),
@@ -126,16 +120,34 @@ ui = r'''                  const SizedBox(height: 22),
                   const SizedBox(height: 12),
 '''
 if 'AI by task' not in s:
-    # The English-system patch runs before v1.44, so anchor on the stable save widget
-    # instead of a translated label. This leaves the existing save button untouched.
-    save_widget = '                  FilledButton.icon(\n                    onPressed: _save,'
-    idx = s.rfind(save_widget)
-    if idx < 0: raise RuntimeError('v1.44 AI settings save widget not found')
-    # Include the existing spacing before Save in the replacement insertion point.
-    spacing = '                  const SizedBox(height: 22),\n'
-    spacing_idx = s.rfind(spacing, 0, idx)
-    insert_at = spacing_idx if spacing_idx >= 0 else idx
-    s = s[:insert_at] + ui + s[idx:]
+    # Insert at the end of the main form children. Do not depend on button labels,
+    # translations, or the exact save-button widget used by earlier patches.
+    list_start = s.find('children: [')
+    if list_start < 0:
+        list_start = s.find('children: <Widget>[')
+    if list_start < 0: raise RuntimeError('v1.44 AI settings children list not found')
+    # Prefer inserting before the final bottom spacer inside the settings form.
+    candidates = [
+        "                  const SizedBox(height: 32),\n",
+        "                  const SizedBox(height: 24),\n",
+        "                  const SizedBox(height: 20),\n",
+    ]
+    insert_at = -1
+    for marker in candidates:
+        pos = s.rfind(marker)
+        if pos > list_start:
+            insert_at = pos
+            break
+    if insert_at < 0:
+        # Last-resort structural anchor: before the closing children list immediately
+        # preceding the outer scroll/padding widgets.
+        for marker in ["                ],\n              ),\n            ),", "                ],\n              ),"]:
+            pos = s.rfind(marker)
+            if pos > list_start:
+                insert_at = pos
+                break
+    if insert_at < 0: raise RuntimeError('v1.44 AI settings form end not found')
+    s = s[:insert_at] + ui + s[insert_at:]
 p.write_text(s)
 
 # Exams: AI primary; randomized cards only fill missing slots.
@@ -160,8 +172,7 @@ method_anchor = '  Future<TutorProfile?> _editTutorDialog({TutorProfile? existin
 method = r'''  Future<String> _generateTutorPrompt(String description) async {
     if (description.trim().isEmpty) return '';
     return AiService.askCascade(
-      task: 'prompt',
-      responseMode: 'fast',
+      task: 'prompt', responseMode: 'fast',
       prompt: """Create a concise, production-ready system prompt for a study tutor in Memora from this user description:
 $description
 Include role, teaching behavior, response style, use of assigned study guides, uncertainty handling, and useful learning rules. Return only the prompt.""",
@@ -179,10 +190,7 @@ button = r'''                const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () async {
                     final generated = await _generateTutorPrompt(description.text);
-                    if (generated.isNotEmpty) {
-                      instructions.text = generated;
-                      setDialogState(() {});
-                    }
+                    if (generated.isNotEmpty) { instructions.text = generated; setDialogState(() {}); }
                   },
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text('Generate prompt from description'),
@@ -203,8 +211,7 @@ agent_anchor = '  Future<AgentProfile?> _agentDialog({AgentProfile? existing}) a
 agent_method = r'''  Future<String> _generateAgentPrompt(String description) async {
     if (description.trim().isEmpty) return '';
     return AiService.askCascade(
-      task: 'prompt',
-      responseMode: 'fast',
+      task: 'prompt', responseMode: 'fast',
       prompt: """Create a concise, production-ready system prompt for a Memora agent from this user description:
 $description
 Define role, objectives, behavior, response format, use of assigned knowledge bases, boundaries and uncertainty handling. Return only the prompt.""",
@@ -225,19 +232,13 @@ insert = r'''                TextField(
                   controller: promptDescription,
                   minLines: 2,
                   maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Describe what this agent should do',
-                    hintText: 'Example: Analyze my assigned finance guides and answer with practical steps.',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Describe what this agent should do', hintText: 'Example: Analyze my assigned finance guides and answer with practical steps.'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () async {
                     final generated = await _generateAgentPrompt(promptDescription.text);
-                    if (generated.isNotEmpty) {
-                      prompt.text = generated;
-                      setDialogState(() {});
-                    }
+                    if (generated.isNotEmpty) { prompt.text = generated; setDialogState(() {}); }
                   },
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text('Generate prompt with AI'),
@@ -251,7 +252,6 @@ if 'Describe what this agent should do' not in s:
     s = s.replace(prompt_field, insert, 1)
 p.write_text(s)
 
-# Version bump and continue chain.
 p = Path('pubspec.yaml')
 s = p.read_text().replace('version: 1.43.0+56', 'version: 1.44.0+57')
 p.write_text(s)
