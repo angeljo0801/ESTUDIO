@@ -132,3 +132,7 @@ s = s.replace(old_prompt_rule, new_prompt_rule, 1)
 
 p.write_text(s)
 print('Memora v1.32 semantic tutor intent router patch applied successfully')
+
+import os
+_v133 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v133_exam_bottom_buttons_patch.py'
+exec(compile(_v133.read_text(), str(_v133), 'exec'))
