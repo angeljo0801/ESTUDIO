@@ -37,70 +37,19 @@ jobs:
           rm -rf lib
           cp -R "$GITHUB_WORKSPACE/memora_upgrade/lib" ./lib
           cp "$GITHUB_WORKSPACE/memora_upgrade/pubspec.yaml" ./pubspec.yaml
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v14_patch.py" ./v14_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v15_chat_patch.py" ./v15_chat_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v151_library_sheet_patch.py" ./v151_library_sheet_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v16_repetition_guard_patch.py" ./v16_repetition_guard_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v17_task_isolation_patch.py" ./v17_task_isolation_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v18_exam_quality_patch.py" ./v18_exam_quality_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v181_exam_storage_reset.py" ./v181_exam_storage_reset.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v182_exam_regex_fix.py" ./v182_exam_regex_fix.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v19_exam_pdf_export_patch.py" ./v19_exam_pdf_export_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v110_sync_and_best_ai_patch.py" ./v110_sync_and_best_ai_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v111_exam_fragment_filter_patch.py" ./v111_exam_fragment_filter_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v112_speed_plan_export_ui_patch.py" ./v112_speed_plan_export_ui_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v113_exam_timer_notifications_patch.py" ./v113_exam_timer_notifications_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v114_global_tutor_quick_ai_patch.py" ./v114_global_tutor_quick_ai_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v115_card_fragment_guard_patch.py" ./v115_card_fragment_guard_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v116_semantic_card_quality_patch.py" ./v116_semantic_card_quality_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v117_plan_local_context_patch.py" ./v117_plan_local_context_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v118_english_system_patch.py" ./v118_english_system_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v1181_english_cleanup_patch.py" ./v1181_english_cleanup_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v119_translation_fast_model_patch.py" ./v119_translation_fast_model_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v120_learning_quality_patch.py" ./v120_learning_quality_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v121_tutor_plan_models_patch.py" ./v121_tutor_plan_models_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v121_runner.py" ./v121_runner.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v122_ai_cards_exam_grounding_patch.py" ./v122_ai_cards_exam_grounding_patch.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v122_runner.py" ./v122_runner.py
-          cp "$GITHUB_WORKSPACE/memora_upgrade/v123_background_execution_patch.py" ./v123_background_execution_patch.py
+          for f in "$GITHUB_WORKSPACE"/memora_upgrade/v*.py; do cp "$f" ./; done
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('v14_patch.py')
-          s = p.read_text()
-          for marker in ('new_ask', 'new_run'):
-              opening = marker + " = r'''"
-              start = s.index(opening)
-              s = s[:start] + s[start:].replace(opening, marker + ' = r"""', 1)
-              end_marker = "\ns, n = re.subn("
-              end = s.index(end_marker, start)
-              segment = s[start:end]
-              close = segment.rfind("'''")
-              if close < 0:
-                  raise RuntimeError(f'Could not find closing quote for {marker}')
-              segment = segment[:close] + '"""' + segment[close + 3:]
-              s = s[:start] + segment + s[end:]
+          p=Path('v14_patch.py');s=p.read_text()
+          for marker in ('new_ask','new_run'):
+              opening=marker+" = r'''";start=s.index(opening);s=s[:start]+s[start:].replace(opening,marker+' = r"""',1);end=s.index("\ns, n = re.subn(",start);segment=s[start:end];close=segment.rfind("'''");segment=segment[:close]+'"""'+segment[close+3:];s=s[:start]+segment+s[end:]
           p.write_text(s)
           PY
           python3 v14_patch.py
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('lib/agent_page.dart')
-          s = p.read_text()
-          broken = "query: '${agent.prompt}\n$request\n${QueryAttachmentService.buildTextContext(attachments)}',"
-          fixed = "query: '${agent.prompt} $request ${QueryAttachmentService.buildTextContext(attachments)}',"
-          if broken not in s:
-              raise RuntimeError('Generated agent attachment query pattern not found')
-          p.write_text(s.replace(broken, fixed, 1))
-          PY
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('v15_chat_patch.py')
-          s = p.read_text()
-          old = "out, n = re.subn(pattern, replacement, text, count=1, flags=re.S)"
-          new = "out, n = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)"
-          if old not in s:
-              raise RuntimeError('v1.5 regex helper pattern not found')
-          p.write_text(s.replace(old, new, 1))
+          p=Path('lib/agent_page.dart');s=p.read_text();broken="query: '${agent.prompt}\n$request\n${QueryAttachmentService.buildTextContext(attachments)}',";fixed="query: '${agent.prompt} $request ${QueryAttachmentService.buildTextContext(attachments)}',";p.write_text(s.replace(broken,fixed,1))
+          p=Path('v15_chat_patch.py');s=p.read_text();s=s.replace("out, n = re.subn(pattern, replacement, text, count=1, flags=re.S)","out, n = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)",1);p.write_text(s)
           PY
           python3 v15_chat_patch.py
           python3 v151_library_sheet_patch.py
@@ -132,21 +81,18 @@ jobs:
           flutter create --platforms=android --project-name memora --org com.memora --no-pub .
           rm -rf test
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('android/app/src/main/AndroidManifest.xml')
-          s = p.read_text()
-          service = '''        <service
-              android:name=".MemoraForegroundService"
-              android:exported="false"
-              android:stopWithTask="false"
-              android:foregroundServiceType="dataSync" />\n'''
-          marker = '    </application>'
-          if marker not in s:
-              raise RuntimeError('Android application closing tag not found')
-          s = s.replace(marker, service + marker, 1)
-          p.write_text(s)
+          p=Path('android/app/src/main/AndroidManifest.xml');s=p.read_text();marker='    </application>'
+          native='''        <service android:name=".MemoraForegroundService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="dataSync" />
+                  <receiver android:name=".DailyExamAlarmReceiver" android:exported="false" />
+                  <receiver android:name=".DailyExamBootReceiver" android:enabled="true" android:exported="false">
+                      <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+                  </receiver>
+          '''
+          if marker not in s: raise RuntimeError('Android application closing tag not found')
+          p.write_text(s.replace(marker,native+marker,1))
           PY
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 26/' android/app/build.gradle.kts
           sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
@@ -163,11 +109,7 @@ jobs:
           convert "$ICON" -resize 96x96 android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
           convert "$ICON" -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
           convert "$ICON" -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-          mkdir -p android/app/src/main/res/drawable-mdpi \
-                   android/app/src/main/res/drawable-hdpi \
-                   android/app/src/main/res/drawable-xhdpi \
-                   android/app/src/main/res/drawable-xxhdpi \
-                   android/app/src/main/res/drawable-xxxhdpi
+          mkdir -p android/app/src/main/res/drawable-mdpi android/app/src/main/res/drawable-hdpi android/app/src/main/res/drawable-xhdpi android/app/src/main/res/drawable-xxhdpi android/app/src/main/res/drawable-xxxhdpi
           convert "$ICON" -trim +repage -resize 23x23 -gravity center -background none -extent 24x24 android/app/src/main/res/drawable-mdpi/ic_stat_memora.png
           convert "$ICON" -trim +repage -resize 34x34 -gravity center -background none -extent 36x36 android/app/src/main/res/drawable-hdpi/ic_stat_memora.png
           convert "$ICON" -trim +repage -resize 45x45 -gravity center -background none -extent 48x48 android/app/src/main/res/drawable-xhdpi/ic_stat_memora.png
@@ -179,9 +121,7 @@ jobs:
         run: |
           ANDROID_SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           SDKMANAGER="$(find "$ANDROID_SDK/cmdline-tools" -type f -path '*/bin/sdkmanager' 2>/dev/null | sort | tail -n 1)"
-          if [ -z "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "$ANDROID_SDK" -type f -name sdkmanager 2>/dev/null | sort | tail -n 1)"
-          fi
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$(find "$ANDROID_SDK" -type f -name sdkmanager 2>/dev/null | sort | tail -n 1)"; fi
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" "cmake;3.31.0" "ndk;28.0.12674087"
@@ -194,7 +134,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.23-Background-AI-release-apk
+          name: Memora-v1.46-Daily-Exams-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
