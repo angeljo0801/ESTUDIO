@@ -164,3 +164,5 @@ _v125 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v125_fast_tut
 exec(compile(_v125.read_text(), str(_v125), 'exec'))
 _v127 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v127_fast_exam_batches_patch.py'
 exec(compile(_v127.read_text(), str(_v127), 'exec'))
+_v128 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v128_ai_card_bank_exam_patch.py'
+exec(compile(_v128.read_text(), str(_v128), 'exec'))
