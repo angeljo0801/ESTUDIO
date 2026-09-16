@@ -112,3 +112,7 @@ if old not in s:
 s = s.replace(old, new, 1)
 p.write_text(s)
 print('Memora v1.33 exam bottom buttons patch applied successfully')
+
+import os
+_v134 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v134_difficulty_variant_exam_patch.py'
+exec(compile(_v134.read_text(), str(_v134), 'exec'))
