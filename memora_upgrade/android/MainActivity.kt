@@ -108,10 +108,10 @@ class MainActivity : FlutterActivity() {
             val manager = getSystemService(NotificationManager::class.java)
             val channel = NotificationChannel(
                 notificationChannelId,
-                "Tareas terminadas",
+                "Memora notifications",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Avisos cuando Memora termina exámenes, planes, guías y otras tareas."
+                description = "Notifications when Memora finishes tutor replies, exams, plans, guides, and other tasks."
             }
             manager.createNotificationChannel(channel)
         }
@@ -144,7 +144,9 @@ class MainActivity : FlutterActivity() {
         }
 
         val builder = Notification.Builder(this, notificationChannelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            // Use Memora's own brain launcher symbol in the status bar instead
+            // of Android's generic exclamation/info icon.
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(Notification.BigTextStyle().bigText(body))
