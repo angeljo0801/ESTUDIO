@@ -3,6 +3,13 @@ import 'package:pdfrx/pdfrx.dart';
 import 'guide_store.dart';
 import 'app_shell.dart';
 import 'completion_notification_service.dart';
+import 'daily_exam_headless.dart' as daily_headless;
+
+@pragma('vm:entry-point')
+Future<void> dailyExamHeadlessMain() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await daily_headless.dailyExamHeadlessMain();
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
