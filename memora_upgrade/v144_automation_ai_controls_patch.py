@@ -87,7 +87,6 @@ save = """    await p.setString('ai_task_exam', examProvider);
 if "p.setString('ai_task_exam'" not in s:
     s = s.replace(save_anchor, save_anchor + save, 1)
 
-# Insert compact task selectors before the final save button.
 ui_anchor = "                  const SizedBox(height: 22),\n                  FilledButton.icon(\n                    onPressed: _save,"
 ui = r'''                  const SizedBox(height: 22),
                   const Divider(),
@@ -136,8 +135,6 @@ p.write_text(s)
 p = Path('lib/daily_exam_page.dart')
 s = p.read_text()
 start = s.find('  List<ExamQuestionData> _cardQuestions(')
-end = s.find('\n  ', start + 10)
-# Find the next method after the whole function using a stable parse helper anchor.
 parse_anchor = s.find('  List<ExamQuestionData> _parseAiQuestions(', start)
 if start < 0 or parse_anchor < 0: raise RuntimeError('v1.44 card fallback block not found')
 block = s[start:parse_anchor]
@@ -146,7 +143,6 @@ return_start = block.find('    return pool', sort_start)
 if sort_start >= 0 and return_start >= 0:
     block = block[:sort_start] + "    pool.shuffle(Random(DateTime.now().microsecondsSinceEpoch));\n" + block[return_start:]
     s = s[:start] + block + s[parse_anchor:]
-# Route exam-generation AI calls through task cascade, preserving selected provider first.
 s = s.replace(
     'final raw = await AiService.askConfigured(\n',
     "final raw = await AiService.askCascade(\n          task: 'exam',\n",
@@ -162,9 +158,9 @@ method = r'''  Future<String> _generateTutorPrompt(String description) async {
     return AiService.askCascade(
       task: 'prompt',
       responseMode: 'fast',
-      prompt: '''Create a concise, production-ready system prompt for a study tutor in Memora from this user description:
+      prompt: """Create a concise, production-ready system prompt for a study tutor in Memora from this user description:
 $description
-Include role, teaching behavior, response style, use of assigned study guides, uncertainty handling, and useful learning rules. Return only the prompt.''',
+Include role, teaching behavior, response style, use of assigned study guides, uncertainty handling, and useful learning rules. Return only the prompt.""",
     );
   }
 
@@ -172,7 +168,6 @@ Include role, teaching behavior, response style, use of assigned study guides, u
 if '_generateTutorPrompt(' not in s:
     if method_anchor not in s: raise RuntimeError('v1.44 tutor dialog anchor not found')
     s = s.replace(method_anchor, method + method_anchor, 1)
-# Add button immediately after tutor instructions field by targeting next spacer/dropdown.
 target = """                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: source,"""
@@ -191,7 +186,6 @@ button = r'''                const SizedBox(height: 8),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: source,'''
-# Only first matching occurrence inside dialog area.
 pos = s.find(method_anchor)
 idx = s.find(target, pos)
 if idx >= 0 and 'Generate prompt from description' not in s[pos:idx+1000]:
@@ -207,9 +201,9 @@ agent_method = r'''  Future<String> _generateAgentPrompt(String description) asy
     return AiService.askCascade(
       task: 'prompt',
       responseMode: 'fast',
-      prompt: '''Create a concise, production-ready system prompt for a Memora agent from this user description:
+      prompt: """Create a concise, production-ready system prompt for a Memora agent from this user description:
 $description
-Define role, objectives, behavior, response format, use of assigned knowledge bases, boundaries and uncertainty handling. Return only the prompt.''',
+Define role, objectives, behavior, response format, use of assigned knowledge bases, boundaries and uncertainty handling. Return only the prompt.""",
     );
   }
 
@@ -217,7 +211,6 @@ Define role, objectives, behavior, response format, use of assigned knowledge ba
 if '_generateAgentPrompt(' not in s:
     if agent_anchor not in s: raise RuntimeError('v1.44 agent dialog anchor not found')
     s = s.replace(agent_anchor, agent_method + agent_anchor, 1)
-# Add description controller and generation UI.
 old = "    final prompt = TextEditingController(text: existing?.prompt ?? '');\n"
 if 'final promptDescription = TextEditingController' not in s:
     s = s.replace(old, old + "    final promptDescription = TextEditingController();\n", 1)
