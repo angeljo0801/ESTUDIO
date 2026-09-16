@@ -74,3 +74,7 @@ s = s.replace(old_fallback, new_fallback, 1)
 
 p.write_text(s)
 print('Memora v1.39 exam validation + speed patch applied successfully')
+
+import os
+_v140 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v140_conversational_open_ended_followup_patch.py'
+exec(compile(_v140.read_text(), str(_v140), 'exec'))
