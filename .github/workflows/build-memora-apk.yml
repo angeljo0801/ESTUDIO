@@ -61,6 +61,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/memora_upgrade/v121_tutor_plan_models_patch.py" ./v121_tutor_plan_models_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v121_runner.py" ./v121_runner.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v122_ai_cards_exam_grounding_patch.py" ./v122_ai_cards_exam_grounding_patch.py
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v122_runner.py" ./v122_runner.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('v14_patch.py')
@@ -121,7 +122,7 @@ jobs:
           python3 v119_translation_fast_model_patch.py
           python3 v120_learning_quality_patch.py
           python3 v121_runner.py
-          python3 v122_ai_cards_exam_grounding_patch.py
+          python3 v122_runner.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -144,10 +145,6 @@ jobs:
           convert "$ICON" -resize 96x96 android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
           convert "$ICON" -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
           convert "$ICON" -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-
-          # Android status-bar icons are tiny and use only the alpha silhouette.
-          # Trim transparent launcher padding and let the brain occupy ~94% of
-          # the available notification canvas so it does not look like a dot.
           mkdir -p android/app/src/main/res/drawable-mdpi \
                    android/app/src/main/res/drawable-hdpi \
                    android/app/src/main/res/drawable-xhdpi \
