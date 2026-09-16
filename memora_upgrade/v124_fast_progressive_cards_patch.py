@@ -145,9 +145,42 @@ s = required(
     'Card generation mode save',
 )
 
-save_anchor = """                  const SizedBox(height: 22),\n                  FilledButton.icon(\n                    onPressed: _save,\n"""
-mode_ui = """                  const SizedBox(height: 22),\n                  const Text(\n                    'Card generation speed',\n                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),\n                  ),\n                  const SizedBox(height: 6),\n                  SegmentedButton<String>(\n                    segments: const [\n                      ButtonSegment(value: 'fast', label: Text('Fast')),\n                      ButtonSegment(value: 'balanced', label: Text('Balanced')),\n                      ButtonSegment(value: 'maximum', label: Text('Maximum quality')),\n                    ],\n                    selected: <String>{cardGenerationMode},\n                    onSelectionChanged: (value) {\n                      setState(() => cardGenerationMode = value.first);\n                    },\n                  ),\n                  const SizedBox(height: 8),\n                  Text(\n                    cardGenerationMode == 'fast'\n                        ? 'Largest batches and shortest answers for the fastest creation.'\n                        : cardGenerationMode == 'maximum'\n                            ? 'Smaller batches and more retries for maximum quality.'\n                            : 'Recommended: fast large batches with strong quality checks.',\n                  ),\n                  const SizedBox(height: 22),\n                  FilledButton.icon(\n                    onPressed: _save,\n"""
-s = required(s, save_anchor, mode_ui, 'Card generation mode settings UI')
+mode_ui = """                  const SizedBox(height: 22),
+                  const Text(
+                    'Card generation speed',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'fast', label: Text('Fast')),
+                      ButtonSegment(value: 'balanced', label: Text('Balanced')),
+                      ButtonSegment(value: 'maximum', label: Text('Maximum quality')),
+                    ],
+                    selected: <String>{cardGenerationMode},
+                    onSelectionChanged: (value) {
+                      setState(() => cardGenerationMode = value.first);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    cardGenerationMode == 'fast'
+                        ? 'Largest batches and shortest answers for the fastest creation.'
+                        : cardGenerationMode == 'maximum'
+                            ? 'Smaller batches and more retries for maximum quality.'
+                            : 'Recommended: fast large batches with strong quality checks.',
+                  ),
+                  const SizedBox(height: 22),
+"""
+save_call = "onPressed: _save"
+call_index = s.rfind(save_call)
+if call_index < 0:
+    raise RuntimeError('Card generation mode save action not found')
+save_index = s.rfind('FilledButton.icon(', 0, call_index)
+if save_index < 0:
+    raise RuntimeError('Card generation mode save button not found')
+line_start = s.rfind('\n', 0, save_index) + 1
+s = s[:line_start] + mode_ui + s[line_start:]
 p.write_text(s)
 
 print('Memora v1.24 fast progressive card generation patch applied successfully')
