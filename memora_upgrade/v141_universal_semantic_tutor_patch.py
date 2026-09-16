@@ -41,9 +41,6 @@ if '_tutorIntentFromResult(' not in s:
         raise RuntimeError('v1.41 tutor helper anchor not found')
     s = s.replace(helper_anchor, helpers + helper_anchor, 1)
 
-# Always preserve useful recent conversation context. Earlier versions removed
-# history for broad requests to avoid repetition; the non-repeating evidence
-# sampler already handles repetition, while natural follow-ups need history.
 old_history = """    final history = broadRequest
         ? ''
         : simpleRequest
@@ -60,16 +57,21 @@ if new_history not in s:
         raise RuntimeError('v1.41 conversation history anchor not found')
     s = s.replace(old_history, new_history, 1)
 
-# Replace conditional semantic instructions with one universal natural-language
-# interpretation contract. The marker is machine-readable and stripped before
-# the user sees it; it lets Memora distinguish an unsupported specific question
-# from an open-ended request even when the wording is completely novel.
 if 'START your response with exactly one machine marker:' not in s:
     source_start = s.find('      final sourceRule = broad\n')
     source_end = s.find('\n\n      final result = await AiService.askConfigured(', source_start)
     if source_start < 0 or source_end < 0:
         raise RuntimeError('v1.41 source rule block not found')
-    new_source = r"""      final sourceRule = '''Interpret the CURRENT USER MESSAGE by meaning, not by literal keywords or command phrases.
+    # This replacement spans the old sourceRule block through the call site.
+    # Preserve answerStyle here because the prompt below still interpolates it.
+    new_source = r"""      final answerStyle = broad
+          ? 'Answer in 1-2 concise sentences. Pick one concrete point from the supplied guide excerpt and explain it directly.'
+          : responseMode == 'fast'
+              ? 'Answer directly in 1-3 concise sentences. No preamble and no unnecessary repetition.'
+              : responseMode == 'deep'
+                  ? 'Give a thorough but focused explanation, connecting the relevant ideas in the guide.'
+                  : 'Give a clear, concise explanation with enough context to understand the answer.';
+      final sourceRule = '''Interpret the CURRENT USER MESSAGE by meaning, not by literal keywords or command phrases.
 Use CONVERSATION HISTORY to resolve pronouns, omitted subjects, shorthand, typos, colloquial language, and follow-ups.
 Silently determine the intent, then START your response with exactly one machine marker:
 [[OPEN]] = the user wants any/new/another/more material from the assigned guides, including an open-ended continuation.
@@ -85,8 +87,6 @@ If CHAT, respond naturally; do not force an unrelated guide fact into the conver
 The marker is for Memora only. After the marker, write only the normal user-facing answer.''';"""
     s = s[:source_start] + new_source + s[source_end:]
 
-# Natural conversational turns do not need evidence merely to say hello/thanks,
-# and rephrasing a previous grounded answer requires history as a referent.
 old_prompt_line = "- Keep the conversation natural and use the history only for conversational continuity, never as evidence that overrides the guides.\n"
 new_prompt_line = """- Keep the conversation natural. Use CONVERSATION HISTORY to resolve references and understand what the user means.
 - Greetings, acknowledgements, and conversational/meta requests that do not ask for new factual guide content may be answered naturally without source evidence.
@@ -98,7 +98,6 @@ if new_prompt_line not in s:
         raise RuntimeError('v1.41 permanent conversation rule anchor not found')
     s = s.replace(old_prompt_line, new_prompt_line, 1)
 
-# Hide the machine intent marker while tokens stream.
 old_partial = """        onPartial: (partial) {
           if (partial.isNotEmpty) _updateAssistantBubble(pending.id, partial, token);
         },
@@ -115,9 +114,6 @@ if new_partial not in s:
         raise RuntimeError('v1.41 streaming partial anchor not found')
     s = s.replace(old_partial, new_partial, 1)
 
-# Parse the semantic marker before final validation. A model-classified OPEN
-# request gets the same grounded false-negative protection as the fast broad
-# route, so arbitrary natural wording can never depend on a regex list.
 old_final = """      var finalResult = result.trim();
       final normalizedResult = finalResult.toLowerCase().trim();
       final modelReturnedNotFound = normalizedResult ==
