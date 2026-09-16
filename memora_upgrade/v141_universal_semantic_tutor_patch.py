@@ -152,3 +152,7 @@ s = s.replace(old_final, new_final, 1)
 
 p.write_text(s)
 print('Memora v1.41 universal semantic tutor patch applied successfully')
+
+import os
+_v142 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v142_clean_exam_answers_patch.py'
+exec(compile(_v142.read_text(), str(_v142), 'exec'))
