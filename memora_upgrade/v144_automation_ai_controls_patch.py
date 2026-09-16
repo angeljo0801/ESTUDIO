@@ -88,12 +88,6 @@ save = """    await p.setString('ai_task_exam', examProvider);
 if "p.setString('ai_task_exam'" not in s:
     if save_anchor not in s: raise RuntimeError('v1.44 AI settings save anchor not found')
     s = s.replace(save_anchor, save_anchor + save, 1)
-ui_anchor = """                  const SizedBox(height: 22),
-                  FilledButton.icon(
-                    onPressed: _save,
-                    icon: const Icon(Icons.save),
-                    label: const Text('Guardar y usar esta opción'),
-                  ),"""
 ui = r'''                  const SizedBox(height: 22),
                   const Divider(),
                   const SizedBox(height: 10),
@@ -130,14 +124,18 @@ ui = r'''                  const SizedBox(height: 22),
                       ),
                     ),
                   const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _save,
-                    icon: const Icon(Icons.save),
-                    label: const Text('Guardar y usar esta opción'),
-                  ),'''
+'''
 if 'AI by task' not in s:
-    if ui_anchor not in s: raise RuntimeError('v1.44 AI settings UI anchor not found')
-    s = s.replace(ui_anchor, ui, 1)
+    # The English-system patch runs before v1.44, so anchor on the stable save widget
+    # instead of a translated label. This leaves the existing save button untouched.
+    save_widget = '                  FilledButton.icon(\n                    onPressed: _save,'
+    idx = s.rfind(save_widget)
+    if idx < 0: raise RuntimeError('v1.44 AI settings save widget not found')
+    # Include the existing spacing before Save in the replacement insertion point.
+    spacing = '                  const SizedBox(height: 22),\n'
+    spacing_idx = s.rfind(spacing, 0, idx)
+    insert_at = spacing_idx if spacing_idx >= 0 else idx
+    s = s[:insert_at] + ui + s[idx:]
 p.write_text(s)
 
 # Exams: AI primary; randomized cards only fill missing slots.
