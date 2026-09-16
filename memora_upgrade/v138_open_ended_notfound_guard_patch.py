@@ -49,3 +49,7 @@ s = s.replace(old_rule, new_rule, 1)
 
 p.write_text(s)
 print('Memora v1.38 open-ended not-found guard patch applied successfully')
+
+import os
+_v139 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v139_exam_validation_speed_patch.py'
+exec(compile(_v139.read_text(), str(_v139), 'exec'))
