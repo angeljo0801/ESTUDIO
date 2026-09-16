@@ -29,27 +29,9 @@ if '_isOpenEndedContinuation(' not in s:
         raise RuntimeError('v1.40 broad helper anchor not found')
     s = s.replace(helper_anchor, helper + helper_anchor, 1)
 
+# State produced by v1.30-v1.39 before this patch runs.
 old_history = """    final shownQuestion = question.isEmpty ? 'Analyze the attached content.' : question;
-
-    // Look at the immediately preceding user turn before adding the new one.
-    // This makes short anaphoric turns inherit the established open-ended
-    // intent without forcing a second LLM classifier call.
-    var previousUserText = '';
-    for (final message in current.messages.reversed) {
-      if (message.role == 'user' && message.text.trim().isNotEmpty) {
-        previousUserText = message.text.trim();
-        break;
-      }
-    }
-    final previousWasOpenEnded = previousUserText.isNotEmpty &&
-        (_isBroadGuideRequest(previousUserText) ||
-            _isOpenEndedContinuation(previousUserText));
-    final continuationRequest = attachments.isEmpty &&
-        previousWasOpenEnded &&
-        _isOpenEndedContinuation(shownQuestion);
-
-    final broadRequest = attachments.isEmpty &&
-        (_isBroadGuideRequest(shownQuestion) || continuationRequest);
+    final broadRequest = attachments.isEmpty && _isBroadGuideRequest(shownQuestion);
     final simpleRequest = attachments.isEmpty && _isSimpleTutorRequest(shownQuestion);
     final history = broadRequest
         ? ''
@@ -87,9 +69,12 @@ new_history = """    final shownQuestion = question.isEmpty ? 'Analyze the attac
             : _conversationHistory();
 """
 
-if old_history not in s:
-    raise RuntimeError('v1.40 tutor conversation-history anchor not found')
-s = s.replace(old_history, new_history, 1)
+# Make the patch safe to apply even when a newer source snapshot already
+# contains the continuation block.
+if new_history not in s:
+    if old_history not in s:
+        raise RuntimeError('v1.40 tutor conversation-history anchor not found')
+    s = s.replace(old_history, new_history, 1)
 
 # Give semantic routing stronger conversational instructions too. This preserves
 # semantic interpretation for wordings that are not covered by the fast path.
@@ -100,9 +85,10 @@ new_semantic = """First decide silently whether the user is making an open-ended
 Use CONVERSATION HISTORY to resolve short, elliptical, or referential follow-ups. If the previous user intent was open-ended and the current message semantically means another/more/continue, preserve that open-ended intent rather than treating the words as a literal search query.
 If it is open-ended, choose ONE useful fact, concept, relationship, formula, cause/effect, comparison, or application from SOURCE EVIDENCE and answer naturally.
 """
-if old_semantic not in s:
-    raise RuntimeError('v1.40 semantic continuation instruction anchor not found')
-s = s.replace(old_semantic, new_semantic, 1)
+if new_semantic not in s:
+    if old_semantic not in s:
+        raise RuntimeError('v1.40 semantic continuation instruction anchor not found')
+    s = s.replace(old_semantic, new_semantic, 1)
 
 p.write_text(s)
 print('Memora v1.40 conversational open-ended follow-up patch applied successfully')
