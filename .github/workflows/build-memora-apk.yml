@@ -60,6 +60,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/memora_upgrade/v120_learning_quality_patch.py" ./v120_learning_quality_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v121_tutor_plan_models_patch.py" ./v121_tutor_plan_models_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v121_runner.py" ./v121_runner.py
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v122_ai_cards_exam_grounding_patch.py" ./v122_ai_cards_exam_grounding_patch.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('v14_patch.py')
@@ -120,6 +121,7 @@ jobs:
           python3 v119_translation_fast_model_patch.py
           python3 v120_learning_quality_patch.py
           python3 v121_runner.py
+          python3 v122_ai_cards_exam_grounding_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -131,7 +133,7 @@ jobs:
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 26/' android/app/build.gradle.kts
           sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MainActivity.kt" android/app/src/main/kotlin/com/memora/memora/MainActivity.kt
-      - name: Install brain launcher icon
+      - name: Install Memora icons
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           sudo apt-get update -qq
@@ -142,6 +144,20 @@ jobs:
           convert "$ICON" -resize 96x96 android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
           convert "$ICON" -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
           convert "$ICON" -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+
+          # Android status-bar icons are tiny and use only the alpha silhouette.
+          # Trim transparent launcher padding and let the brain occupy ~94% of
+          # the available notification canvas so it does not look like a dot.
+          mkdir -p android/app/src/main/res/drawable-mdpi \
+                   android/app/src/main/res/drawable-hdpi \
+                   android/app/src/main/res/drawable-xhdpi \
+                   android/app/src/main/res/drawable-xxhdpi \
+                   android/app/src/main/res/drawable-xxxhdpi
+          convert "$ICON" -trim +repage -resize 23x23 -gravity center -background none -extent 24x24 android/app/src/main/res/drawable-mdpi/ic_stat_memora.png
+          convert "$ICON" -trim +repage -resize 34x34 -gravity center -background none -extent 36x36 android/app/src/main/res/drawable-hdpi/ic_stat_memora.png
+          convert "$ICON" -trim +repage -resize 45x45 -gravity center -background none -extent 48x48 android/app/src/main/res/drawable-xhdpi/ic_stat_memora.png
+          convert "$ICON" -trim +repage -resize 68x68 -gravity center -background none -extent 72x72 android/app/src/main/res/drawable-xxhdpi/ic_stat_memora.png
+          convert "$ICON" -trim +repage -resize 90x90 -gravity center -background none -extent 96x96 android/app/src/main/res/drawable-xxxhdpi/ic_stat_memora.png
       - name: Install Android native toolchain and dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
@@ -163,7 +179,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.21-Tutor-Plan-Models-release-apk
+          name: Memora-v1.22-AI-Cards-System-AI-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
