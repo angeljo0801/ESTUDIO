@@ -58,6 +58,7 @@ if 'static const List<String> defaultCascade' not in s:
 p.write_text(s)
 
 # AI Settings: task-specific providers, Gemini on fresh install.
+# Preserve the existing provider cards/names exactly; only add a task section before Save.
 p = Path('lib/llm_settings_page.dart')
 s = p.read_text()
 field_anchor = "  String provider = 'gemini';\n"
@@ -67,6 +68,7 @@ fields = """  String examProvider = 'gemini';
   String promptProvider = 'gemini';
 """
 if "String examProvider = 'gemini';" not in s:
+    if field_anchor not in s: raise RuntimeError('v1.44 AI settings field anchor not found')
     s = s.replace(field_anchor, field_anchor + fields, 1)
 load_anchor = "    provider = p.getString('llm_provider') ?? 'gemini';\n"
 load = """    examProvider = p.getString('ai_task_exam') ?? 'gemini';
@@ -75,6 +77,7 @@ load = """    examProvider = p.getString('ai_task_exam') ?? 'gemini';
     promptProvider = p.getString('ai_task_prompt') ?? 'gemini';
 """
 if "p.getString('ai_task_exam')" not in s:
+    if load_anchor not in s: raise RuntimeError('v1.44 AI settings load anchor not found')
     s = s.replace(load_anchor, load_anchor + load, 1)
 save_anchor = "    await p.setString('llm_provider', provider);\n"
 save = """    await p.setString('ai_task_exam', examProvider);
@@ -83,8 +86,14 @@ save = """    await p.setString('ai_task_exam', examProvider);
     await p.setString('ai_task_prompt', promptProvider);
 """
 if "p.setString('ai_task_exam'" not in s:
+    if save_anchor not in s: raise RuntimeError('v1.44 AI settings save anchor not found')
     s = s.replace(save_anchor, save_anchor + save, 1)
-ui_anchor = "                  const SizedBox(height: 22),\n                  FilledButton.icon(\n                    onPressed: _save,"
+ui_anchor = """                  const SizedBox(height: 22),
+                  FilledButton.icon(
+                    onPressed: _save,
+                    icon: const Icon(Icons.save),
+                    label: const Text('Guardar y usar esta opción'),
+                  ),"""
 ui = r'''                  const SizedBox(height: 22),
                   const Divider(),
                   const SizedBox(height: 10),
@@ -101,13 +110,13 @@ ui = r'''                  const SizedBox(height: 22),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: DropdownButtonFormField<String>(
-                        value: task.$3,
+                        initialValue: task.$3,
                         decoration: InputDecoration(labelText: task.$1),
                         items: const [
-                          DropdownMenuItem(value: 'gemini', child: Text('Gemini')),
-                          DropdownMenuItem(value: 'openai', child: Text('OpenAI')),
-                          DropdownMenuItem(value: 'local', child: Text('Ollama')),
-                          DropdownMenuItem(value: 'device', child: Text('On-phone model')),
+                          DropdownMenuItem(value: 'gemini', child: Text('Gemini online')),
+                          DropdownMenuItem(value: 'openai', child: Text('Compatible online LLM')),
+                          DropdownMenuItem(value: 'local', child: Text('Local LLM')),
+                          DropdownMenuItem(value: 'device', child: Text('GGUF on this phone')),
                         ],
                         onChanged: (value) {
                           final v = value ?? 'gemini';
@@ -122,7 +131,10 @@ ui = r'''                  const SizedBox(height: 22),
                     ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
-                    onPressed: _save,'''
+                    onPressed: _save,
+                    icon: const Icon(Icons.save),
+                    label: const Text('Guardar y usar esta opción'),
+                  ),'''
 if 'AI by task' not in s:
     if ui_anchor not in s: raise RuntimeError('v1.44 AI settings UI anchor not found')
     s = s.replace(ui_anchor, ui, 1)
