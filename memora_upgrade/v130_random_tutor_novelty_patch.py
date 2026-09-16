@@ -128,3 +128,7 @@ s = s.replace(
 
 p.write_text(s)
 print('Memora v1.30 non-repeating random tutor patch applied successfully')
+
+import os
+_v131 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v131_random_tutor_card_fallback_patch.py'
+exec(compile(_v131.read_text(), str(_v131), 'exec'))
