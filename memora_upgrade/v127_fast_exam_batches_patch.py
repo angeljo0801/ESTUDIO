@@ -34,7 +34,7 @@ end = s.find('\n  Future<TutorExamSession> _buildExam({', start)
 if start < 0 or end < 0:
     raise RuntimeError('Final exam generator block not found')
 
-new_method = r'''  List<String> _compactExamMaterial(
+new_method = r"""  List<String> _compactExamMaterial(
     List<StudyGuide> guides, {
     required int maxChars,
   }) {
@@ -214,7 +214,7 @@ $chunk''',
     );
   }
 
-'''
+"""
 s = s[:start] + new_method + s[end:]
 
 # Pass the exact resolved provider so the batch strategy can distinguish direct
