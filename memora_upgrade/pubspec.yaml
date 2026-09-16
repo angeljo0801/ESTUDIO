@@ -23,6 +23,7 @@ dependencies:
   llama_flutter_android: ^0.2.6
   image_picker: ^1.2.3
   google_mlkit_text_recognition: ^0.17.1
+  google_mlkit_translation: ^0.15.1
   speech_to_text: ^7.4.0
 
 dev_dependencies:
