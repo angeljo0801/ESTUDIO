@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # Memora v1.45: on-demand exam explanations + visible tutor response timer.
 p = Path('lib/daily_exam_page.dart')
@@ -96,7 +97,6 @@ finallypos=s.find('    } finally {',trypos)
 if finallypos<0: raise RuntimeError('v1.45 _ask finally not found')
 line="    } finally {\n"
 if '_stopResponseTimer();' not in s[finallypos:finallypos+180]: s=s[:finallypos]+s[finallypos:].replace(line,line+'      _stopResponseTimer();\n',1)
-# v1.5 replaced the old SelectableText(answer) with ChatTranscript. Insert the timer after it.
 transcript="""                          SizedBox(
                             height: 420,
                             child: ChatTranscript(
@@ -128,3 +128,5 @@ p.write_text(s)
 
 p=Path('pubspec.yaml'); s=p.read_text().replace('version: 1.44.0+57','version: 1.45.0+58'); p.write_text(s)
 print('Memora v1.45 exam explanations + tutor response timer applied successfully')
+_v146 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v146_daily_exam_schedule_patch.py'
+exec(compile(_v146.read_text(), str(_v146), 'exec'))
