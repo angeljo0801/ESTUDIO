@@ -78,3 +78,5 @@ print('Memora v1.39 exam validation + speed patch applied successfully')
 import os
 _v140 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v140_conversational_open_ended_followup_patch.py'
 exec(compile(_v140.read_text(), str(_v140), 'exec'))
+_v143 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v143_semantic_exam_quality_patch.py'
+exec(compile(_v143.read_text(), str(_v143), 'exec'))
