@@ -57,3 +57,5 @@ print('Memora v1.36 open-ended evidence fallback patch applied successfully')
 import os
 _v137 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v137_exam_delete_reasoning_patch.py'
 exec(compile(_v137.read_text(), str(_v137), 'exec'))
+_v138 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v138_open_ended_notfound_guard_patch.py'
+exec(compile(_v138.read_text(), str(_v138), 'exec'))
