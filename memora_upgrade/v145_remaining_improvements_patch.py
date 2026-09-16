@@ -87,7 +87,6 @@ fields="""  Timer? _responseTimer;
 if 'Timer? _responseTimer;' not in s:
     if state_anchor not in s: raise RuntimeError('v1.45 tutor state anchor not found')
     s=s.replace(state_anchor,fields+state_anchor,1)
-# Insert start after the exact busy state block, independent of translated status text.
 pos=s.find('  Future<void> _ask() async {')
 if pos<0: raise RuntimeError('v1.45 _ask not found')
 trypos=s.find('    try {',pos)
@@ -97,21 +96,34 @@ finallypos=s.find('    } finally {',trypos)
 if finallypos<0: raise RuntimeError('v1.45 _ask finally not found')
 line="    } finally {\n"
 if '_stopResponseTimer();' not in s[finallypos:finallypos+180]: s=s[:finallypos]+s[finallypos:].replace(line,line+'      _stopResponseTimer();\n',1)
-# Timer shown beside the current tutor answer.
-answer_ui='                          SelectableText(answer),\n'
-timer_ui="""                          SelectableText(answer),
-                          const SizedBox(height: 8),
+# v1.5 replaced the old SelectableText(answer) with ChatTranscript. Insert the timer after it.
+transcript="""                          SizedBox(
+                            height: 420,
+                            child: ChatTranscript(
+                              messages: _chatMessages,
+                              participantName: activeTutor.name,
+                              emptyText: 'Empieza un chat con ${activeTutor.name}. El historial se guardará automáticamente.',
+                            ),
+                          ),"""
+timer="""                          SizedBox(
+                            height: 420,
+                            child: ChatTranscript(
+                              messages: _chatMessages,
+                              participantName: activeTutor.name,
+                              emptyText: 'Empieza un chat con ${activeTutor.name}. El historial se guardará automáticamente.',
+                            ),
+                          ),
+                          const SizedBox(height: 6),
                           Align(
                             alignment: Alignment.centerRight,
                             child: Text(
                               '${_responseSeconds.toStringAsFixed(1)} s',
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: busy ? Theme.of(context).colorScheme.secondary : const Color(0xFF7C4DFF)),
                             ),
-                          ),
-"""
+                          ),"""
 if '_responseSeconds.toStringAsFixed' not in s:
-    if answer_ui not in s: raise RuntimeError('v1.45 timer UI anchor not found')
-    s=s.replace(answer_ui,timer_ui,1)
+    if transcript not in s: raise RuntimeError('v1.45 chat transcript timer anchor not found')
+    s=s.replace(transcript,timer,1)
 p.write_text(s)
 
 p=Path('pubspec.yaml'); s=p.read_text().replace('version: 1.44.0+57','version: 1.45.0+58'); p.write_text(s)
