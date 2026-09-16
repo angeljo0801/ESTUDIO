@@ -56,7 +56,7 @@ ${recent.isEmpty ? '(none)' : recent.map((q) => '- $q').join('\n')}
 
 MATERIAL:
 $chunk''';"""
-s, n = prompt_pattern.subn(prompt_replacement, s, count=1)
+s, n = prompt_pattern.subn(lambda _m: prompt_replacement, s, count=1)
 if n != 1:
     raise RuntimeError('AI card compact prompt anchor not found')
 
@@ -176,11 +176,10 @@ save_call = "onPressed: _save"
 call_index = s.rfind(save_call)
 if call_index < 0:
     raise RuntimeError('Card generation mode save action not found')
-save_index = s.rfind('FilledButton.icon(', 0, call_index)
-if save_index < 0:
-    raise RuntimeError('Card generation mode save button not found')
-line_start = s.rfind('\n', 0, save_index) + 1
-s = s[:line_start] + mode_ui + s[line_start:]
+safe_area_index = s.rfind('                  SafeArea(', 0, call_index)
+if safe_area_index < 0:
+    raise RuntimeError('Card generation mode save SafeArea not found')
+s = s[:safe_area_index] + mode_ui + s[safe_area_index:]
 p.write_text(s)
 
 print('Memora v1.24 fast progressive card generation patch applied successfully')
