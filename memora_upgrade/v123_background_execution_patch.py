@@ -155,9 +155,10 @@ p.write_text(s)
 
 print('Memora v1.23 foreground background execution patch applied successfully')
 
-# v1.24 is kept as a separate patch in the source tree, but this workflow already
-# executes v1.23. Chain it here so older build scripts automatically receive the
-# faster/progressive card generator without another workflow migration step.
+# Keep later source-tree patches chained here so the existing build workflow
+# receives them without needing another workflow migration step.
 import os
 _v124 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v124_fast_progressive_cards_patch.py'
 exec(compile(_v124.read_text(), str(_v124), 'exec'))
+_v125 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v125_fast_tutor_response_patch.py'
+exec(compile(_v125.read_text(), str(_v125), 'exec'))
