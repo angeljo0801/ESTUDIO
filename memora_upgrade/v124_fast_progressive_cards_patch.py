@@ -40,7 +40,7 @@ prompt_pattern = re.compile(
     r"      final recent = cards\.reversed\.take\(18\).*?\n      final prompt = '''Create .*?\n\$chunk''';",
     re.S,
 )
-prompt_replacement = r'''      final recent = cards.reversed.take(8).map((c) => c.question).toList().reversed;
+prompt_replacement = r"""      final recent = cards.reversed.take(8).map((c) => c.question).toList().reversed;
       final prompt = '''Create $requestCount strong study flashcards from the MATERIAL below.
 
 RULES:
@@ -55,7 +55,7 @@ AVOID REPEATING:
 ${recent.isEmpty ? '(none)' : recent.map((q) => '- $q').join('\n')}
 
 MATERIAL:
-$chunk''';'''
+$chunk''';"""
 s, n = prompt_pattern.subn(prompt_replacement, s, count=1)
 if n != 1:
     raise RuntimeError('AI card compact prompt anchor not found')
