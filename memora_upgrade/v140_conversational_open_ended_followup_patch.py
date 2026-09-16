@@ -30,7 +30,26 @@ if '_isOpenEndedContinuation(' not in s:
     s = s.replace(helper_anchor, helper + helper_anchor, 1)
 
 old_history = """    final shownQuestion = question.isEmpty ? 'Analyze the attached content.' : question;
-    final broadRequest = attachments.isEmpty && _isBroadGuideRequest(shownQuestion);
+
+    // Look at the immediately preceding user turn before adding the new one.
+    // This makes short anaphoric turns inherit the established open-ended
+    // intent without forcing a second LLM classifier call.
+    var previousUserText = '';
+    for (final message in current.messages.reversed) {
+      if (message.role == 'user' && message.text.trim().isNotEmpty) {
+        previousUserText = message.text.trim();
+        break;
+      }
+    }
+    final previousWasOpenEnded = previousUserText.isNotEmpty &&
+        (_isBroadGuideRequest(previousUserText) ||
+            _isOpenEndedContinuation(previousUserText));
+    final continuationRequest = attachments.isEmpty &&
+        previousWasOpenEnded &&
+        _isOpenEndedContinuation(shownQuestion);
+
+    final broadRequest = attachments.isEmpty &&
+        (_isBroadGuideRequest(shownQuestion) || continuationRequest);
     final simpleRequest = attachments.isEmpty && _isSimpleTutorRequest(shownQuestion);
     final history = broadRequest
         ? ''
@@ -87,3 +106,7 @@ s = s.replace(old_semantic, new_semantic, 1)
 
 p.write_text(s)
 print('Memora v1.40 conversational open-ended follow-up patch applied successfully')
+
+import os
+_v141 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v141_universal_semantic_tutor_patch.py'
+exec(compile(_v141.read_text(), str(_v141), 'exec'))
