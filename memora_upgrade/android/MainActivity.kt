@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -15,14 +16,25 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    companion object {
+        @Volatile
+        private var retainedEngine: FlutterEngine? = null
+    }
+
     private var sharedModelDescriptor: ParcelFileDescriptor? = null
     private val notificationChannelId = "memora_tasks"
     private val notificationPermissionRequest = 4317
     private var pendingNotification: Triple<Int, String, String>? = null
 
+    override fun provideFlutterEngine(context: Context): FlutterEngine? = retainedEngine
+
+    override fun shouldDestroyEngineWithHost(): Boolean = !MemoraForegroundService.running
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        retainedEngine = flutterEngine
         createTaskNotificationChannel()
+        val appContext = applicationContext
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -101,6 +113,52 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.memora/background_tasks"
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start", "update" -> {
+                    val title = call.argument<String>("title")?.trim().orEmpty()
+                    val body = call.argument<String>("body")?.trim().orEmpty()
+                    val progress = call.argument<Int>("progress") ?: -1
+                    val max = call.argument<Int>("max") ?: -1
+                    val intent = Intent(appContext, MemoraForegroundService::class.java).apply {
+                        action = if (call.method == "start") {
+                            MemoraForegroundService.ACTION_START
+                        } else {
+                            MemoraForegroundService.ACTION_UPDATE
+                        }
+                        putExtra(MemoraForegroundService.EXTRA_TITLE, title)
+                        putExtra(MemoraForegroundService.EXTRA_BODY, body)
+                        putExtra(MemoraForegroundService.EXTRA_PROGRESS, progress)
+                        putExtra(MemoraForegroundService.EXTRA_MAX, max)
+                    }
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            appContext.startForegroundService(intent)
+                        } else {
+                            appContext.startService(intent)
+                        }
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("BACKGROUND_SERVICE", e.message, null)
+                    }
+                }
+
+                "stop" -> {
+                    try {
+                        appContext.stopService(Intent(appContext, MemoraForegroundService::class.java))
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("BACKGROUND_SERVICE", e.message, null)
+                    }
+                }
+
+                else -> result.notImplemented()
+            }
+        }
     }
 
     private fun createTaskNotificationChannel() {
@@ -144,8 +202,6 @@ class MainActivity : FlutterActivity() {
         }
 
         val builder = Notification.Builder(this, notificationChannelId)
-            // Dedicated status-bar resource: same Memora brain, but cropped much
-            // tighter than the launcher icon so it remains visible at 24dp.
             .setSmallIcon(R.drawable.ic_stat_memora)
             .setContentTitle(title)
             .setContentText(body)
@@ -182,6 +238,7 @@ class MainActivity : FlutterActivity() {
         } finally {
             sharedModelDescriptor = null
         }
+        if (!MemoraForegroundService.running) retainedEngine = null
         super.onDestroy()
     }
 }
