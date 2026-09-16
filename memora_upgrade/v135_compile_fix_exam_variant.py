@@ -33,3 +33,7 @@ if old not in s:
 s = s.replace(old, new, 1)
 p.write_text(s)
 print('Memora v1.35 exam variant compile fix applied successfully')
+
+import os
+_v136 = Path(os.environ['GITHUB_WORKSPACE']) / 'memora_upgrade' / 'v136_open_ended_evidence_fallback_patch.py'
+exec(compile(_v136.read_text(), str(_v136), 'exec'))
