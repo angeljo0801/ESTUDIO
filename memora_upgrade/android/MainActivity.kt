@@ -11,11 +11,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import com.google.mlkit.common.model.DownloadConditions
-import com.google.mlkit.nl.translate.TranslateLanguage
-import com.google.mlkit.nl.translate.Translation
-import com.google.mlkit.nl.translate.Translator
-import com.google.mlkit.nl.translate.TranslatorOptions
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -30,14 +25,6 @@ class MainActivity : FlutterActivity() {
     private val notificationChannelId = "memora_tasks"
     private val notificationPermissionRequest = 4317
     private var pendingNotification: Triple<Int, String, String>? = null
-
-    private val spanishTranslator: Translator by lazy {
-        val options = TranslatorOptions.Builder()
-            .setSourceLanguage(TranslateLanguage.ENGLISH)
-            .setTargetLanguage(TranslateLanguage.SPANISH)
-            .build()
-        Translation.getClient(options)
-    }
 
     override fun provideFlutterEngine(context: Context): FlutterEngine? = retainedEngine
 
@@ -95,28 +82,6 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
-
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            "com.memora/translation"
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "prepareSpanish" -> prepareSpanishTranslator(result)
-                "translateToSpanish" -> {
-                    val text = call.argument<String>("text")?.trim().orEmpty()
-                    if (text.isEmpty()) {
-                        result.success("")
-                    } else {
-                        translateToSpanish(text, result)
-                    }
-                }
-                else -> result.notImplemented()
-            }
-        }
-
-        // Warm up the offline translator in the background. The model is only
-        // downloaded once; later translations work without an internet connection.
-        spanishTranslator.downloadModelIfNeeded(DownloadConditions.Builder().build())
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -194,42 +159,6 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
-    }
-
-    private fun prepareSpanishTranslator(result: MethodChannel.Result) {
-        val conditions = DownloadConditions.Builder().build()
-        spanishTranslator.downloadModelIfNeeded(conditions)
-            .addOnSuccessListener { result.success(null) }
-            .addOnFailureListener { error ->
-                result.error(
-                    "TRANSLATION_MODEL",
-                    error.message ?: "Could not download the offline Spanish translator.",
-                    null
-                )
-            }
-    }
-
-    private fun translateToSpanish(text: String, result: MethodChannel.Result) {
-        val conditions = DownloadConditions.Builder().build()
-        spanishTranslator.downloadModelIfNeeded(conditions)
-            .addOnSuccessListener {
-                spanishTranslator.translate(text)
-                    .addOnSuccessListener { translated -> result.success(translated) }
-                    .addOnFailureListener { error ->
-                        result.error(
-                            "TRANSLATION_FAILED",
-                            error.message ?: "The offline translator could not translate this response.",
-                            null
-                        )
-                    }
-            }
-            .addOnFailureListener { error ->
-                result.error(
-                    "TRANSLATION_MODEL",
-                    error.message ?: "Could not download the offline Spanish translator.",
-                    null
-                )
-            }
     }
 
     private fun createTaskNotificationChannel() {
