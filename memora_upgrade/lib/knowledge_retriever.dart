@@ -6,8 +6,9 @@ class KnowledgeRetriever {
     required String query,
     int maxChars = 12000,
     int maxChunks = 10,
+    bool allowUnmatchedFallback = true,
   }) {
-    if (guides.isEmpty) return '(Sin bases asignadas)';
+    if (guides.isEmpty) return '(No assigned knowledge bases)';
 
     final terms = _terms(query);
     final chunks = <_Chunk>[];
@@ -32,11 +33,14 @@ class KnowledgeRetriever {
       }
     }
 
-    if (chunks.isEmpty) return '(Las bases asignadas no contienen texto utilizable)';
+    if (chunks.isEmpty) return '(The assigned guides contain no usable text)';
     chunks.sort((a, b) => b.score.compareTo(a.score));
 
     var selected = chunks.where((c) => c.score > 0).take(maxChunks).toList();
-    if (selected.isEmpty) selected = chunks.take(maxChunks).toList();
+    if (selected.isEmpty && allowUnmatchedFallback) {
+      selected = chunks.take(maxChunks).toList();
+    }
+    if (selected.isEmpty) return '(No matching evidence found in the assigned guides)';
 
     final out = StringBuffer();
     var used = 0;
@@ -91,7 +95,8 @@ class KnowledgeRetriever {
       'para','como','que','qué','con','del','las','los','una','uno','unos','unas',
       'por','porque','sobre','desde','hasta','esto','esta','este','algo','quiero',
       'dime','decir','hacer','cuál','cual','cuando','donde','dónde','the','and','for',
-      'with','from','this','that','what','how','are','you','your'
+      'with','from','this','that','what','how','are','you','your','tell','give','something',
+      'random','guide','content','please','about','mention'
     };
     return query
         .toLowerCase()
