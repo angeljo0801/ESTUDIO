@@ -29,9 +29,12 @@ class BackgroundTaskService {
   }) async {
     _stopTimer?.cancel();
     _stopTimer = null;
+    final first = _depth == 0;
+    _depth += 1;
+    if (!first) return;
+
     _title = title;
     _body = body;
-    _depth += 1;
     try {
       await _channel.invokeMethod<void>('start', <String, dynamic>{
         'title': title,
