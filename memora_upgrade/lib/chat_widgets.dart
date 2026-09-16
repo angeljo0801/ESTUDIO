@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -75,9 +77,7 @@ class _ChatTranscriptState extends State<ChatTranscript> {
       itemBuilder: (context, index) {
         final message = widget.messages[widget.messages.length - 1 - index];
         return _ChatBubble(
-          key: ValueKey(
-            '${message.createdAt.microsecondsSinceEpoch}:${message.role}:${message.text.hashCode}',
-          ),
+          key: ValueKey('${message.createdAt.microsecondsSinceEpoch}:${message.role}'),
           message: message,
           participantName: widget.participantName,
           autoSpanish: _autoSpanish,
@@ -110,6 +110,7 @@ class _ChatBubbleState extends State<_ChatBubble> {
   String? _spanish;
   bool _showSpanish = false;
   bool _translating = false;
+  Timer? _autoTimer;
 
   bool get _mine => widget.message.role == 'user';
 
@@ -127,28 +128,44 @@ class _ChatBubbleState extends State<_ChatBubble> {
   @override
   void initState() {
     super.initState();
-    if (widget.autoSpanish && _canTranslate) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _translate(show: true));
-    }
+    _scheduleAutoTranslation();
   }
 
   @override
   void didUpdateWidget(covariant _ChatBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message.text != widget.message.text) {
+      _autoTimer?.cancel();
       _spanish = null;
       _showSpanish = false;
       _translating = false;
-      if (widget.autoSpanish && _canTranslate) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _translate(show: true));
-      }
-    } else if (!oldWidget.autoSpanish && widget.autoSpanish && _canTranslate) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _translate(show: true));
+      _scheduleAutoTranslation();
+    } else if (!oldWidget.autoSpanish && widget.autoSpanish) {
+      _scheduleAutoTranslation();
+    } else if (oldWidget.autoSpanish && !widget.autoSpanish) {
+      _autoTimer?.cancel();
     }
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleAutoTranslation() {
+    _autoTimer?.cancel();
+    if (!widget.autoSpanish || !_canTranslate) return;
+    _autoTimer = Timer(const Duration(milliseconds: 1100), () {
+      if (mounted && widget.autoSpanish && _canTranslate) {
+        _translate(show: true);
+      }
+    });
   }
 
   Future<void> _translate({required bool show}) async {
     if (!_canTranslate || _translating) return;
+    _autoTimer?.cancel();
     if (_spanish != null) {
       if (mounted) setState(() => _showSpanish = show);
       return;
