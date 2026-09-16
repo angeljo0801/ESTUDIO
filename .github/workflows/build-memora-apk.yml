@@ -62,6 +62,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/memora_upgrade/v121_runner.py" ./v121_runner.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v122_ai_cards_exam_grounding_patch.py" ./v122_ai_cards_exam_grounding_patch.py
           cp "$GITHUB_WORKSPACE/memora_upgrade/v122_runner.py" ./v122_runner.py
+          cp "$GITHUB_WORKSPACE/memora_upgrade/v123_background_execution_patch.py" ./v123_background_execution_patch.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('v14_patch.py')
@@ -123,6 +124,7 @@ jobs:
           python3 v120_learning_quality_patch.py
           python3 v121_runner.py
           python3 v122_runner.py
+          python3 v123_background_execution_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -130,10 +132,26 @@ jobs:
           flutter create --platforms=android --project-name memora --org com.memora --no-pub .
           rm -rf test
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text()
+          service = '''        <service
+              android:name=".MemoraForegroundService"
+              android:exported="false"
+              android:stopWithTask="false"
+              android:foregroundServiceType="dataSync" />\n'''
+          marker = '    </application>'
+          if marker not in s:
+              raise RuntimeError('Android application closing tag not found')
+          s = s.replace(marker, service + marker, 1)
+          p.write_text(s)
+          PY
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 26/' android/app/build.gradle.kts
           sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MainActivity.kt" android/app/src/main/kotlin/com/memora/memora/MainActivity.kt
+          cp "$GITHUB_WORKSPACE/memora_upgrade/android/MemoraForegroundService.kt" android/app/src/main/kotlin/com/memora/memora/MemoraForegroundService.kt
       - name: Install Memora icons
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -176,7 +194,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.22-AI-Cards-System-AI-release-apk
+          name: Memora-v1.23-Background-AI-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
