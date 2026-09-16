@@ -144,9 +144,9 @@ class MainActivity : FlutterActivity() {
         }
 
         val builder = Notification.Builder(this, notificationChannelId)
-            // Use Memora's own brain launcher symbol in the status bar instead
-            // of Android's generic exclamation/info icon.
-            .setSmallIcon(R.mipmap.ic_launcher)
+            // Dedicated status-bar resource: same Memora brain, but cropped much
+            // tighter than the launcher icon so it remains visible at 24dp.
+            .setSmallIcon(R.drawable.ic_stat_memora)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(Notification.BigTextStyle().bigText(body))
