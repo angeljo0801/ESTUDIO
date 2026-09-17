@@ -254,13 +254,15 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: _busy ? null : _showAddMenu,
-            icon: _busy
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.add_rounded),
-            label: Text(_busy ? 'Procesando…' : 'Añadir / crear'),
-          ),
+          floatingActionButton: guides.isEmpty
+              ? null
+              : FloatingActionButton.extended(
+                  onPressed: _busy ? null : _showAddMenu,
+                  icon: _busy
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.add_rounded),
+                  label: Text(_busy ? 'Procesando…' : 'Añadir / crear'),
+                ),
           body: guides.isEmpty
               ? _EmptyLibrary(onAdd: _showAddMenu)
               : ListView(
