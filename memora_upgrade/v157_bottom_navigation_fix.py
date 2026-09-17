@@ -79,7 +79,8 @@ for item in required:
 if out.count('NavigationDestination(') != 6:
     raise SystemExit('Bottom navigation must contain exactly six destinations')
 
-subprocess.run(['python3', 'v158_optional_orchestrator_recommendations_patch.py'], check=True)
-subprocess.run(['python3', 'v159_agent_orchestrator_directory_patch.py'], check=True)
-subprocess.run(['python3', 'v160_agent_orchestrator_compile_fix.py'], check=True)
-print('v157 applied: navigation fixed; v158-v160 agent/orchestrator upgrades chained')
+# v161 repairs the source delimiters in v159, executes v159, then applies v160.
+# v159 already includes the optional recommendation behavior, so v158 is no
+# longer executed directly.
+subprocess.run(['python3', 'v161_agent_directory_source_fix.py'], check=True)
+print('v157 applied: navigation fixed; multi-orchestrator directory chain generated')
