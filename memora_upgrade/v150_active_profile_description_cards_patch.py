@@ -56,24 +56,7 @@ p.write_text(s)
 p = Path('lib/agent_page.dart')
 s = p.read_text()
 
-# Agents historically use their prompt as the text that describes their job.
-# Reuse it in a dedicated description card rather than adding a second field.
-anchor = """                        onChanged: (value) async {
-                          if (value == null) return;
-                          setState(() => activeId = value);
-                          await _save();
-                        },
-                      ),
-                      const SizedBox(height: 10),
-"""
-card = """                        onChanged: (value) async {
-                          if (value == null) return;
-                          setState(() => activeId = value);
-                          await _save();
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      Card(
+agent_card = """                      Card(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
                           child: Column(
@@ -106,10 +89,24 @@ card = """                        onChanged: (value) async {
                       ),
                       const SizedBox(height: 10),
 """
-if "No description has been added for this agent yet." not in s:
-    if anchor not in s:
-        raise RuntimeError('active agent selector anchor not found')
-    s = s.replace(anchor, card, 1)
-p.write_text(s)
 
+if "No description has been added for this agent yet." not in s:
+    # Stable anchor: locate the active-agent dropdown from its state value, then
+    # insert after the first SizedBox following that dropdown. This survives
+    # translated labels and previous UI transformations.
+    value_pos = s.find('initialValue: activeId')
+    if value_pos < 0:
+        value_pos = s.find('value: activeId')
+    if value_pos < 0:
+        raise RuntimeError('active agent dropdown not found')
+    drop_start = s.rfind('DropdownButtonFormField<String>(', 0, value_pos)
+    if drop_start < 0:
+        raise RuntimeError('active agent dropdown start not found')
+    next_section = s.find('const SizedBox(height: 10),', value_pos)
+    if next_section < 0:
+        raise RuntimeError('active agent dropdown trailing spacing not found')
+    insert_pos = next_section + len('const SizedBox(height: 10),')
+    s = s[:insert_pos] + '\n' + agent_card + s[insert_pos:]
+
+p.write_text(s)
 print('Active tutor and agent description cards added')
