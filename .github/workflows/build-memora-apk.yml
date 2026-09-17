@@ -74,6 +74,7 @@ jobs:
           python3 v121_runner.py
           python3 v122_runner.py
           python3 v123_background_execution_patch.py
+          python3 v155_compile_fix_patch.py
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
