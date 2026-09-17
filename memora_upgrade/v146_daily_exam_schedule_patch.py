@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # Memora v1.46: Daily Exam UI/preferences. Native Android alarm code is installed
 # from memora_upgrade/android after flutter regenerates the Android project.
@@ -36,7 +37,6 @@ helpers=r'''  String _clock(TimeOfDay t) { final h=t.hourOfPeriod==0?12:t.hourOf
 if '_runAutomaticDailyIfDue()' not in s:
     if helper_anchor not in s: raise RuntimeError('v1.46 helper anchor not found')
     s=s.replace(helper_anchor,helpers+helper_anchor,1)
-# Explicit marker avoids the old false-positive caused by the helper itself containing the call.
 load_end="""      loading = false;
     });
   }
@@ -67,3 +67,5 @@ if 'Generate automatically every day' not in s:
 p.write_text(s)
 p=Path('pubspec.yaml'); p.write_text(p.read_text().replace('version: 1.45.0+58','version: 1.46.0+59'))
 print('Memora v1.46 Daily Exam Dart scheduling applied successfully')
+_v147=Path(os.environ['GITHUB_WORKSPACE'])/'memora_upgrade'/'v147_message_timer_patch.py'
+exec(compile(_v147.read_text(),str(_v147),'exec'))
