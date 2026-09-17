@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 
 p = Path('lib/app_shell.dart')
 s = p.read_text()
@@ -78,4 +79,5 @@ for item in required:
 if out.count('NavigationDestination(') != 6:
     raise SystemExit('Bottom navigation must contain exactly six destinations')
 
-print('v157 applied: Library, Tutor, Agents, Exam, Plan, Chat IA mapped 1:1; Create removed from bottom bar')
+subprocess.run(['python3', 'v158_optional_orchestrator_recommendations_patch.py'], check=True)
+print('v157 applied: navigation fixed; v158 optional orchestrator recommendations chained')
