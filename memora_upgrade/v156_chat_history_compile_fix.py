@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 
 p = Path('lib/general_ai_chat_page.dart')
 s = p.read_text()
@@ -42,9 +43,7 @@ history = r''' Future<void> _history() async {
                  children: [
                    for (final c in chats)
                      ListTile(
-                       leading: Icon(
-                         c.id == activeId ? Icons.chat_bubble : Icons.chat_bubble_outline,
-                       ),
+                       leading: Icon(c.id == activeId ? Icons.chat_bubble : Icons.chat_bubble_outline),
                        title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                        subtitle: Text('${c.messages.length} mensaje(s)'),
                        onTap: () {
@@ -53,11 +52,7 @@ history = r''' Future<void> _history() async {
                        },
                        trailing: Wrap(
                          children: [
-                           IconButton(
-                             tooltip: 'Exportar PDF',
-                             onPressed: () => _export(c),
-                             icon: const Icon(Icons.picture_as_pdf_outlined),
-                           ),
+                           IconButton(tooltip: 'Exportar PDF', onPressed: () => _export(c), icon: const Icon(Icons.picture_as_pdf_outlined)),
                            IconButton(
                              tooltip: 'Borrar',
                              onPressed: () {
@@ -82,4 +77,5 @@ history = r''' Future<void> _history() async {
 
 s = s[:start] + history + s[end:]
 p.write_text(s)
-print('v156 applied: Chat IA history method syntax fixed')
+subprocess.run(['python3', 'v157_bottom_navigation_fix.py'], check=True)
+print('v156 applied: Chat IA history syntax fixed; v157 navigation fix chained')
