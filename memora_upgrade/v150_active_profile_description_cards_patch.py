@@ -91,17 +91,13 @@ agent_card = """                      Card(
 """
 
 if "No description has been added for this agent yet." not in s:
-    # Stable anchor: locate the active-agent dropdown from its state value, then
-    # insert after the first SizedBox following that dropdown. This survives
-    # translated labels and previous UI transformations.
-    value_pos = s.find('initialValue: activeId')
+    # The real selector uses activeAgent!.id as its initial value. Anchor on
+    # that stable expression and insert directly after its trailing spacing.
+    value_pos = s.find('initialValue: activeAgent!.id')
     if value_pos < 0:
-        value_pos = s.find('value: activeId')
+        value_pos = s.find('value: activeAgent!.id')
     if value_pos < 0:
         raise RuntimeError('active agent dropdown not found')
-    drop_start = s.rfind('DropdownButtonFormField<String>(', 0, value_pos)
-    if drop_start < 0:
-        raise RuntimeError('active agent dropdown start not found')
     next_section = s.find('const SizedBox(height: 10),', value_pos)
     if next_section < 0:
         raise RuntimeError('active agent dropdown trailing spacing not found')
