@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # Show the selected tutor/agent description as its own compact card directly
 # below the active-profile selector. Existing data is reused; no duplicate
@@ -91,8 +92,6 @@ agent_card = """                      Card(
 """
 
 if "No description has been added for this agent yet." not in s:
-    # The real selector uses activeAgent!.id as its initial value. Anchor on
-    # that stable expression and insert directly after its trailing spacing.
     value_pos = s.find('initialValue: activeAgent!.id')
     if value_pos < 0:
         value_pos = s.find('value: activeAgent!.id')
@@ -106,3 +105,6 @@ if "No description has been added for this agent yet." not in s:
 
 p.write_text(s)
 print('Active tutor and agent description cards added')
+
+_v151=Path(os.environ['GITHUB_WORKSPACE'])/'memora_upgrade'/'v151_persistent_agent_description_patch.py'
+exec(compile(_v151.read_text(),str(_v151),'exec'))
