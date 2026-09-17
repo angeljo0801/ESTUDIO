@@ -1,22 +1,27 @@
 from pathlib import Path
-import re
 
 p=Path('lib/tutor_page.dart'); s=p.read_text()
 
-# Later patches may have reformatted or removed the old source declaration.
-# Restore it relative to the stable edit-dialog signature instead of relying
-# on an exact multiline TextEditingController layout.
-if "var source = existing?.modelSource ?? 'global';" not in s:
-    marker="  Future<TutorProfile?> _editTutorDialog({TutorProfile? existing}) async {"
-    start=s.find(marker)
-    if start < 0: raise RuntimeError('tutor edit dialog not found')
-    result_pos=s.find("    final result = await showDialog<TutorProfile>(", start)
+edit_marker="  Future<TutorProfile?> _editTutorDialog({TutorProfile? existing}) async {"
+edit_start=s.find(edit_marker)
+if edit_start < 0: raise RuntimeError('tutor edit dialog not found')
+
+# v1.14 forces existing profiles to global during the upgrade pass. Restore
+# each tutor's own saved source there; this code is outside the dialog and must
+# never reference the dialog-local `source` variable.
+s=s.replace(
+    "        tutor.copyWith(\n          modelSource: 'global',",
+    "        tutor.copyWith(\n          modelSource: tutor.modelSource,",
+    1,
+)
+
+# Restore the dialog-local source variable after v1.14 removes it.
+if "var source = existing?.modelSource ?? 'global';" not in s[edit_start:]:
+    result_pos=s.find("    final result = await showDialog<TutorProfile>(", edit_start)
     if result_pos < 0: raise RuntimeError('tutor dialog result anchor not found')
     s=s[:result_pos]+"    var source = existing?.modelSource ?? 'global';\n\n"+s[result_pos:]
+    edit_start=s.find(edit_marker)
 
-# If the old per-tutor dropdown survived, upgrade it in place. Otherwise add
-# one immediately before the recommended-models field. This preserves that
-# existing field exactly as a separate optional recommendation list.
 selector="""                DropdownButtonFormField<String>(
                   initialValue: source,
                   decoration: const InputDecoration(labelText: 'Seleccionar IA / modelo'),
@@ -33,31 +38,36 @@ selector="""                DropdownButtonFormField<String>(
                   onChanged: (value) => setDialogState(() => source = value ?? 'global'),
                 ),
 """
-if 'Seleccionar IA / modelo' not in s:
-    # Remove an older source dropdown if present so there is only one selector.
-    edit_start=s.find("  Future<TutorProfile?> _editTutorDialog")
+if 'Seleccionar IA / modelo' not in s[edit_start:]:
     models_label=s.find("labelText: 'Modelos recomendados (uno por línea)'", edit_start)
     if models_label < 0: raise RuntimeError('recommended models field not found')
-    old_start=s.rfind("                DropdownButtonFormField<String>(", edit_start, models_label)
-    if old_start >= 0:
-        old_end=s.find("                const SizedBox(height: 12),", old_start)
-        if old_end >= 0 and old_end < models_label:
-            s=s[:old_start]+selector+s[old_end:]
-        else:
-            old_start=-1
-    if old_start < 0:
-        field_start=s.rfind("                TextField(", edit_start, models_label)
-        if field_start < 0: raise RuntimeError('recommended models TextField anchor not found')
-        s=s[:field_start]+selector+"                const SizedBox(height: 12),\n"+s[field_start:]
+    # v1.14 replaces the old dropdown with explanatory text, so insert the new
+    # selector immediately before the recommended-models TextField.
+    field_start=s.rfind("                TextField(", edit_start, models_label)
+    if field_start < 0: raise RuntimeError('recommended models TextField anchor not found')
+    s=s[:field_start]+selector+"                const SizedBox(height: 12),\n"+s[field_start:]
 
-# Ensure the selected source is persisted and used. Replacement is tolerant:
-# if a prior patch already restored these expressions, it is a no-op.
-s=s.replace("modelSource: 'global',", "modelSource: source,", 1)
+# Persist the selected source only inside the TutorProfile constructed by the
+# edit dialog. Do not globally replace modelSource values elsewhere.
+edit_start=s.find(edit_marker)
+edit_end=s.find("  Future<void> _addTutor()", edit_start)
+if edit_end < 0: raise RuntimeError('tutor edit dialog end not found')
+segment=s[edit_start:edit_end]
+segment=segment.replace("modelSource: 'global',", "modelSource: source,", 1)
+s=s[:edit_start]+segment+s[edit_end:]
+
+# Tutor chat requests should honor the tutor-specific selection.
 s=s.replace("providerOverride: 'global',", "providerOverride: tutor.modelSource,", 1)
 p.write_text(s)
 
-# Restore persisted modelSource if v1.14 forced deserialization to global.
+# Restore persisted modelSource specifically in fromJson. Never touch the
+# const fallback TutorContextProfile entries, where `json` is out of scope.
 p=Path('lib/tutor_context_service.dart'); c=p.read_text()
-c=c.replace("modelSource: 'global',", "modelSource: json['modelSource']?.toString() ?? 'global',", 1)
+factory_start=c.find('factory TutorContextProfile.fromJson')
+factory_end=c.find('\n  }\n}', factory_start)
+if factory_start < 0 or factory_end < 0: raise RuntimeError('TutorContext fromJson not found')
+factory=c[factory_start:factory_end]
+factory=factory.replace("modelSource: 'global',", "modelSource: json['modelSource']?.toString() ?? 'global',", 1)
+c=c[:factory_start]+factory+c[factory_end:]
 p.write_text(c)
-print('Tutor AI/model picker restored with resilient anchors')
+print('Tutor AI/model picker restored with correctly scoped model source')
