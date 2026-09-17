@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 
 # General Chat IA. It is added without replacing Study Plan or changing the
 # existing page/destination ordering produced by the earlier patch chain.
@@ -27,12 +28,10 @@ Path('lib/general_ai_chat_page.dart').write_text(chat)
 p=Path('lib/app_shell.dart'); s=p.read_text()
 if "import 'general_ai_chat_page.dart';" not in s:
  s=s.replace("import 'guide_store.dart';\n","import 'guide_store.dart';\nimport 'general_ai_chat_page.dart';\n",1)
-# Insert the page immediately after StudyPlanPage, wherever prior patches formatted it.
 if 'GeneralAiChatPage(store: widget.store)' not in s:
  marker='StudyPlanPage(store: widget.store),'
  if marker not in s: raise SystemExit('StudyPlanPage missing; refusing to modify navigation')
  s=s.replace(marker,marker+'\n            GeneralAiChatPage(store: widget.store),',1)
-# Insert destination after the Plan destination using a format-independent line scan.
 if "label: 'Chat IA'" not in s:
  lines=s.splitlines(True); pos=None
  for n,line in enumerate(lines):
@@ -40,8 +39,9 @@ if "label: 'Chat IA'" not in s:
  if pos is None: raise SystemExit('Plan destination missing; refusing to modify navigation')
  indent=lines[pos-1][:len(lines[pos-1])-len(lines[pos-1].lstrip())]
  lines.insert(pos,indent+"NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Chat IA'),\n"); s=''.join(lines)
-# Validate semantic pages rather than labels changed/localized by previous patches.
 for required in ['StudyPlanPage(store: widget.store)','GeneralAiChatPage(store: widget.store)',"label: 'Plan'","label: 'Chat IA'"]:
  if required not in s: raise SystemExit('Navigation invariant missing: '+required)
 p.write_text(s)
 print('Chat IA added after Study Plan; Plan preserved')
+
+subprocess.run(['python3','v154_workspace_orchestrator_patch.py'],check=True)
