@@ -80,4 +80,5 @@ if out.count('NavigationDestination(') != 6:
     raise SystemExit('Bottom navigation must contain exactly six destinations')
 
 subprocess.run(['python3', 'v158_optional_orchestrator_recommendations_patch.py'], check=True)
-print('v157 applied: navigation fixed; v158 optional orchestrator recommendations chained')
+subprocess.run(['python3', 'v159_agent_orchestrator_directory_patch.py'], check=True)
+print('v157 applied: navigation fixed; v158 recommendations and v159 agent/orchestrator directory chained')
