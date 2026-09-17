@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import subprocess
 
 # v155: compile fixes after v154.
 
@@ -11,8 +12,7 @@ extra = "floatingActionButton: FloatingActionButton(tooltip: 'Crear guía', onPr
 h = h.replace(extra, '', 1)
 p.write_text(h)
 
-# Replace the compressed Chat IA build method with a structurally clear version
-# so brackets/children are unambiguous while preserving all v154 functionality.
+# Replace the compressed Chat IA build method with a structurally clear version.
 p = Path('lib/general_ai_chat_page.dart')
 g = p.read_text()
 start = g.find(' @override Widget build(BuildContext context)')
@@ -101,4 +101,5 @@ new_build = r''' @override
 g = g[:start] + new_build + g[end:]
 p.write_text(g)
 
+subprocess.run(['python3', 'v156_chat_history_compile_fix.py'], check=True)
 print('v155 applied: Chat IA syntax and Library FAB conflict fixed')
