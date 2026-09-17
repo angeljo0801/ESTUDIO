@@ -18,4 +18,5 @@ p.write_text(s)
 
 subprocess.run(['python3', 'v159_agent_orchestrator_directory_patch.py'], check=True)
 subprocess.run(['python3', 'v160_agent_orchestrator_compile_fix.py'], check=True)
-print('v161 applied: v159 source repaired and multi-orchestrator directory generated')
+subprocess.run(['python3', 'v162_unified_prompt_generators_patch.py'], check=True)
+print('v161 applied: v159 source repaired; directory generated; v160 compile fix and v162 prompt generators applied')
