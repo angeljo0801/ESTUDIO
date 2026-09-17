@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 p=Path('lib/tutor_page.dart'); s=p.read_text()
 
@@ -41,27 +42,19 @@ selector="""                DropdownButtonFormField<String>(
 if 'Seleccionar IA / modelo' not in s[edit_start:]:
     models_label=s.find("labelText: 'Modelos recomendados (uno por línea)'", edit_start)
     if models_label < 0: raise RuntimeError('recommended models field not found')
-    # v1.14 replaces the old dropdown with explanatory text, so insert the new
-    # selector immediately before the recommended-models TextField.
     field_start=s.rfind("                TextField(", edit_start, models_label)
     if field_start < 0: raise RuntimeError('recommended models TextField anchor not found')
     s=s[:field_start]+selector+"                const SizedBox(height: 12),\n"+s[field_start:]
 
-# Persist the selected source only inside the TutorProfile constructed by the
-# edit dialog. Do not globally replace modelSource values elsewhere.
 edit_start=s.find(edit_marker)
 edit_end=s.find("  Future<void> _addTutor()", edit_start)
 if edit_end < 0: raise RuntimeError('tutor edit dialog end not found')
 segment=s[edit_start:edit_end]
 segment=segment.replace("modelSource: 'global',", "modelSource: source,", 1)
 s=s[:edit_start]+segment+s[edit_end:]
-
-# Tutor chat requests should honor the tutor-specific selection.
 s=s.replace("providerOverride: 'global',", "providerOverride: tutor.modelSource,", 1)
 p.write_text(s)
 
-# Restore persisted modelSource specifically in fromJson. Never touch the
-# const fallback TutorContextProfile entries, where `json` is out of scope.
 p=Path('lib/tutor_context_service.dart'); c=p.read_text()
 factory_start=c.find('factory TutorContextProfile.fromJson')
 factory_end=c.find('\n  }\n}', factory_start)
@@ -71,3 +64,6 @@ factory=factory.replace("modelSource: 'global',", "modelSource: json['modelSourc
 c=c[:factory_start]+factory+c[factory_end:]
 p.write_text(c)
 print('Tutor AI/model picker restored with correctly scoped model source')
+
+_v149=Path(os.environ['GITHUB_WORKSPACE'])/'memora_upgrade'/'v149_required_plan_tutor_patch.py'
+exec(compile(_v149.read_text(),str(_v149),'exec'))
