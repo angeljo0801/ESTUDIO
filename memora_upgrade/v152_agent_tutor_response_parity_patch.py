@@ -24,7 +24,7 @@ if '_isQuickAgentGreeting(' not in s:
     s=s.replace(anchor,helpers+anchor,1)
 start=s.find(anchor); end=s.find('\n  @override\n  Widget build',start)
 if start < 0 or end < 0: raise RuntimeError('agent run block bounds not found')
-new_run=r'''  Future<void> _runAgent() async {
+new_run=r"""  Future<void> _runAgent() async {
     final agent = activeAgent;
     final request = input.text.trim();
     if (agent == null || request.isEmpty || busy) return;
@@ -63,7 +63,7 @@ Follow the agent system prompt. Use assigned knowledge when relevant. If informa
     } catch(e){if(mounted)setState(()=>answer='El agente no pudo responder: ${AiService.userFacingError(e)}');}
     finally{if(mounted)setState(()=>busy=false);}
   }
-'''
+"""
 s=s[:start]+new_run+s[end:]
 p.write_text(s)
 print('Agent chat now shares Tutor-style response routing')
