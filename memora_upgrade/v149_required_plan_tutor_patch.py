@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import os
 
 p=Path('lib/study_plan_page.dart'); s=p.read_text()
 
@@ -86,3 +87,6 @@ if button_text >= 0:
 
 p.write_text(s)
 print('Learning Plan requires one tutor and only that tutor library')
+
+_v150=Path(os.environ['GITHUB_WORKSPACE'])/'memora_upgrade'/'v150_active_profile_description_cards_patch.py'
+exec(compile(_v150.read_text(),str(_v150),'exec'))
