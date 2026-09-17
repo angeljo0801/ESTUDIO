@@ -81,4 +81,5 @@ if out.count('NavigationDestination(') != 6:
 
 subprocess.run(['python3', 'v158_optional_orchestrator_recommendations_patch.py'], check=True)
 subprocess.run(['python3', 'v159_agent_orchestrator_directory_patch.py'], check=True)
-print('v157 applied: navigation fixed; v158 recommendations and v159 agent/orchestrator directory chained')
+subprocess.run(['python3', 'v160_agent_orchestrator_compile_fix.py'], check=True)
+print('v157 applied: navigation fixed; v158-v160 agent/orchestrator upgrades chained')
