@@ -178,7 +178,6 @@ class EmbeddingService {
     _runtime = OnnxRuntime();
     _session = await _runtime!.createSession(model.path);
     _tokenizer = await TokenizerJsonLoader.fromJsonFile(tokenizerFile.path);
-    _tokenizer.enableTruncation(maxLength: maxTokens);
     _loadedModelPath = model.path;
   }
 
@@ -200,9 +199,16 @@ class EmbeddingService {
     final session = _session!;
     final encoding = _tokenizer.encode(text.trim());
 
-    final ids = Int64List.fromList(encoding.ids);
-    final mask = Int64List.fromList(encoding.attentionMask);
-    final types = Int64List.fromList(encoding.typeIds);
+    final rawIds = List<int>.from(encoding.ids);
+    final rawMask = List<int>.from(encoding.attentionMask);
+    final rawTypes = List<int>.from(encoding.typeIds);
+    final take = math.min(maxTokens, rawIds.length);
+    final idsList = rawIds.take(take).toList(growable: false);
+    final maskList = rawMask.take(take).toList(growable: false);
+    final typesList = rawTypes.take(take).toList(growable: false);
+    final ids = Int64List.fromList(idsList);
+    final mask = Int64List.fromList(maskList);
+    final types = Int64List.fromList(typesList);
     final shape = <int>[1, ids.length];
 
     final inputs = <String, OrtValue>{};
@@ -225,9 +231,38 @@ class EmbeddingService {
       outputs = await session.run(inputs);
       final output = outputs['sentence_embedding'] ??
           outputs['sentence_embeddings'] ??
+          outputs['last_hidden_state'] ??
           outputs.values.first;
-      final flat = await output.asFlattenedList();
-      final vector = flat.map((e) => (e as num).toDouble()).toList(growable: false);
+      final flat = (await output.asFlattenedList())
+          .map((e) => (e as num).toDouble())
+          .toList(growable: false);
+
+      List<double> vector;
+      if (output.shape.length >= 3 && output.shape.last > 0) {
+        final hidden = output.shape.last;
+        final tokens = math.min(maskList.length, flat.length ~/ hidden);
+        final pooled = List<double>.filled(hidden, 0);
+        var weight = 0.0;
+        for (var token = 0; token < tokens; token++) {
+          final w = maskList[token] == 0 ? 0.0 : 1.0;
+          if (w == 0) continue;
+          weight += w;
+          final offset = token * hidden;
+          for (var d = 0; d < hidden; d++) {
+            pooled[d] += flat[offset + d] * w;
+          }
+        }
+        if (weight > 0) {
+          for (var d = 0; d < hidden; d++) {
+            pooled[d] /= weight;
+          }
+        }
+        vector = pooled;
+      } else if (flat.length >= dimensions) {
+        vector = flat.take(dimensions).toList(growable: false);
+      } else {
+        vector = flat;
+      }
       if (vector.isEmpty) throw Exception('El modelo devolvió un embedding vacío.');
 
       var norm2 = 0.0;
@@ -648,10 +683,6 @@ if old not in s:
     raise SystemExit('v167 settings load anchor missing')
 s = s.replace(old, new, 1)
 
-anchor = """                  const SizedBox(height: 22),
-                  FilledButton.icon(
-                    onPressed: _save,
-"""
 block = """                  const SizedBox(height: 22),
                   const Divider(),
                   const SizedBox(height: 14),
@@ -727,13 +758,12 @@ block = """                  const SizedBox(height: 22),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 22),
-                  FilledButton.icon(
-                    onPressed: _save,
+                  const SizedBox(height: 12),
 """
-if anchor not in s:
-    raise SystemExit('v167 settings UI anchor missing')
-s = s.replace(anchor, block, 1)
+ui_anchor = "                  const Text('AI by task', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),\n"
+if ui_anchor not in s:
+    raise SystemExit('v167 settings AI-by-task anchor missing')
+s = s.replace(ui_anchor, block + ui_anchor, 1)
 p.write_text(s)
 
 for filename in [
