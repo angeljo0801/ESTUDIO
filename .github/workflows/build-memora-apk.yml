@@ -81,6 +81,8 @@ jobs:
           rm -rf android
           flutter create --platforms=android --project-name memora --org com.memora --no-pub .
           rm -rf test
+          mkdir -p test
+          cp -R "$GITHUB_WORKSPACE/memora_upgrade/test/." test/
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
           python3 - <<'PY'
@@ -127,6 +129,9 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" "cmake;3.31.0" "ndk;28.0.12674087"
           flutter pub get
+      - name: Regression tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter test test/pdf_extraction_regression_test.dart
       - name: Analyze
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
