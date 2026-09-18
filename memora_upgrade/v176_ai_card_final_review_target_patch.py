@@ -182,7 +182,7 @@ s = s.replace(anchor, helpers + anchor, 1)
 p.write_text(s)
 
 # --- AI final debugger -----------------------------------------------------------
-Path('lib/ai_card_review_service.dart').write_text(r'''import 'dart:convert';
+Path('lib/ai_card_review_service.dart').write_text(r"""import 'dart:convert';
 
 import 'ai_service.dart';
 import 'models.dart';
@@ -476,7 +476,7 @@ class _Decision {
   final String question;
   final String answer;
 }
-''')
+""")
 
 # --- Guide Detail generation dialog ---------------------------------------------
 p = Path('lib/guide_detail_page.dart')
