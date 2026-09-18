@@ -79,7 +79,13 @@ s = s.replace(
     "  });",
     1,
 )
-s = s.replace("  final String text;\n", "  String text;\n", 1)
+# GuideSourceBlock.text stays immutable; StudyGuide.text becomes mutable so a
+# stored PDF can be re-extracted in place.
+s = s.replace(
+    "  final String sourceName;\n  final String text;\n  String summary;\n",
+    "  final String sourceName;\n  String text;\n  String summary;\n",
+    1,
+)
 s = s.replace(
     "  DateTime? lastStudiedAt;\n\n  bool get hasFile",
     "  DateTime? lastStudiedAt;\n"
