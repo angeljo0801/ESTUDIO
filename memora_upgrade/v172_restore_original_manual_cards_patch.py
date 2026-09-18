@@ -10,9 +10,12 @@ p = Path('lib/study_engine.dart')
 s = p.read_text()
 old = "      cards: buildCards(clean),\n"
 new = "      cards: const <StudyCard>[],\n"
-if old not in s:
-    raise SystemExit('v172 StudyEngine buildGuide cards anchor missing')
-s = s.replace(old, new, 1)
+if old in s:
+    s = s.replace(old, new, 1)
+elif "      cards: const [],\n" in s or "      cards: const <StudyCard>[],\n" in s:
+    pass
+else:
+    raise SystemExit('v172 could not verify manual-only StudyEngine buildGuide cards')
 p.write_text(s)
 
 p = Path('lib/guide_detail_page.dart')
