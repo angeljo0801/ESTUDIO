@@ -30,4 +30,6 @@ subprocess.run(['python3', 'v170_per_dashboard_ai_settings_patch.py'], check=Tru
 subprocess.run(['python3', 'v171_indexed_card_generation_patch.py'], check=True)
 subprocess.run(['python3', 'v172_restore_original_manual_cards_patch.py'], check=True)
 subprocess.run(['python3', 'v173_smart_pdf_extractor_patch.py'], check=True)
-print('v161 applied: v159 source repaired; directory generated; v160-v173 fixes applied')
+subprocess.run(['python3', 'v174_pdf_provenance_data_patch.py'], check=True)
+subprocess.run(['python3', 'v175_card_quality_source_ui_patch.py'], check=True)
+print('v161 applied: v159 source repaired; directory generated; v160-v175 fixes applied')
