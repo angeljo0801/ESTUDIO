@@ -25,4 +25,6 @@ subprocess.run(['python3', 'v165_general_ai_translate_timer_patch.py'], check=Tr
 subprocess.run(['python3', 'v166_chat_copy_selection_patch.py'], check=True)
 subprocess.run(['python3', 'v167_vector_embeddings_patch.py'], check=True)
 subprocess.run(['python3', 'v168_vector_learning_features_patch.py'], check=True)
-print('v161 applied: v159 source repaired; directory generated; v160/v162/v163/v164/v165/v166/v167/v168 fixes applied')
+subprocess.run(['python3', 'v169_manual_cards_copy_row_patch.py'], check=True)
+subprocess.run(['python3', 'v170_per_dashboard_ai_settings_patch.py'], check=True)
+print('v161 applied: v159 source repaired; directory generated; v160-v170 fixes applied')
