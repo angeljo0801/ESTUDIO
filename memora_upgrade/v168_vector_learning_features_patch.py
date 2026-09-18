@@ -207,18 +207,15 @@ p = Path('lib/ai_card_service.dart')
 s = p.read_text()
 if "import 'vector_knowledge_store.dart';" not in s:
     s = s.replace("import 'models.dart';\n", "import 'models.dart';\nimport 'vector_knowledge_store.dart';\n", 1)
-pattern = re.compile(r"    final material = guide\.text\.replaceAll\('\\\\r', ''\)\.trim\(\);\n")
-if pattern.search(s):
-    s = pattern.sub(
-        """    final material = (await VectorKnowledgeStore.buildCoverageContext(
+old_material = r"    final material = guide.text.replaceAll('\\r', '').trim();" + "\n"
+new_material = """    final material = (await VectorKnowledgeStore.buildCoverageContext(
       [guide],
       maxChars: guide.text.length.clamp(12000, 90000).toInt(),
       maxChunks: 72,
     )).trim();
-""",
-        s,
-        count=1,
-    )
+"""
+if old_material in s:
+    s = s.replace(old_material, new_material, 1)
 elif 'await VectorKnowledgeStore.buildCoverageContext(' not in s:
     raise SystemExit('v168 AI card material anchor missing')
 p.write_text(s)
