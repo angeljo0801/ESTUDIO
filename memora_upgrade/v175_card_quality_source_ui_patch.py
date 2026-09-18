@@ -816,7 +816,9 @@ p.write_text(s)
 p = Path('lib/home_page.dart')
 s = p.read_text()
 start = s.find("  Future<void> _importFile() async {")
-end = s.find("  Future<void> _pasteText()", start)
+end = s.find("  Future<void> _importImage(", start)
+if end < 0:
+    end = s.find("  Future<void> _pasteText()", start)
 if start < 0 or end < 0:
     raise SystemExit('v175 Home import anchor missing')
 
