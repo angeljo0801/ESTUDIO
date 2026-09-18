@@ -28,4 +28,5 @@ subprocess.run(['python3', 'v168_vector_learning_features_patch.py'], check=True
 subprocess.run(['python3', 'v169_manual_cards_copy_row_patch.py'], check=True)
 subprocess.run(['python3', 'v170_per_dashboard_ai_settings_patch.py'], check=True)
 subprocess.run(['python3', 'v171_indexed_card_generation_patch.py'], check=True)
-print('v161 applied: v159 source repaired; directory generated; v160-v171 fixes applied')
+subprocess.run(['python3', 'v172_restore_original_manual_cards_patch.py'], check=True)
+print('v161 applied: v159 source repaired; directory generated; v160-v172 fixes applied')
