@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memora/pdf_text_heuristics.dart';
 import 'package:memora/study_engine.dart';
+import 'package:memora/models.dart';
+import 'package:memora/study_card_quality_service.dart';
 
 void main() {
   group('Smart PDF extraction regressions', () {
@@ -45,6 +47,19 @@ void main() {
             card.answer.contains('Inflation')),
         isTrue,
       );
+    });
+
+    test('rejects merged glossary definitions posing as a formula', () {
+      final card = StudyCard(
+        id: 'bad-formula',
+        question: 'What is the formula or relationship for PMT?',
+        answer:
+            'PMT = Payment FV = Future value If four variables are known, the fifth can often be calculated.',
+        source: 'Percentages, Interest, Compounding',
+        dueAt: DateTime(2026, 1, 1),
+        page: 1,
+      );
+      expect(StudyCardQualityService.isObviouslyMalformed(card), isTrue);
     });
 
     test('quality score penalizes broken extraction', () {
