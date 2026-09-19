@@ -39,4 +39,5 @@ subprocess.run(['python3', 'v180_slow_ai_review_resilience_patch.py'], check=Tru
 subprocess.run(['python3', 'v181_card_review_foreground_service_patch.py'], check=True)
 subprocess.run(['python3', 'v183_final_card_pipeline_patch.py'], check=True)
 subprocess.run(['python3', 'v184_second_review_target_fill_patch.py'], check=True)
-print('v161 applied: v159 source repaired; directory generated; v160-v184 fixes applied')
+subprocess.run(['python3', 'v185_all_card_grammar_polish_patch.py'], check=True)
+print('v161 applied: v159 source repaired; directory generated; v160-v185 fixes applied')
