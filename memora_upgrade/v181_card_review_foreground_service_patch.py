@@ -1,13 +1,13 @@
 from pathlib import Path
 
-# v181: keep the ENTIRE mandatory card-cleaning job inside Memora's Android
+# v181: keep the ENTIRE mandatory card-creation job inside Memora's Android
 # foreground service, not just each individual model request.
 #
 # This means:
-# - minimizing Memora does not stop the card-cleaning loop;
+# - minimizing Memora does not stop the card-creation loop;
 # - screen-off is protected by the native partial wake lock;
 # - opening Review does not stop later AI batches;
-# - the persistent Android notification reports reviewed-card progress;
+# - the persistent Android notification reports card-creation progress;
 # - nested AiService calls reuse the same foreground-service lifetime.
 
 p = Path('lib/guide_detail_page.dart')
@@ -36,12 +36,12 @@ new = """    setState(() {
     });
 
     await BackgroundTaskService.begin(
-      title: 'Memora is cleaning study cards',
-      body: '0/$requestedCount reviewed cards ready',
+      title: 'Memora is creating study cards',
+      body: '0/$requestedCount cards created',
     );
     await BackgroundTaskService.update(
-      title: 'Memora is cleaning study cards',
-      body: '0/$requestedCount reviewed cards ready',
+      title: 'Memora is creating study cards',
+      body: '0/$requestedCount cards created',
       progress: 0,
       max: requestedCount,
     );
@@ -63,8 +63,8 @@ new = """        if (mounted) {
         }
 
         await BackgroundTaskService.update(
-          title: 'Memora is cleaning study cards',
-          body: '$produced/$requestedCount reviewed cards ready • '
+          title: 'Memora is creating study cards',
+          body: '$produced/$requestedCount cards created • '
               '$reviewedCount checked • $fixedCount fixed • $rejectedCount rejected',
           progress: produced,
           max: requestedCount,
