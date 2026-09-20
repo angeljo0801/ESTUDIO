@@ -43,6 +43,15 @@ jobs:
           unzip -q /tmp/local_ai_manager_source.zip -d /tmp/local_ai_manager_src
           SRC="/tmp/local_ai_manager_src/local_ai_manager_source"
           test -f "$SRC/pubspec.yaml"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("/tmp/local_ai_manager_src/local_ai_manager_source/pubspec.yaml")
+          s=p.read_text()
+          s=s.replace("sdk: '>=3.3.0 <4.0.0'", "sdk: '>=3.10.7 <4.0.0'")
+          s=s.replace("version: 1.0.0+1", "version: 1.1.7+7")
+          s=s.replace("  llama_flutter_android: ^0.2.6\\n", "  llamadart: ^0.8.23\\n")
+          p.write_text(s)
+          PY
           python3 .github/patch_local_ai_manager_recovery.py "$SRC/lib/main.dart"
           flutter create --platforms=android --org com.angelapps --project-name local_ai_manager /tmp/local_ai_manager_build
           cp "$SRC/pubspec.yaml" /tmp/local_ai_manager_build/pubspec.yaml
@@ -110,7 +119,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.1.6-Isolated-Engine
+          name: Local-AI-Manager-v1.1.7-Llamadart-Engine
           path: /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
