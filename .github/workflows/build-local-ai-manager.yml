@@ -49,7 +49,7 @@ jobs:
           s=p.read_text()
           s=s.replace("sdk: '>=3.3.0 <4.0.0'", "sdk: '>=3.10.7 <4.0.0'")
           s=s.replace("version: 1.0.0+1", "version: 1.1.7+7")
-          s=s.replace("  llama_flutter_android: ^0.2.6\\n", "  llamadart: ^0.8.23\\n")
+          s=s.replace("  llama_flutter_android: ^0.2.6", "  llamadart: ^0.8.23")
           p.write_text(s)
           PY
           python3 .github/patch_local_ai_manager_recovery.py "$SRC/lib/main.dart"
