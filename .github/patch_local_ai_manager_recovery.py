@@ -741,3 +741,134 @@ if n != 1:
 
 p.write_text(s)
 print("Local AI Manager diagnostic limits removed; Vulkan toggle restored")
+
+# Performance optimization: keep the stable isolated llamadart engine, but
+# allocate context according to the actual request instead of always reserving
+# the model's full native window. No prompt text is truncated.
+s = p.read_text()
+start = s.find("  Future<void> _ensureLoaded() async {")
+end = s.find("  LlamaChatRole _role(String role) {", start)
+if start < 0 or end < 0:
+    raise RuntimeError("optimized engine load boundaries not found")
+
+optimized_loader = r"""  int _contextFor(
+    List<ChatMessage> messages,
+    int maxTokens,
+  ) {
+    var chars = 0;
+    for (final message in messages) {
+      chars += message.content.length;
+    }
+
+    // Conservative tokenizer estimate for mixed Spanish/English text.
+    // Add generation space plus safety room. Grow in powers of two, with no
+    // artificial prompt truncation or fixed upper cap.
+    final estimatedPromptTokens = (chars / 3.0).ceil();
+    final needed = estimatedPromptTokens + maxTokens + 256;
+    var context = 2048;
+    while (context < needed) {
+      context *= 2;
+    }
+    return context;
+  }
+
+  Future<void> _ensureLoaded(int requestedContext) async {
+    final path = await ManagerSettings.modelPath();
+    if (path.isEmpty) {
+      throw StateError('No hay un modelo GGUF configurado en Local AI Manager.');
+    }
+
+    final useGpu = await ManagerSettings.useGpu();
+    if (_engine != null &&
+        _loadedPath == path &&
+        _loadedContext >= requestedContext &&
+        _loadedGpu == useGpu) {
+      return;
+    }
+
+    await unload();
+    await _validateModelFile(path);
+
+    // More threads are not always faster on mobile SoCs. Four keeps the
+    // performance cores busy without excessive contention/thermal pressure.
+    final threads = Platform.numberOfProcessors.clamp(2, 4).toInt();
+    final engine = LlamaEngine(LlamaBackend());
+    try {
+      await engine.loadModel(
+        path,
+        modelParams: ModelParams(
+          contextSize: requestedContext,
+          gpuLayers: useGpu ? 99 : 0,
+          preferredBackend:
+              useGpu ? GpuBackend.vulkan : GpuBackend.cpu,
+          numberOfThreads: threads,
+          numberOfThreadsBatch: threads,
+          batchSize: useGpu ? 512 : 256,
+          microBatchSize: useGpu ? 256 : 128,
+          useMmap: true,
+          useMlock: false,
+        ),
+      );
+
+      _engine = engine;
+      _loadedPath = path;
+      _loadedContext = requestedContext;
+      _loadedGpu = useGpu;
+      _acceleration = useGpu
+          ? 'GPU/Vulkan • contexto $requestedContext'
+          : 'CPU • $threads hilos • contexto $requestedContext';
+    } catch (_) {
+      try {
+        await engine.dispose();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+"""
+s = s[:start] + optimized_loader + s[end:]
+
+s = s.replace(
+    "  String _loadedPath = '';\n",
+    "  String _loadedPath = '';\n  int _loadedContext = 0;\n  bool _loadedGpu = false;\n",
+    1,
+)
+
+s = s.replace(
+    "      await _ensureLoaded();\n      final engine = _engine!;",
+    "      final requestedContext = _contextFor(messages, maxTokens);\n      await _ensureLoaded(requestedContext);\n      final engine = _engine!;",
+    1,
+)
+
+s = s.replace(
+    "    _loadedPath = '';\n    _acceleration = 'Sin cargar';",
+    "    _loadedPath = '';\n    _loadedContext = 0;\n    _loadedGpu = false;\n    _acceleration = 'Sin cargar';",
+    1,
+)
+
+old_idle = """  Future<void> _scheduleUnload() async {
+    _idleTimer?.cancel();
+    final seconds = await ManagerSettings.idleSeconds();
+    _idleTimer = Timer(Duration(seconds: seconds), () async {
+      if (!_generating) await unload();
+    });
+  }
+"""
+new_idle = """  Future<void> _scheduleUnload() async {
+    _idleTimer?.cancel();
+    final configured = await ManagerSettings.idleSeconds();
+    // Keep the model warm for at least five minutes between chat messages.
+    // Explicit app/chat exit still unloads immediately through Binder.
+    final seconds = configured < 300 ? 300 : configured;
+    _idleTimer = Timer(Duration(seconds: seconds), () async {
+      if (!_generating) await unload();
+    });
+  }
+"""
+if old_idle not in s:
+    raise RuntimeError("idle unload section not found")
+s = s.replace(old_idle, new_idle, 1)
+
+p.write_text(s)
+print("Local AI Manager adaptive-context performance patch applied")
+
