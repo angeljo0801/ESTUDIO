@@ -6,6 +6,8 @@ import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'device_llm_service.dart';
+
 class LlmSettingsPage extends StatefulWidget {
   const LlmSettingsPage({super.key});
   @override
@@ -201,6 +203,9 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
 
   Future<void> _save() async {
     final p = await SharedPreferences.getInstance();
+    if (provider == 'manager') {
+      await DeviceLlmService.releaseModel(stopGeneration: true);
+    }
     await p.setString('llm_provider', provider);
     await p.setString('device_model_mode', deviceModelMode);
     await p.setString('gemini_key', geminiKey.text.trim());
@@ -259,6 +264,12 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
                     Icons.smartphone,
                     'LLM local',
                     'Ollama, LM Studio u otro servidor compatible, sin nube.',
+                  ),
+                  _choice(
+                    'manager',
+                    Icons.hub_outlined,
+                    'Local AI Manager',
+                    'Usa el modelo compartido del gestor. Memora no carga su propio GGUF en RAM.',
                   ),
                   const SizedBox(height: 14),
                   _choice(
@@ -325,6 +336,21 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
                     const SizedBox(height: 10),
                     const Text(
                       'El servidor debe exponer una API compatible con OpenAI. Si corre en otro equipo, usa su IP local; 127.0.0.1 solo sirve si el servidor corre en el propio teléfono.',
+                    ),
+                  ],
+                  if (provider == 'manager') ...[
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.memory_outlined),
+                        title: const Text('Conexión automática'),
+                        subtitle: const Text(
+                          'Memora usará http://127.0.0.1:11435/v1 con el modelo shared. No necesitas configurar URL, nombre de modelo ni API key.',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Abre Local AI Manager y carga allí el GGUF antes de usar la IA. Si el gestor no está activo, Memora mostrará un aviso en lugar de intentar cargar su modelo interno.',
                     ),
                   ],
                   if (provider == 'device') ...[
