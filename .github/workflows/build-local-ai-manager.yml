@@ -34,7 +34,7 @@ jobs:
         run: |
           rm -rf /tmp/local_ai_manager_build /tmp/local_ai_manager_src /tmp/local_ai_manager_source.zip
           mkdir -p /tmp/local_ai_manager_src
-          git show f0bd9d50a40054585618e150ee8b017313d407c2:local_ai_manager_source.zip > /tmp/local_ai_manager_source.zip
+          git show 8d0fdd7a6e59ebd5d8459ff3226eee9d518c2aca:local_ai_manager_source.zip > /tmp/local_ai_manager_source.zip
           unzip -q /tmp/local_ai_manager_source.zip -d /tmp/local_ai_manager_src
           SRC="/tmp/local_ai_manager_src/local_ai_manager_source"
           test -f "$SRC/pubspec.yaml"
