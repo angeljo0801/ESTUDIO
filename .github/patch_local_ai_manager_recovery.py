@@ -236,3 +236,83 @@ if channel_code.strip() not in s:
 
 p.write_text(s)
 print("Local AI Manager single-engine Binder channel patch applied")
+
+
+# Force a conservative CPU-only inference profile. Some Android/Vulkan drivers
+# can terminate the native llama process when the first model load starts.
+s = p.read_text()
+
+s = s.replace(
+    "final threads = max(2, min(8, Platform.numberOfProcessors - 2));",
+    "final threads = max(2, min(4, Platform.numberOfProcessors - 2));",
+    1,
+)
+
+gpu_block = """    var gpuLayers = 0;
+    var gpuName = '';
+    if (await ManagerSettings.useGpu()) {
+      try {
+        final gpu = await controller.detectGpu();
+        if (gpu.vulkanSupported) {
+          gpuLayers = gpu.recommendedGpuLayers;
+          gpuName = gpu.gpuName;
+        }
+      } catch (_) {
+        gpuLayers = 0;
+      }
+    }
+"""
+cpu_block = """    const gpuLayers = 0;
+    const gpuName = '';
+"""
+if gpu_block not in s:
+    raise RuntimeError("GPU inference block not found")
+s = s.replace(gpu_block, cpu_block, 1)
+
+s = s.replace(
+    "contextSize: 4096,",
+    "contextSize: 2048,",
+    1,
+)
+
+# Existing installations can have manager_gpu=true saved from an older version.
+# Reset it so the UI and persisted state agree with safe CPU mode.
+defaults_anchor = """  static Future<void> ensureDefaults() async {
+    final p = await SharedPreferences.getInstance();
+"""
+defaults_replacement = """  static Future<void> ensureDefaults() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_gpu, false);
+"""
+if defaults_anchor not in s:
+    raise RuntimeError("ManagerSettings.ensureDefaults anchor not found")
+s = s.replace(defaults_anchor, defaults_replacement, 1)
+
+old_switch = """                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _gpu,
+                          title: const Text('Usar GPU/Vulkan'),
+                          subtitle: const Text('Desactivado por defecto para máxima estabilidad.'),
+                          onChanged: (v) async {
+                            await sharedEngine.unload();
+                            await ManagerSettings.setGpu(v);
+                            setState(() => _gpu = v);
+                          },
+                        ),
+"""
+new_switch = """                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: false,
+                          title: const Text('GPU/Vulkan'),
+                          subtitle: const Text(
+                            'Desactivado en modo seguro. El modelo usa CPU para evitar cierres del proceso.',
+                          ),
+                          onChanged: null,
+                        ),
+"""
+if old_switch not in s:
+    raise RuntimeError("GPU switch block not found")
+s = s.replace(old_switch, new_switch, 1)
+
+p.write_text(s)
+print("Local AI Manager safe CPU inference patch applied")
