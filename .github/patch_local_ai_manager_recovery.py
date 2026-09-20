@@ -141,10 +141,8 @@ p.write_text(s)
 print("Local AI Manager battery/background persistence patch applied")
 
 
-# Add the headless Dart entrypoint used by the exported Android Binder service.
+# Install Binder MethodChannel on the same main FlutterEngine used by the UI.
 s = p.read_text()
-if "import 'dart:ui';" not in s:
-    s = s.replace("import 'dart:math';", "import 'dart:math';\nimport 'dart:ui';", 1)
 if "package:flutter/services.dart" not in s:
     s = s.replace(
         "import 'package:flutter/material.dart';",
@@ -152,13 +150,25 @@ if "package:flutter/services.dart" not in s:
         1,
     )
 
-entrypoint = r"""
-@pragma('vm:entry-point')
-Future<void> managerServiceMain() async {
+main_old = """Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  DartPluginRegistrant.ensureInitialized();
   await ManagerSettings.ensureDefaults();
+  runApp(const LocalAiManagerApp());
+}
+"""
+main_new = """Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ManagerSettings.ensureDefaults();
+  _installSharedServiceChannel();
+  runApp(const LocalAiManagerApp());
+}
+"""
+if main_old not in s:
+    raise RuntimeError("Manager main() anchor not found")
+s = s.replace(main_old, main_new, 1)
 
+channel_code = r"""
+void _installSharedServiceChannel() {
   const channel = MethodChannel(
     'com.angelapps.local_ai_manager/service_engine',
   );
@@ -173,6 +183,7 @@ Future<void> managerServiceMain() async {
         if (prompt.isEmpty) {
           throw StateError('La pregunta está vacía.');
         }
+
         final system = (args['system'] ?? '').toString().trim();
         final rawMax = args['maxTokens'];
         final maxTokens = rawMax is num ? rawMax.toInt() : 320;
@@ -185,42 +196,22 @@ Future<void> managerServiceMain() async {
           ChatMessage(role: 'user', content: prompt),
         ];
 
-        final answer = await sharedEngine.generate(
+        return sharedEngine.generate(
           messages: messages,
           maxTokens: maxTokens,
           temperature: temperature,
         );
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(
-          'manager_service_requests',
-          (prefs.getInt('manager_service_requests') ?? 0) + 1,
-        );
-        await prefs.setBool('manager_service_model_loaded', sharedEngine.loaded);
-        await prefs.setString(
-          'manager_service_acceleration',
-          sharedEngine.acceleration,
-        );
-        await prefs.setString(
-          'manager_service_last_used',
-          DateTime.now().toIso8601String(),
-        );
-        return answer;
-
       case 'unload':
         await sharedEngine.unload();
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('manager_service_model_loaded', false);
-        await prefs.setString('manager_service_acceleration', 'Sin cargar');
-        return true;
+        return 'OK';
 
       case 'status':
-        final prefs = await SharedPreferences.getInstance();
         return <String, dynamic>{
           'loaded': sharedEngine.loaded,
           'generating': sharedEngine.generating,
           'acceleration': sharedEngine.acceleration,
-          'requests': prefs.getInt('manager_service_requests') ?? 0,
+          'requests': sharedEngine.requestCount,
           'model': await ManagerSettings.modelName(),
         };
 
@@ -231,59 +222,17 @@ Future<void> managerServiceMain() async {
     }
   });
 
-  await channel.invokeMethod('ready');
+  // This may run before the Android Service exists; that is harmless because
+  // the native service also retries until the Dart handler is ready.
+  channel.invokeMethod('ready').catchError((_) {});
 }
 """
 
-if "Future<void> managerServiceMain()" not in s:
-    s += "\n" + entrypoint + "\n"
-
-old_status = """  Future<void> _refreshStatus() async {
-    if (!mounted) return;
-    await localServer.ensureAlive();
-    final reachable = await localServer.isReachable();
-    final status = EngineStatus(
-      serverRunning: reachable,
-      modelLoaded: sharedEngine.loaded,
-      generating: sharedEngine.generating,
-      modelName: await ManagerSettings.modelName(),
-      acceleration: sharedEngine.acceleration,
-      rssMb: await processRssMb(),
-      requestCount: sharedEngine.requestCount,
-      lastUsed: sharedEngine.lastUsed,
-      error: localServer.lastError,
-    );
-"""
-new_status = """  Future<void> _refreshStatus() async {
-    if (!mounted) return;
-    await localServer.ensureAlive();
-    final reachable = await localServer.isReachable();
-    final prefs = await SharedPreferences.getInstance();
-    final serviceLoaded =
-        prefs.getBool('manager_service_model_loaded') ?? false;
-    final serviceRequests =
-        prefs.getInt('manager_service_requests') ?? 0;
-    final serviceAcceleration =
-        prefs.getString('manager_service_acceleration') ?? 'Sin cargar';
-    final rawServiceLast =
-        prefs.getString('manager_service_last_used') ?? '';
-    final serviceLast = DateTime.tryParse(rawServiceLast);
-    final status = EngineStatus(
-      serverRunning: reachable,
-      modelLoaded: sharedEngine.loaded || serviceLoaded,
-      generating: sharedEngine.generating,
-      modelName: await ManagerSettings.modelName(),
-      acceleration: sharedEngine.loaded
-          ? sharedEngine.acceleration
-          : serviceAcceleration,
-      rssMb: await processRssMb(),
-      requestCount: sharedEngine.requestCount + serviceRequests,
-      lastUsed: sharedEngine.lastUsed ?? serviceLast,
-      error: localServer.lastError,
-    );
-"""
-if old_status in s:
-    s = s.replace(old_status, new_status, 1)
+insert_before = "class LocalAiManagerApp extends StatelessWidget {"
+if channel_code.strip() not in s:
+    if insert_before not in s:
+        raise RuntimeError("LocalAiManagerApp anchor not found")
+    s = s.replace(insert_before, channel_code + "\n" + insert_before, 1)
 
 p.write_text(s)
-print("Local AI Manager Binder Dart entrypoint patch applied")
+print("Local AI Manager single-engine Binder channel patch applied")
