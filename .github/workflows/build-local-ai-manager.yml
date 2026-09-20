@@ -62,7 +62,7 @@ jobs:
               '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
               '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">'
           )
-          permissions = '<permission android:name="com.angelapps.local_ai_manager.permission.USE_AI" android:protectionLevel="normal" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />\n\n    <application'
+          permissions = '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />\n\n    <application'
           s = s.replace('<application', permissions, 1)
           s = s.replace(
               'android:label="local_ai_manager"',
@@ -73,7 +73,7 @@ jobs:
               'android:name=".ManagerApplication"'
           )
           marker = '    </application>'
-          service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n        <service android:name=".SharedAiService" android:exported="true" android:permission="com.angelapps.local_ai_manager.permission.USE_AI">\n            <intent-filter><action android:name="com.angelapps.local_ai_manager.SHARED_AI" /></intent-filter>\n        </service>\n'
+          service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n        <service android:name=".SharedAiService" android:exported="true">\n            <intent-filter><action android:name="com.angelapps.local_ai_manager.SHARED_AI" /></intent-filter>\n        </service>\n'
           if marker not in s:
               raise RuntimeError("application closing tag not found")
           s = s.replace(marker, service + marker, 1)
@@ -108,7 +108,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.1.1-SingleEngine
+          name: Local-AI-Manager-v1.1.2-BinderFix
           path: /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
