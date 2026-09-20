@@ -134,7 +134,7 @@ print("Local AI Manager recovery patch applied")
 s = p.read_text()
 s = s.replace(
     "shouldRequestBatteryOptimizationsOff: false,",
-    "shouldRequestBatteryOptimizationsOff: true,\n      enableWifiLock: true,",
+    "shouldRequestBatteryOptimizationsOff: false,",
     1,
 )
 p.write_text(s)
