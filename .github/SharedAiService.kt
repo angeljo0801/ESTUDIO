@@ -8,9 +8,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
-import io.flutter.FlutterInjector
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 import java.util.ArrayDeque
 
@@ -30,65 +27,76 @@ class SharedAiService : Service() {
         val replyTo: Messenger
     )
 
-    private lateinit var flutterEngine: FlutterEngine
     private lateinit var channel: MethodChannel
-    private var dartReady = false
+    private var channelReady = false
     private val queue = ArrayDeque<PendingRequest>()
+    private val handler = Handler(Looper.getMainLooper())
 
     private val incoming = Messenger(object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             val reply = msg.replyTo ?: return
             val id = msg.data.getString("id") ?: System.nanoTime().toString()
             val request = PendingRequest(msg.what, id, Bundle(msg.data), reply)
-            if (!dartReady) {
-                queue.add(request)
+
+            if (msg.what == MSG_PING) {
+                sendReply(request, true, "OK", null)
                 return
             }
-            dispatch(request)
+
+            queue.add(request)
+            flushQueue()
         }
     })
 
     override fun onCreate() {
         super.onCreate()
-        val loader = FlutterInjector.instance().flutterLoader()
-        loader.startInitialization(this)
-        loader.ensureInitializationComplete(this, null)
 
-        flutterEngine = FlutterEngine(this)
+        val engine =
+            (application as ManagerApplication).sharedFlutterEngine
+
         channel = MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
+            engine.dartExecutor.binaryMessenger,
             CHANNEL
         )
+
+        // Dart can announce readiness. If that announcement happened before the
+        // service was created, the retry loop below still handles the race.
         channel.setMethodCallHandler { call, result ->
             if (call.method == "ready") {
-                dartReady = true
-                while (queue.isNotEmpty()) dispatch(queue.removeFirst())
+                channelReady = true
+                flushQueue()
                 result.success(true)
             } else {
                 result.notImplemented()
             }
         }
 
-        val entrypoint = DartExecutor.DartEntrypoint(
-            loader.findAppBundlePath(),
-            "managerServiceMain"
-        )
-        flutterEngine.dartExecutor.executeDartEntrypoint(entrypoint)
+        // The main Dart isolate normally installs its handler almost instantly.
+        handler.postDelayed({
+            channelReady = true
+            flushQueue()
+        }, 350)
     }
 
     override fun onBind(intent: Intent?): IBinder = incoming.binder
 
     override fun onDestroy() {
-        try {
-            channel.invokeMethod("unload", null)
-        } catch (_: Exception) {}
-        try {
-            flutterEngine.destroy()
-        } catch (_: Exception) {}
+        handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
 
-    private fun dispatch(request: PendingRequest) {
+    private fun flushQueue() {
+        if (!channelReady || queue.isEmpty()) return
+        val pendingItems = mutableListOf<PendingRequest>()
+        while (queue.isNotEmpty()) {
+            pendingItems.add(queue.removeFirst())
+        }
+        for (request in pendingItems) {
+            dispatch(request, 0)
+        }
+    }
+
+    private fun dispatch(request: PendingRequest, attempt: Int) {
         when (request.what) {
             MSG_ASK -> {
                 val args = hashMapOf<String, Any?>(
@@ -97,50 +105,91 @@ class SharedAiService : Service() {
                     "maxTokens" to request.data.getInt("maxTokens", 320),
                     "temperature" to request.data.getDouble("temperature", 0.2)
                 )
-                channel.invokeMethod("ask", args, object : MethodChannel.Result {
-                    override fun success(result: Any?) {
-                        sendReply(request, true, result?.toString().orEmpty(), null)
-                    }
-
-                    override fun error(code: String, message: String?, details: Any?) {
-                        sendReply(
-                            request,
-                            false,
-                            null,
-                            message ?: code
-                        )
-                    }
-
-                    override fun notImplemented() {
-                        sendReply(
-                            request,
-                            false,
-                            null,
-                            "El servicio de Local AI Manager no está listo."
-                        )
-                    }
-                })
+                invokeWithRetry(request, "ask", args, attempt)
             }
 
             MSG_UNLOAD -> {
-                channel.invokeMethod("unload", null, object : MethodChannel.Result {
+                invokeWithRetry(request, "unload", null, attempt)
+            }
+
+            else -> {
+                sendReply(request, false, null, "Solicitud desconocida.")
+            }
+        }
+    }
+
+    private fun invokeWithRetry(
+        request: PendingRequest,
+        method: String,
+        args: Any?,
+        attempt: Int
+    ) {
+        try {
+            channel.invokeMethod(
+                method,
+                args,
+                object : MethodChannel.Result {
                     override fun success(result: Any?) {
-                        sendReply(request, true, "OK", null)
+                        sendReply(
+                            request,
+                            true,
+                            result?.toString().orEmpty(),
+                            null
+                        )
                     }
 
-                    override fun error(code: String, message: String?, details: Any?) {
-                        sendReply(request, false, null, message ?: code)
+                    override fun error(
+                        code: String,
+                        message: String?,
+                        details: Any?
+                    ) {
+                        if (attempt < 12 &&
+                            (code == "channel-error" ||
+                             code == "missing-plugin")) {
+                            retry(request, attempt + 1)
+                        } else {
+                            sendReply(
+                                request,
+                                false,
+                                null,
+                                message ?: code
+                            )
+                        }
                     }
 
                     override fun notImplemented() {
-                        sendReply(request, false, null, "Unload no disponible.")
+                        if (attempt < 12) {
+                            retry(request, attempt + 1)
+                        } else {
+                            sendReply(
+                                request,
+                                false,
+                                null,
+                                "El motor compartido del Manager no inició."
+                            )
+                        }
                     }
-                })
+                }
+            )
+        } catch (e: Exception) {
+            if (attempt < 12) {
+                retry(request, attempt + 1)
+            } else {
+                sendReply(
+                    request,
+                    false,
+                    null,
+                    e.message ?: "Error interno del Manager."
+                )
             }
-
-            MSG_PING -> sendReply(request, true, "OK", null)
-            else -> sendReply(request, false, null, "Solicitud desconocida.")
         }
+    }
+
+    private fun retry(request: PendingRequest, attempt: Int) {
+        handler.postDelayed(
+            { dispatch(request, attempt) },
+            250L
+        )
     }
 
     private fun sendReply(
