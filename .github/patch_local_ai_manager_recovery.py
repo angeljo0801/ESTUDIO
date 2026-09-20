@@ -179,14 +179,27 @@ void _installSharedServiceChannel() {
         final args = Map<String, dynamic>.from(
           (call.arguments as Map?) ?? const <String, dynamic>{},
         );
-        final prompt = (args['prompt'] ?? '').toString().trim();
-        if (prompt.isEmpty) {
+        final rawPrompt = (args['prompt'] ?? '').toString().trim();
+        if (rawPrompt.isEmpty) {
           throw StateError('La pregunta está vacía.');
         }
 
-        final system = (args['system'] ?? '').toString().trim();
+        // Binder clients can send large app context (financial data, guides, etc.).
+        // Keep the native llama context comfortably below 2048 tokens so the
+        // Android process is not terminated by an oversized prompt.
+        final prompt = rawPrompt.length <= 5200
+            ? rawPrompt
+            : '${rawPrompt.substring(0, 1400)}\n\n'
+                '[Contexto intermedio recortado para proteger la memoria]\n\n'
+                '${rawPrompt.substring(rawPrompt.length - 3600)}';
+
+        final rawSystem = (args['system'] ?? '').toString().trim();
+        final system = rawSystem.length <= 600
+            ? rawSystem
+            : rawSystem.substring(0, 600);
         final rawMax = args['maxTokens'];
-        final maxTokens = rawMax is num ? rawMax.toInt() : 320;
+        final requestedMaxTokens = rawMax is num ? rawMax.toInt() : 320;
+        final maxTokens = requestedMaxTokens.clamp(32, 384).toInt();
         final rawTemp = args['temperature'];
         final temperature = rawTemp is num ? rawTemp.toDouble() : 0.2;
 
