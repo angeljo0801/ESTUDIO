@@ -37,6 +37,7 @@ jobs:
           cp "$SRC/pubspec.yaml" /tmp/local_ai_manager_build/pubspec.yaml
           rm -rf /tmp/local_ai_manager_build/lib
           cp -R "$SRC/lib" /tmp/local_ai_manager_build/lib
+
       - name: Configure Android
         shell: bash
         working-directory: /tmp/local_ai_manager_build
@@ -44,32 +45,26 @@ jobs:
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 26/' android/app/build.gradle.kts
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('android/app/src/main/AndroidManifest.xml')
+          p = Path("android/app/src/main/AndroidManifest.xml")
           s = p.read_text()
-          s = s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">')
-          s = s.replace('<application', '''<uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-
-    <application''', 1)
-          s = s.replace('android:label="local_ai_manager"', 'android:label="Local AI Manager" android:usesCleartextTraffic="true"')
+          s = s.replace(
+              '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+              '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">'
+          )
+          permissions = '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />\n\n    <application'
+          s = s.replace('<application', permissions, 1)
+          s = s.replace(
+              'android:label="local_ai_manager"',
+              'android:label="Local AI Manager" android:usesCleartextTraffic="true"'
+          )
           marker = '    </application>'
-          service = '''        <service
-            android:name="de.julianassmann.flutter_background.IsolateHolderService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse"
-            tools:replace="android:foregroundServiceType">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keeps a local on-device AI model available to user-selected apps." />
-        </service>
-'''
-          if service not in s:
-              s = s.replace(marker, service + marker, 1)
+          service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n'
+          if marker not in s:
+              raise RuntimeError("application closing tag not found")
+          s = s.replace(marker, service + marker, 1)
           p.write_text(s)
           PY
+
       - name: Install native toolchain
         shell: bash
         run: |
@@ -79,15 +74,19 @@ jobs:
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" "cmake;3.31.0" "ndk;28.0.12674087"
+
       - name: Get dependencies
         working-directory: /tmp/local_ai_manager_build
         run: flutter pub get
+
       - name: Analyze
         working-directory: /tmp/local_ai_manager_build
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
       - name: Build release APK
         working-directory: /tmp/local_ai_manager_build
         run: flutter build apk --release
+
       - uses: actions/upload-artifact@v4
         with:
           name: Local-AI-Manager-v1.0.0
