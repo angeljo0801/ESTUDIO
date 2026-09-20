@@ -9,5 +9,13 @@ class MainActivity : FlutterActivity() {
         return (application as ManagerApplication).sharedFlutterEngine
     }
 
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        ManagerSelfBridge.register(
+            applicationContext,
+            flutterEngine.dartExecutor.binaryMessenger
+        )
+    }
+
     override fun shouldDestroyEngineWithHost(): Boolean = false
 }
