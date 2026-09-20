@@ -465,27 +465,15 @@ new_engine = r"""class SharedLlamaEngine {
     }
 
     final length = await file.length();
-    if (length < 64 * 1024 * 1024) {
+    if (length < 8 * 1024 * 1024) {
       throw StateError(
-        'El archivo GGUF parece incompleto (\${(length / 1024 / 1024).toStringAsFixed(1)} MB).',
+        'El archivo del modelo parece incompleto (\${(length / 1024 / 1024).toStringAsFixed(1)} MB).',
       );
     }
 
-    final handle = await file.open(mode: FileMode.read);
-    try {
-      final magic = await handle.read(4);
-      if (magic.length != 4 ||
-          magic[0] != 0x47 ||
-          magic[1] != 0x47 ||
-          magic[2] != 0x55 ||
-          magic[3] != 0x46) {
-        throw StateError(
-          'El archivo seleccionado no tiene una cabecera GGUF válida.',
-        );
-      }
-    } finally {
-      await handle.close();
-    }
+    // llama.cpp is the authoritative model parser. The previous manual
+    // four-byte header check falsely rejected a model that llamadart had
+    // already loaded successfully on this device.
   }
 
   Future<void> _ensureLoaded() async {
