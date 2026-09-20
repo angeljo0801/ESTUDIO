@@ -143,7 +143,7 @@ class SharedAiService : Service() {
                         message: String?,
                         details: Any?
                     ) {
-                        if (attempt < 12 &&
+                        if (attempt < 60 &&
                             (code == "channel-error" ||
                              code == "missing-plugin")) {
                             retry(request, attempt + 1)
@@ -158,7 +158,7 @@ class SharedAiService : Service() {
                     }
 
                     override fun notImplemented() {
-                        if (attempt < 12) {
+                        if (attempt < 60) {
                             retry(request, attempt + 1)
                         } else {
                             sendReply(
@@ -172,7 +172,7 @@ class SharedAiService : Service() {
                 }
             )
         } catch (e: Exception) {
-            if (attempt < 12) {
+            if (attempt < 60) {
                 retry(request, attempt + 1)
             } else {
                 sendReply(
@@ -188,7 +188,7 @@ class SharedAiService : Service() {
     private fun retry(request: PendingRequest, attempt: Int) {
         handler.postDelayed(
             { dispatch(request, attempt) },
-            250L
+            500L
         )
     }
 
