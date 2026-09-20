@@ -90,7 +90,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.0.0
+          name: Local-AI-Manager-v1.0.1
           path: /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
