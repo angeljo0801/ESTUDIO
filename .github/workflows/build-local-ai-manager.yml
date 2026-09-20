@@ -31,7 +31,8 @@ jobs:
           rm -rf /tmp/local_ai_manager_build /tmp/local_ai_manager_src
           mkdir -p /tmp/local_ai_manager_src
           unzip -q local_ai_manager_source.zip -d /tmp/local_ai_manager_src
-          SRC="/tmp/local_ai_manager_src/local_ai_manager_source"
+          SRC="$(dirname "$(find /tmp/local_ai_manager_src -type f -name pubspec.yaml -print -quit)")"
+          test -n "$SRC"
           test -f "$SRC/pubspec.yaml"
           flutter create --platforms=android --org com.angelapps --project-name local_ai_manager /tmp/local_ai_manager_build
           cp "$SRC/pubspec.yaml" /tmp/local_ai_manager_build/pubspec.yaml
