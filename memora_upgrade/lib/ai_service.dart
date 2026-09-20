@@ -14,6 +14,10 @@ class AiService {
 
   static String get localAccelerationLabel => DeviceLlmService.accelerationLabel;
 
+  static Future<void> releaseDeviceModel() async {
+    await DeviceLlmService.releaseModel(stopGeneration: true);
+  }
+
   static Future<void> cancelCurrent() async {
     final id = _activeOnlineId;
     if (id != null) _cancelledOnline.add(id);
@@ -122,6 +126,34 @@ class AiService {
           ));
       onPartial?.call(result);
       return result;
+    }
+
+    if (provider == 'manager') {
+      try {
+        final result = await _runOnline((client, _) => askOpenAiCompatible(
+              client: client,
+              baseUrl: 'http://127.0.0.1:11435/v1',
+              apiKey: '',
+              model: 'shared',
+              prompt: prompt,
+            ));
+        onPartial?.call(result);
+        return result;
+      } on SocketException {
+        throw Exception(
+          'Local AI Manager no está activo. Abre Local AI Manager, carga el modelo y vuelve a intentarlo.',
+        );
+      } catch (e) {
+        final lower = e.toString().toLowerCase();
+        if (lower.contains('connection refused') ||
+            lower.contains('failed host lookup') ||
+            lower.contains('connection closed')) {
+          throw Exception(
+            'Local AI Manager no está activo. Abre Local AI Manager, carga el modelo y vuelve a intentarlo.',
+          );
+        }
+        rethrow;
+      }
     }
 
     if (provider == 'local' || provider == 'ollama') {
