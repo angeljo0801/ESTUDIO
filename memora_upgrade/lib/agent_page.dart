@@ -244,6 +244,10 @@ class _AgentPageState extends State<AgentPage> {
                       value: 'local',
                       child: Text('Ollama / servidor local configurado'),
                     ),
+                    DropdownMenuItem(
+                      value: 'manager',
+                      child: Text('Local AI Manager'),
+                    ),
                   ],
                   onChanged: (value) =>
                       setDialogState(() => source = value ?? 'global'),
