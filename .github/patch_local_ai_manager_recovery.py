@@ -365,14 +365,15 @@ old_test = """  Future<void> _testModel() async {
 new_test = """  Future<void> _testModel() async {
     setState(() => _busy = true);
     try {
-      final text = await selfManagerChannel
-          .invokeMethod<String>('ask', {
-            'prompt': 'Responde solamente: OK',
-            'system': 'Prueba de estabilidad del motor local.',
-            'maxTokens': 24,
-            'temperature': 0.0,
-          })
-          .timeout(const Duration(minutes: 3));
+      final text = (await selfManagerChannel
+              .invokeMethod<String>('ask', {
+                'prompt': 'Responde solamente: OK',
+                'system': 'Prueba de estabilidad del motor local.',
+                'maxTokens': 24,
+                'temperature': 0.0,
+              })
+              .timeout(const Duration(minutes: 3))) ??
+          '';
 """
 if old_test not in s:
     raise RuntimeError("test model anchor not found")
