@@ -156,10 +156,16 @@ main_old = """Future<void> main() async {
   runApp(const LocalAiManagerApp());
 }
 """
-main_new = """Future<void> main() async {
+main_new = """@pragma('vm:entry-point')
+Future<void> sharedServiceMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ManagerSettings.ensureDefaults();
   _installSharedServiceChannel();
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ManagerSettings.ensureDefaults();
   runApp(const LocalAiManagerApp());
 }
 """
@@ -187,11 +193,11 @@ void _installSharedServiceChannel() {
         // Binder clients can send large app context (financial data, guides, etc.).
         // Keep the native llama context comfortably below 2048 tokens so the
         // Android process is not terminated by an oversized prompt.
-        final prompt = rawPrompt.length <= 5200
+        final prompt = rawPrompt.length <= 3000
             ? rawPrompt
-            : '${rawPrompt.substring(0, 1400)}\n\n'
+            : '${rawPrompt.substring(0, 800)}\n\n'
                 '[Contexto intermedio recortado para proteger la memoria]\n\n'
-                '${rawPrompt.substring(rawPrompt.length - 3600)}';
+                '${rawPrompt.substring(rawPrompt.length - 2000)}';
 
         final rawSystem = (args['system'] ?? '').toString().trim();
         final system = rawSystem.length <= 600
@@ -199,7 +205,7 @@ void _installSharedServiceChannel() {
             : rawSystem.substring(0, 600);
         final rawMax = args['maxTokens'];
         final requestedMaxTokens = rawMax is num ? rawMax.toInt() : 320;
-        final maxTokens = requestedMaxTokens.clamp(32, 384).toInt();
+        final maxTokens = requestedMaxTokens.clamp(32, 256).toInt();
         final rawTemp = args['temperature'];
         final temperature = rawTemp is num ? rawTemp.toDouble() : 0.2;
 
@@ -257,7 +263,7 @@ s = p.read_text()
 
 s = s.replace(
     "final threads = max(2, min(8, Platform.numberOfProcessors - 2));",
-    "final threads = max(2, min(4, Platform.numberOfProcessors - 2));",
+    "final threads = 2;",
     1,
 )
 
@@ -284,7 +290,7 @@ s = s.replace(gpu_block, cpu_block, 1)
 
 s = s.replace(
     "contextSize: 4096,",
-    "contextSize: 2048,",
+    "contextSize: 1024,",
     1,
 )
 
@@ -329,3 +335,67 @@ s = s.replace(old_switch, new_switch, 1)
 
 p.write_text(s)
 print("Local AI Manager safe CPU inference patch applied")
+
+
+# Isolate the Manager UI from native llama crashes. The UI's own test/unload
+# actions go through Binder into the :ai_engine process.
+s = p.read_text()
+if "com.angelapps.local_ai_manager/self_client" not in s:
+    if "final SharedLlamaEngine sharedEngine = SharedLlamaEngine();" not in s:
+        raise RuntimeError("shared engine global anchor not found")
+    s = s.replace(
+        "final SharedLlamaEngine sharedEngine = SharedLlamaEngine();",
+        """final SharedLlamaEngine sharedEngine = SharedLlamaEngine();
+const MethodChannel selfManagerChannel =
+    MethodChannel('com.angelapps.local_ai_manager/self_client');""",
+        1,
+    )
+
+old_test = """  Future<void> _testModel() async {
+    setState(() => _busy = true);
+    try {
+      final text = await sharedEngine.generate(
+        messages: [
+          ChatMessage(role: 'user', content: 'Responde solamente: OK'),
+        ],
+        maxTokens: 24,
+        temperature: 0.0,
+      );
+"""
+new_test = """  Future<void> _testModel() async {
+    setState(() => _busy = true);
+    try {
+      final text = await selfManagerChannel
+          .invokeMethod<String>('ask', {
+            'prompt': 'Responde solamente: OK',
+            'system': 'Prueba de estabilidad del motor local.',
+            'maxTokens': 24,
+            'temperature': 0.0,
+          })
+          .timeout(const Duration(minutes: 3));
+"""
+if old_test not in s:
+    raise RuntimeError("test model anchor not found")
+s = s.replace(old_test, new_test, 1)
+
+old_unload = """  Future<void> _unloadNow() async {
+    await sharedEngine.unload();
+    await _refreshStatus();
+  }
+"""
+new_unload = """  Future<void> _unloadNow() async {
+    try {
+      await selfManagerChannel
+          .invokeMethod<String>('unload')
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {}
+    await sharedEngine.unload();
+    await _refreshStatus();
+  }
+"""
+if old_unload not in s:
+    raise RuntimeError("unload anchor not found")
+s = s.replace(old_unload, new_unload, 1)
+
+p.write_text(s)
+print("Local AI Manager isolated-process UI bridge patch applied")
