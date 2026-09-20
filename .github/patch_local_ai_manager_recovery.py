@@ -127,3 +127,15 @@ s = s.replace(old, new, 1)
 
 p.write_text(s)
 print("Local AI Manager recovery patch applied")
+
+
+# Keep the Flutter isolate and localhost server alive while Memora/Finanzas
+# are in the foreground. On Android/Samsung this requires opting out of Doze.
+s = p.read_text()
+s = s.replace(
+    "shouldRequestBatteryOptimizationsOff: false,",
+    "shouldRequestBatteryOptimizationsOff: true,\n      enableWifiLock: true,",
+    1,
+)
+p.write_text(s)
+print("Local AI Manager battery/background persistence patch applied")
