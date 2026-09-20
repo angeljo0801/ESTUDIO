@@ -365,6 +365,8 @@ class _TutorPageState extends State<TutorPage> {
         return 'OpenAI / compatible configurado';
       case 'local':
         return 'Ollama / servidor local configurado';
+      case 'manager':
+        return 'Local AI Manager';
       default:
         return 'Configuración general de IA';
     }
@@ -587,6 +589,10 @@ PREGUNTA: $question''',
                     DropdownMenuItem(
                       value: 'local',
                       child: Text('Ollama / servidor local configurado'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'manager',
+                      child: Text('Local AI Manager'),
                     ),
                   ],
                   onChanged: (value) =>
