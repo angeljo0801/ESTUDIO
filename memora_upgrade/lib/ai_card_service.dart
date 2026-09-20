@@ -21,7 +21,8 @@ class SystemAiDescriptor {
   bool get isDirectGguf =>
       provider == 'device' || provider == 'private' || provider == 'shared';
 
-  bool get isLocalServer => provider == 'local' || provider == 'ollama';
+  bool get isLocalServer =>
+      provider == 'local' || provider == 'ollama' || provider == 'manager';
 }
 
 class AiCardService {
@@ -32,6 +33,12 @@ class AiCardService {
     final provider = (prefs.getString('llm_provider') ?? 'gemini').trim();
 
     switch (provider) {
+      case 'manager':
+        return const SystemAiDescriptor(
+          provider: 'manager',
+          label: 'Local AI Manager • shared',
+          ready: true,
+        );
       case 'local':
       case 'ollama':
         final model = (prefs.getString('local_model') ?? '').trim();
