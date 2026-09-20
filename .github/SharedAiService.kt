@@ -1,13 +1,18 @@
 package com.angelapps.local_ai_manager
 
 import android.app.Service
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import androidx.core.app.NotificationCompat
 import io.flutter.plugin.common.MethodChannel
 import java.util.ArrayDeque
 
@@ -18,6 +23,8 @@ class SharedAiService : Service() {
         const val MSG_PING = 3
         const val MSG_RESPONSE = 100
         const val CHANNEL = "com.angelapps.local_ai_manager/service_engine"
+        private const val NOTIFICATION_CHANNEL = "local_ai_manager_engine"
+        private const val NOTIFICATION_ID = 1101
     }
 
     private data class PendingRequest(
@@ -50,6 +57,11 @@ class SharedAiService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        createNotificationChannel()
+        startForeground(
+            NOTIFICATION_ID,
+            buildNotification("Motor de IA listo")
+        )
 
         val engine =
             (application as ManagerApplication).sharedFlutterEngine
@@ -80,6 +92,10 @@ class SharedAiService : Service() {
 
     override fun onBind(intent: Intent?): IBinder = incoming.binder
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
+    }
+
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
@@ -99,6 +115,7 @@ class SharedAiService : Service() {
     private fun dispatch(request: PendingRequest, attempt: Int) {
         when (request.what) {
             MSG_ASK -> {
+                updateNotification("Procesando solicitud de IA")
                 val args = hashMapOf<String, Any?>(
                     "prompt" to request.data.getString("prompt").orEmpty(),
                     "system" to request.data.getString("system").orEmpty(),
@@ -198,6 +215,7 @@ class SharedAiService : Service() {
         text: String?,
         error: String?
     ) {
+        updateNotification("Motor de IA listo")
         try {
             val msg = Message.obtain(null, MSG_RESPONSE)
             msg.data = Bundle().apply {
@@ -209,4 +227,37 @@ class SharedAiService : Service() {
             request.replyTo.send(msg)
         } catch (_: Exception) {}
     }
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java)
+            val channel = NotificationChannel(
+                NOTIFICATION_CHANNEL,
+                "Local AI Manager",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Mantiene disponible el modelo local para Memora y Finanzas."
+                setShowBadge(false)
+            }
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun buildNotification(text: String): Notification {
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentTitle("Local AI Manager")
+            .setContentText(text)
+            .setOngoing(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .build()
+    }
+
+    private fun updateNotification(text: String) {
+        try {
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.notify(NOTIFICATION_ID, buildNotification(text))
+        } catch (_: Exception) {}
+    }
+
 }
