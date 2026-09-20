@@ -59,7 +59,7 @@ jobs:
               '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
               '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">'
           )
-          permissions = '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />\n\n    <application'
+          permissions = '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />\n\n    <application'
           s = s.replace('<application', permissions, 1)
           s = s.replace(
               'android:label="local_ai_manager"',
@@ -97,7 +97,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.0.1
+          name: Local-AI-Manager-v1.0.2
           path: /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
