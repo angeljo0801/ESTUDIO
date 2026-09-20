@@ -133,19 +133,14 @@ class AiService {
 
     if (provider == 'manager') {
       try {
-        final managerPrompt = prompt.length <= 5200
-            ? prompt
-            : '${prompt.substring(0, 1400)}\n\n'
-                '[Contexto intermedio recortado para mantener estable el modelo local]\n\n'
-                '${prompt.substring(prompt.length - 3600)}';
         final managerMaxTokens = responseMode == 'fast'
-            ? 160
+            ? 350
             : responseMode == 'deep'
-                ? 384
-                : 280;
+                ? 1800
+                : 900;
         final answer = await _managerChannel
             .invokeMethod<String>('ask', {
-              'prompt': managerPrompt,
+              'prompt': prompt,
               'system':
                   'Eres la inteligencia de Memora. Sigue cuidadosamente las instrucciones específicas incluidas en la solicitud.',
               'maxTokens': managerMaxTokens,
