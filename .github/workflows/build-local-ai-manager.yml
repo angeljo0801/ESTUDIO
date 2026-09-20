@@ -37,6 +37,7 @@ jobs:
           cp "$SRC/pubspec.yaml" /tmp/local_ai_manager_build/pubspec.yaml
           rm -rf /tmp/local_ai_manager_build/lib
           cp -R "$SRC/lib" /tmp/local_ai_manager_build/lib
+          rm -rf /tmp/local_ai_manager_build/test
 
       - name: Configure Android
         shell: bash
