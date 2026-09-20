@@ -66,7 +66,11 @@ jobs:
           s = s.replace('<application', permissions, 1)
           s = s.replace(
               'android:label="local_ai_manager"',
-              'android:name=".ManagerApplication" android:label="Local AI Manager" android:usesCleartextTraffic="true"'
+              'android:label="Local AI Manager" android:usesCleartextTraffic="true"'
+          )
+          s = s.replace(
+              'android:name="${applicationName}"',
+              'android:name=".ManagerApplication"'
           )
           marker = '    </application>'
           service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n        <service android:name=".SharedAiService" android:exported="true" android:permission="com.angelapps.local_ai_manager.permission.USE_AI">\n            <intent-filter><action android:name="com.angelapps.local_ai_manager.SHARED_AI" /></intent-filter>\n        </service>\n'
