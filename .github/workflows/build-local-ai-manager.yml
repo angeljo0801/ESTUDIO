@@ -9,6 +9,8 @@ on:
       - '.github/workflows/build-local-ai-manager.yml'
       - '.github/patch_local_ai_manager_recovery.py'
       - '.github/SharedAiService.kt'
+      - '.github/ManagerMainActivity.kt'
+      - '.github/ManagerApplication.kt'
 
 concurrency:
   group: local-ai-manager-apk
@@ -64,7 +66,7 @@ jobs:
           s = s.replace('<application', permissions, 1)
           s = s.replace(
               'android:label="local_ai_manager"',
-              'android:label="Local AI Manager" android:usesCleartextTraffic="true"'
+              'android:name=".ManagerApplication" android:label="Local AI Manager" android:usesCleartextTraffic="true"'
           )
           marker = '    </application>'
           service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n        <service android:name=".SharedAiService" android:exported="true" android:permission="com.angelapps.local_ai_manager.permission.USE_AI">\n            <intent-filter><action android:name="com.angelapps.local_ai_manager.SHARED_AI" /></intent-filter>\n        </service>\n'
@@ -75,6 +77,8 @@ jobs:
           PY
           mkdir -p android/app/src/main/kotlin/com/angelapps/local_ai_manager
           cp "$GITHUB_WORKSPACE/.github/SharedAiService.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/SharedAiService.kt
+          cp "$GITHUB_WORKSPACE/.github/ManagerApplication.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerApplication.kt
+          cp "$GITHUB_WORKSPACE/.github/ManagerMainActivity.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/MainActivity.kt
 
       - name: Install native toolchain
         shell: bash
@@ -100,7 +104,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.1.0-Binder
+          name: Local-AI-Manager-v1.1.1-SingleEngine
           path: /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
