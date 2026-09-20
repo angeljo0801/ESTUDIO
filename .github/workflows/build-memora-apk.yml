@@ -84,7 +84,7 @@ jobs:
           mkdir -p test
           cp -R "$GITHUB_WORKSPACE/memora_upgrade/test/." test/
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="com.angelapps.local_ai_manager.permission.USE_AI" />\n    <queries>\n        <package android:name="com.angelapps.local_ai_manager" />\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
           python3 - <<'PY'
           from pathlib import Path
           p=Path('android/app/src/main/AndroidManifest.xml');s=p.read_text();marker='    </application>'
@@ -100,6 +100,7 @@ jobs:
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 26/' android/app/build.gradle.kts
           sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MainActivity.kt" android/app/src/main/kotlin/com/memora/memora/MainActivity.kt
+          cp "$GITHUB_WORKSPACE/memora_upgrade/android/LocalAiManagerBridge.kt" android/app/src/main/kotlin/com/memora/memora/LocalAiManagerBridge.kt
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MemoraForegroundService.kt" android/app/src/main/kotlin/com/memora/memora/MemoraForegroundService.kt
       - name: Install Memora icons
         working-directory: ${{ env.PROJECT_DIR }}
@@ -140,7 +141,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.46-Daily-Exams-release-apk
+          name: Memora-v1.47-Local-AI-Manager-Binder-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
