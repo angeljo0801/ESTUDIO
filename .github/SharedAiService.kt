@@ -12,7 +12,6 @@ import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugins.GeneratedPluginRegistrant
 import java.util.ArrayDeque
 
 class SharedAiService : Service() {
@@ -56,7 +55,6 @@ class SharedAiService : Service() {
         loader.ensureInitializationComplete(this, null)
 
         flutterEngine = FlutterEngine(this)
-        GeneratedPluginRegistrant.registerWith(flutterEngine)
         channel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             CHANNEL
