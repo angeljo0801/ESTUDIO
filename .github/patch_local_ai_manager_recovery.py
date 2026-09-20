@@ -624,3 +624,131 @@ s = s.replace("import 'dart:math';\n", "", 1)
 p.write_text(s)
 print("Local AI Manager llamadart runtime patch applied")
 
+# Remove the temporary diagnostic limits now that the stable llamadart runtime
+# is in place. Keep the isolated :ai_engine process, but restore full prompts,
+# model-selected context behavior, all CPU threads, and optional Vulkan.
+s = p.read_text()
+
+old_prompt = """        final prompt = rawPrompt.length <= 3000
+            ? rawPrompt
+            : '${rawPrompt.substring(0, 800)}\n\n'
+                '[Contexto intermedio recortado para proteger la memoria]\n\n'
+                '${rawPrompt.substring(rawPrompt.length - 2000)}';
+
+        final rawSystem = (args['system'] ?? '').toString().trim();
+        final system = rawSystem.length <= 600
+            ? rawSystem
+            : rawSystem.substring(0, 600);
+        final rawMax = args['maxTokens'];
+        final requestedMaxTokens = rawMax is num ? rawMax.toInt() : 320;
+        final maxTokens = requestedMaxTokens.clamp(32, 256).toInt();
+"""
+new_prompt = """        final prompt = rawPrompt;
+        final system = (args['system'] ?? '').toString().trim();
+        final rawMax = args['maxTokens'];
+        final requestedMaxTokens = rawMax is num ? rawMax.toInt() : 4096;
+        final maxTokens = requestedMaxTokens > 0 ? requestedMaxTokens : 4096;
+"""
+if old_prompt not in s:
+    raise RuntimeError("diagnostic prompt cap anchor not found")
+s = s.replace(old_prompt, new_prompt, 1)
+
+# Stop forcibly resetting GPU preference on every launch.
+s = s.replace("    await p.setBool(_gpu, false);\n", "", 1)
+
+old_load = """    final engine = LlamaEngine(LlamaBackend());
+    try {
+      await engine.loadModel(
+        path,
+        modelParams: const ModelParams(
+          contextSize: 1024,
+          gpuLayers: 0,
+          preferredBackend: GpuBackend.cpu,
+          numberOfThreads: 2,
+          numberOfThreadsBatch: 2,
+          batchSize: 128,
+          microBatchSize: 64,
+          useMmap: true,
+          useMlock: false,
+          flashAttention: FlashAttention.disabled,
+        ),
+      );
+
+      _engine = engine;
+      _loadedPath = path;
+      _acceleration = 'CPU • llamadart/llama.cpp • 2 hilos';
+"""
+new_load = """    final useGpu = await ManagerSettings.useGpu();
+    final threads = Platform.numberOfProcessors;
+    final engine = LlamaEngine(LlamaBackend());
+    try {
+      await engine.loadModel(
+        path,
+        modelParams: ModelParams(
+          contextSize: 0,
+          gpuLayers: useGpu ? 99 : 0,
+          preferredBackend:
+              useGpu ? GpuBackend.vulkan : GpuBackend.cpu,
+          numberOfThreads: threads,
+          numberOfThreadsBatch: threads,
+          useMmap: true,
+          useMlock: false,
+        ),
+      );
+
+      _engine = engine;
+      _loadedPath = path;
+      _acceleration = useGpu
+          ? 'GPU/Vulkan • llamadart/llama.cpp'
+          : 'CPU • llamadart/llama.cpp • ${threads} hilos';
+"""
+if old_load not in s:
+    raise RuntimeError("llamadart safe load anchor not found")
+s = s.replace(old_load, new_load, 1)
+
+s = s.replace(
+    "            maxTokens: maxTokens.clamp(16, 256).toInt(),",
+    "            maxTokens: maxTokens > 0 ? maxTokens : 4096,",
+    1,
+)
+
+old_switch = """                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: false,
+                          title: const Text('GPU/Vulkan'),
+                          subtitle: const Text(
+                            'Desactivado en modo seguro. El modelo usa CPU para evitar cierres del proceso.',
+                          ),
+                          onChanged: null,
+                        ),
+"""
+new_switch = """                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _gpu,
+                          title: const Text('GPU/Vulkan'),
+                          subtitle: const Text(
+                            'Opcional. Actívalo para descargar capas del modelo a Vulkan. CPU sigue siendo el modo predeterminado.',
+                          ),
+                          onChanged: _busy
+                              ? null
+                              : (v) async {
+                                  try {
+                                    await selfManagerChannel
+                                        .invokeMethod<String>('unload')
+                                        .timeout(const Duration(seconds: 20));
+                                  } catch (_) {}
+                                  await sharedEngine.unload();
+                                  await ManagerSettings.setGpu(v);
+                                  if (mounted) setState(() => _gpu = v);
+                                  await _refreshStatus();
+                                },
+                        ),
+"""
+if old_switch not in s:
+    raise RuntimeError("disabled GPU switch anchor not found")
+s = s.replace(old_switch, new_switch, 1)
+
+p.write_text(s)
+print("Local AI Manager diagnostic limits removed; Vulkan toggle restored")
+
+
