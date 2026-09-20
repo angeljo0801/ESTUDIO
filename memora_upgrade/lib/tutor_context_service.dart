@@ -186,6 +186,12 @@ class TutorContextService {
     if (privateReady) add('private');
     if (sharedReady) add('shared');
 
+    // Local AI Manager is a phone-local shared engine. Only advertise it when
+    // its loopback server is actually listening.
+    if (await _endpointReachable('http://127.0.0.1:11435/v1')) {
+      add('manager');
+    }
+
     // Ollama/local-server is only considered available when the endpoint is
     // actually listening. A model name alone is not enough.
     final localModel = prefs.getString('local_model')?.trim() ?? '';
@@ -213,6 +219,8 @@ class TutorContextService {
         return 'Gemini';
       case 'openai':
         return 'OpenAI / compatible';
+      case 'manager':
+        return 'Local AI Manager';
       case 'local':
       case 'ollama':
         return 'Ollama / servidor local';
