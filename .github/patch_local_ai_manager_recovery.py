@@ -400,3 +400,227 @@ s = s.replace(old_unload, new_unload, 1)
 
 p.write_text(s)
 print("Local AI Manager isolated-process UI bridge patch applied")
+
+# Replace llama_flutter_android with llamadart's current native llama.cpp runtime.
+# The previous plugin crashes the native process on this Android 16 device while
+# loading Qwen2.5-1.5B Q4_K_M. Keep the isolated process, but change the engine.
+s = p.read_text()
+s = s.replace(
+    "import 'package:llama_flutter_android/llama_flutter_android.dart';",
+    "import 'package:llamadart/llamadart.dart';",
+    1,
+)
+
+chat_anchor = "class EngineStatus {"
+chat_class = """class ChatMessage {
+  final String role;
+  final String content;
+
+  const ChatMessage({required this.role, required this.content});
+}
+
+"""
+if "class ChatMessage {" not in s:
+    if chat_anchor not in s:
+        raise RuntimeError("EngineStatus anchor not found")
+    s = s.replace(chat_anchor, chat_class + chat_anchor, 1)
+
+start = s.find("class SharedLlamaEngine {")
+end = s.find("class LocalAiServer {", start)
+if start < 0 or end < 0:
+    raise RuntimeError("SharedLlamaEngine boundaries not found")
+
+new_engine = r"""class SharedLlamaEngine {
+  LlamaEngine? _engine;
+  String _loadedPath = '';
+  bool _generating = false;
+  String _acceleration = 'Sin cargar';
+  DateTime? _lastUsed;
+  int _requestCount = 0;
+  Timer? _idleTimer;
+  Future<void> _queue = Future<void>.value();
+
+  bool get loaded => _engine != null;
+  bool get generating => _generating;
+  String get acceleration => _acceleration;
+  DateTime? get lastUsed => _lastUsed;
+  int get requestCount => _requestCount;
+
+  Future<T> serial<T>(Future<T> Function() action) {
+    final c = Completer<T>();
+    _queue = _queue.then((_) async {
+      try {
+        c.complete(await action());
+      } catch (e, st) {
+        c.completeError(e, st);
+      }
+    }).catchError((_) {});
+    return c.future;
+  }
+
+  Future<void> _validateModelFile(String path) async {
+    final file = File(path);
+    if (!await file.exists()) {
+      throw StateError('No encuentro el archivo GGUF seleccionado.');
+    }
+
+    final length = await file.length();
+    if (length < 64 * 1024 * 1024) {
+      throw StateError(
+        'El archivo GGUF parece incompleto (\${(length / 1024 / 1024).toStringAsFixed(1)} MB).',
+      );
+    }
+
+    final handle = await file.open(mode: FileMode.read);
+    try {
+      final magic = await handle.read(4);
+      if (magic.length != 4 ||
+          magic[0] != 0x47 ||
+          magic[1] != 0x47 ||
+          magic[2] != 0x55 ||
+          magic[3] != 0x46) {
+        throw StateError(
+          'El archivo seleccionado no tiene una cabecera GGUF válida.',
+        );
+      }
+    } finally {
+      await handle.close();
+    }
+  }
+
+  Future<void> _ensureLoaded() async {
+    final path = await ManagerSettings.modelPath();
+    if (path.isEmpty) {
+      throw StateError('No hay un modelo GGUF configurado en Local AI Manager.');
+    }
+    if (_engine != null && _loadedPath == path) return;
+
+    await unload();
+    await _validateModelFile(path);
+
+    final engine = LlamaEngine(LlamaBackend());
+    try {
+      await engine.loadModel(
+        path,
+        modelParams: const ModelParams(
+          contextSize: 1024,
+          gpuLayers: 0,
+          preferredBackend: GpuBackend.cpu,
+          numberOfThreads: 2,
+          numberOfThreadsBatch: 2,
+          batchSize: 128,
+          microBatchSize: 64,
+          useMmap: true,
+          useMlock: false,
+          flashAttention: FlashAttention.disabled,
+        ),
+      );
+
+      _engine = engine;
+      _loadedPath = path;
+      _acceleration = 'CPU • llamadart/llama.cpp • 2 hilos';
+    } catch (_) {
+      try {
+        await engine.dispose();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  LlamaChatRole _role(String role) {
+    switch (role) {
+      case 'system':
+        return LlamaChatRole.system;
+      case 'assistant':
+        return LlamaChatRole.assistant;
+      default:
+        return LlamaChatRole.user;
+    }
+  }
+
+  Future<String> generate({
+    required List<ChatMessage> messages,
+    required int maxTokens,
+    required double temperature,
+  }) {
+    return serial(() async {
+      await _ensureLoaded();
+      final engine = _engine!;
+      _generating = true;
+      _idleTimer?.cancel();
+      final out = StringBuffer();
+
+      final llamaMessages = messages
+          .map(
+            (m) => LlamaChatMessage.fromText(
+              role: _role(m.role),
+              text: m.content,
+            ),
+          )
+          .toList(growable: false);
+
+      try {
+        await for (final chunk in engine.create(
+          llamaMessages,
+          params: GenerationParams(
+            maxTokens: maxTokens.clamp(16, 256).toInt(),
+            temp: temperature.clamp(0.0, 2.0).toDouble(),
+            topP: 0.9,
+            topK: 40,
+            penalty: 1.05,
+          ),
+          enableThinking: false,
+        )) {
+          if (chunk.choices.isEmpty) continue;
+          final text = chunk.choices.first.delta.content;
+          if (text != null && text.isNotEmpty) out.write(text);
+        }
+
+        _requestCount++;
+        _lastUsed = DateTime.now();
+        return out.toString().trim();
+      } finally {
+        _generating = false;
+        _scheduleUnload();
+      }
+    });
+  }
+
+  Future<void> stop() async {
+    try {
+      _engine?.cancelGeneration();
+    } catch (_) {}
+  }
+
+  Future<void> unload() async {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    final current = _engine;
+    _engine = null;
+    _loadedPath = '';
+    _acceleration = 'Sin cargar';
+    if (current != null) {
+      try {
+        current.cancelGeneration();
+      } catch (_) {}
+      try {
+        await current.dispose();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _scheduleUnload() async {
+    _idleTimer?.cancel();
+    final seconds = await ManagerSettings.idleSeconds();
+    _idleTimer = Timer(Duration(seconds: seconds), () async {
+      if (!_generating) await unload();
+    });
+  }
+}
+
+"""
+s = s[:start] + new_engine + s[end:]
+s = s.replace("import 'dart:math';\n", "", 1)
+p.write_text(s)
+print("Local AI Manager llamadart runtime patch applied")
+
