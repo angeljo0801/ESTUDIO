@@ -26,8 +26,12 @@ if old not in s:
     raise RuntimeError('Tutor profile migration anchor not found')
 s = s.replace(old, new, 1)
 
-old = "      case 'local':\n        return 'Ollama / servidor local configurado';\n      default:"
-new = "      case 'local':\n        return 'Ollama / servidor local configurado';\n      case 'device':\n        return 'GGUF del teléfono';\n      default:"
+old = "      case 'local':\n        return 'Ollama / servidor local configurado';\n      case 'manager':\n        return 'Local AI Manager';\n      default:"
+new = "      case 'local':\n        return 'Ollama / servidor local configurado';\n      case 'manager':\n        return 'Local AI Manager';\n      case 'device':\n        return 'GGUF del teléfono';\n      default:"
+if old not in s:
+    # Backward-compatible source without the Manager option.
+    old = "      case 'local':\n        return 'Ollama / servidor local configurado';\n      default:"
+    new = "      case 'local':\n        return 'Ollama / servidor local configurado';\n      case 'manager':\n        return 'Local AI Manager';\n      case 'device':\n        return 'GGUF del teléfono';\n      default:"
 if old not in s:
     raise RuntimeError('Tutor source label anchor not found')
 s = s.replace(old, new, 1)
@@ -77,6 +81,7 @@ selector_methods = r'''  Future<void> _setGlobalProvider(String provider) async 
                 ('gemini', Icons.cloud_outlined, 'Gemini online'),
                 ('openai', Icons.public, 'OpenAI / compatible'),
                 ('local', Icons.smartphone, 'Ollama / servidor local'),
+                ('manager', Icons.hub_outlined, 'Local AI Manager'),
                 ('device', Icons.memory, 'GGUF del teléfono'),
               ])
                 ListTile(
@@ -131,6 +136,35 @@ if old not in s:
 s = s.replace(old, '', 1)
 
 old = """                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: source,
+                  decoration:
+                      const InputDecoration(labelText: 'Fuente de IA de este tutor'),
+                  items: const [
+                    DropdownMenuItem(value: 'global', child: Text('Configuración general')),
+                    DropdownMenuItem(value: 'private', child: Text('GGUF privado')),
+                    DropdownMenuItem(value: 'shared', child: Text('GGUF compartido')),
+                    DropdownMenuItem(value: 'gemini', child: Text('Gemini configurado')),
+                    DropdownMenuItem(
+                      value: 'openai',
+                      child: Text('OpenAI / compatible configurado'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'local',
+                      child: Text('Ollama / servidor local configurado'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'manager',
+                      child: Text('Local AI Manager'),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => source = value ?? 'global'),
+                ),
+"""
+if old not in s:
+    # Backward-compatible source before Local AI Manager was added.
+    old = """                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: source,
                   decoration:
