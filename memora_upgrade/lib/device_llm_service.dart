@@ -262,4 +262,14 @@ class DeviceLlmService {
       } catch (_) {}
     }
   }
+
+  static Future<void> releaseModel({bool stopGeneration = true}) async {
+    if (stopGeneration) {
+      await stopCurrent();
+    }
+    await _enqueue(() async {
+      await _disposeController();
+      _accelerationLabel = 'Sin cargar';
+    });
+  }
 }
