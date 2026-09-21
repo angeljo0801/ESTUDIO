@@ -330,13 +330,14 @@ if "value: 'embeddings'" not in s:
     s = s[:pos] + menu + s[pos:]
 
 if "'Embedding index'" not in s:
-    token = "Expanded(child: _StatCard(value: '${{guide.cards.length}'"
-    pos = s.find(token)
-    if pos < 0:
-        raise SystemExit('v188 stat card anchor missing')
-    row = s.rfind('          Row(', 0, pos)
-    if row < 0:
-        raise SystemExit('v188 stat row anchor missing')
+    body_pos = s.find('      body: ListView(')
+    if body_pos < 0:
+        raise SystemExit('v188 ListView body anchor missing')
+    children_marker = '        children: [\n'
+    children_pos = s.find(children_marker, body_pos)
+    if children_pos < 0:
+        raise SystemExit('v188 ListView children anchor missing')
+    insert_pos = children_pos + len(children_marker)
     card = r'''          Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -351,7 +352,7 @@ if "'Embedding index'" not in s:
                       : !ready
                           ? 'Embedding model not installed'
                           : current
-                              ? 'Embeddings up to date • ${{info.chunkCount} chunks'
+                              ? 'Embeddings up to date • ${info.chunkCount} chunks'
                               : oldIndex
                                   ? 'Content changed • rebuild embeddings'
                                   : 'No embeddings created yet';
@@ -428,7 +429,7 @@ if "'Embedding index'" not in s:
           ),
           const SizedBox(height: 12),
 '''
-    s = s[:row] + card + s[row:]
+    s = s[:insert_pos] + card + s[insert_pos:]
 
 if 'class _GuideTextEditorPage extends StatefulWidget' not in s:
     pos = s.find('\nclass _StatCard extends StatelessWidget')
@@ -478,7 +479,7 @@ class _GuideTextEditorPageState extends State<_GuideTextEditorPage> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
           title: Text(
-            'Edit ${{widget.title}',
+            'Edit ${widget.title}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
