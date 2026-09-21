@@ -251,12 +251,32 @@ jobs:
       - name: Analyze
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - name: Build release APK
+      - name: Build release APK with increasing versionCode
         working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter build apk --release
+        run: flutter build apk --release --build-number "${GITHUB_RUN_NUMBER}"
+
+      - name: Record build identity
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          MEMORA_KEYSTORE_B64: ${{ secrets.MEMORA_KEYSTORE_B64 }}
+        shell: bash
+        run: |
+          {
+            echo "applicationId=com.memora.memora"
+            echo "buildNumber=$GITHUB_RUN_NUMBER"
+            if [ -n "$MEMORA_KEYSTORE_B64" ]; then
+              echo "signing=persistent"
+            else
+              echo "signing=temporary-debug"
+              echo "::warning::Memora todavía no tiene la clave persistente configurada; Android puede rechazar actualizaciones entre builds."
+            fi
+          } > build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.49.1-Backup-Stable-ID-release-apk
-          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          name: Memora-v1.50-Backup-Stable-ID-release-apk
+          path: |
+            ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+            ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
           if-no-files-found: error
           retention-days: 30
