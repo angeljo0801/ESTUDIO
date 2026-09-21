@@ -12,6 +12,8 @@ on:
       - '.github/ManagerMainActivity.kt'
       - '.github/ManagerApplication.kt'
       - '.github/ManagerSelfBridge.kt'
+      - '.github/manager_backup.dart'
+      - '.github/ManagerBackupStorageBridge.kt'
 
 concurrency:
   group: local-ai-manager-apk
@@ -48,10 +50,11 @@ jobs:
           p=Path("/tmp/local_ai_manager_src/local_ai_manager_source/pubspec.yaml")
           s=p.read_text()
           s=s.replace("sdk: '>=3.3.0 <4.0.0'", "sdk: '>=3.10.7 <4.0.0'")
-          s=s.replace("version: 1.0.0+1", "version: 1.1.11+11")
+          s=s.replace("version: 1.0.0+1", "version: 1.1.12+12")
           s=s.replace("  llama_flutter_android: ^0.2.6", "  llamadart: ^0.8.23")
           p.write_text(s)
           PY
+          cp .github/manager_backup.dart "$SRC/lib/manager_backup.dart"
           python3 .github/patch_local_ai_manager_recovery.py "$SRC/lib/main.dart"
           flutter create --platforms=android --org com.angelapps --project-name local_ai_manager /tmp/local_ai_manager_build
           cp "$SRC/pubspec.yaml" /tmp/local_ai_manager_build/pubspec.yaml
@@ -94,6 +97,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/.github/ManagerApplication.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerApplication.kt
           cp "$GITHUB_WORKSPACE/.github/ManagerMainActivity.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/MainActivity.kt
           cp "$GITHUB_WORKSPACE/.github/ManagerSelfBridge.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerSelfBridge.kt
+          cp "$GITHUB_WORKSPACE/.github/ManagerBackupStorageBridge.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerBackupStorageBridge.kt
 
           # Plugin-style launcher icon.
           mkdir -p android/app/src/main/res/drawable
@@ -117,6 +121,70 @@ jobs:
           s = s.replace('android:roundIcon="@mipmap/ic_launcher"', 'android:roundIcon="@drawable/ic_plugin"')
           if 'android:icon=' not in s:
               s = s.replace('<application', '<application android:icon="@drawable/ic_plugin"', 1)
+          p.write_text(s)
+          PY
+
+      - name: Configure stable Android identity and signing
+        working-directory: /tmp/local_ai_manager_build
+        env:
+          MANAGER_KEYSTORE_B64: ${{ secrets.MANAGER_KEYSTORE_B64 }}
+          MANAGER_KEYSTORE_PASSWORD: ${{ secrets.MANAGER_KEYSTORE_PASSWORD }}
+          MANAGER_KEY_ALIAS: ${{ secrets.MANAGER_KEY_ALIAS }}
+          MANAGER_KEY_PASSWORD: ${{ secrets.MANAGER_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [ -n "$MANAGER_KEYSTORE_B64" ]; then
+            printf '%s' "$MANAGER_KEYSTORE_B64" | base64 --decode > android/app/manager-release.jks
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+
+          p=Path('android/app/build.gradle.kts')
+          s=p.read_text()
+          s=re.sub(
+              r'namespace\s*=\s*"[^"]+"',
+              'namespace = "com.angelapps.local_ai_manager"',
+              s,
+              count=1,
+          )
+          s=re.sub(
+              r'applicationId\s*=\s*"[^"]+"',
+              'applicationId = "com.angelapps.local_ai_manager"',
+              s,
+              count=1,
+          )
+
+          alias=os.environ.get('MANAGER_KEY_ALIAS','').strip()
+          sp=os.environ.get('MANAGER_KEYSTORE_PASSWORD','').strip()
+          kp=os.environ.get('MANAGER_KEY_PASSWORD','').strip()
+          ks=Path('android/app/manager-release.jks')
+          if ks.exists() and alias and sp and kp:
+              def esc(v):
+                  return v.replace('\\','\\\\').replace('"','\\\"')
+              block='''    signingConfigs {
+                  create("managerRelease") {
+                      keyAlias = "''' + esc(alias) + '''"
+                      keyPassword = "''' + esc(kp) + '''"
+                      storeFile = file("manager-release.jks")
+                      storePassword = "''' + esc(sp) + '''"
+                  }
+              }
+
+          '''
+              if 'create("managerRelease")' not in s:
+                  s=s.replace('    buildTypes {',block+'    buildTypes {',1)
+              s=re.sub(
+                  r'(getByName\("release"\)\s*\{)(.*?)(\n\s*\})',
+                  lambda m: (
+                      m.group(1)+m.group(2)+
+                      '\n            signingConfig = signingConfigs.getByName("managerRelease")'+
+                      m.group(3)
+                  ),
+                  s,
+                  count=1,
+                  flags=re.S,
+              )
           p.write_text(s)
           PY
 
@@ -144,7 +212,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.1.11-Plugin-Icon
+          name: Local-AI-Manager-v1.1.12-Backup-Stable-ID
           path: /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
