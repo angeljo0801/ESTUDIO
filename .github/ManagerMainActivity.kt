@@ -15,6 +15,10 @@ class MainActivity : FlutterActivity() {
             applicationContext,
             flutterEngine.dartExecutor.binaryMessenger
         )
+        ManagerBackupStorageBridge.register(
+            applicationContext,
+            flutterEngine.dartExecutor.binaryMessenger
+        )
     }
 
     override fun shouldDestroyEngineWithHost(): Boolean = false
