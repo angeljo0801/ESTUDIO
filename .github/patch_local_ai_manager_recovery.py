@@ -872,3 +872,56 @@ s = s.replace(old_idle, new_idle, 1)
 p.write_text(s)
 print("Local AI Manager adaptive-context performance patch applied")
 
+
+
+# External backup/restore UI. Models are intentionally excluded from backups.
+s = p.read_text()
+if "import 'manager_backup.dart';" not in s:
+    anchor = "import 'package:shared_preferences/shared_preferences.dart';"
+    if anchor not in s:
+        raise RuntimeError("SharedPreferences import anchor not found for backup")
+    s = s.replace(anchor, anchor + "\nimport 'manager_backup.dart';", 1)
+
+main_anchor = """Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ManagerSettings.ensureDefaults();
+  runApp(const LocalAiManagerApp());
+}
+"""
+main_backup = """Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ManagerSettings.ensureDefaults();
+  runApp(const LocalAiManagerApp());
+  try {
+    await ManagerBackupService.autoBackupIfDue();
+  } catch (_) {}
+}
+"""
+if main_anchor in s:
+    s = s.replace(main_anchor, main_backup, 1)
+elif "await ManagerBackupService.autoBackupIfDue();" not in s:
+    raise RuntimeError("Manager main() backup anchor not found")
+
+appbar = "appBar: AppBar(title: const Text('Local AI Manager')),"
+appbar_backup = """appBar: AppBar(
+        title: const Text('Local AI Manager'),
+        actions: [
+          IconButton(
+            tooltip: 'Copias de seguridad',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ManagerBackupPage(),
+              ),
+            ),
+            icon: const Icon(Icons.backup_outlined),
+          ),
+        ],
+      ),"""
+if appbar in s:
+    s = s.replace(appbar, appbar_backup, 1)
+elif "ManagerBackupPage" not in s:
+    raise RuntimeError("Manager AppBar backup anchor not found")
+
+p.write_text(s)
+print("Local AI Manager external backup integration applied")
