@@ -102,17 +102,10 @@ state_anchor = 'class _GuideDetailPageState extends State<GuideDetailPage> {\n'
 if 'GuideVectorIndexInfo? _embeddingInfo;' not in s:
     if state_anchor not in s:
         raise SystemExit('v188 detail state anchor missing')
-    block = r'''class _GuideDetailPageState extends State<GuideDetailPage> {
-  GuideVectorIndexInfo? _embeddingInfo;
+    block = r'''  GuideVectorIndexInfo? _embeddingInfo;
   bool _embeddingBusy = false;
   int _embeddingDone = 0;
   int _embeddingTotal = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshEmbeddingInfo();
-  }
 
   Future<void> _refreshEmbeddingInfo() async {
     final info = await VectorKnowledgeStore.indexInfo(widget.guide);
@@ -120,7 +113,28 @@ if 'GuideVectorIndexInfo? _embeddingInfo;' not in s:
   }
 
 '''
-    s = s.replace(state_anchor, block, 1)
+    s = s.replace(state_anchor, state_anchor + block, 1)
+
+if '_refreshEmbeddingInfo();' not in s:
+    init_pos = s.find('  void initState() {')
+    if init_pos >= 0:
+        super_pos = s.find('    super.initState();\n', init_pos)
+        if super_pos < 0:
+            raise SystemExit('v188 existing initState has no super.initState anchor')
+        super_end = super_pos + len('    super.initState();\n')
+        s = s[:super_end] + '    _refreshEmbeddingInfo();\n' + s[super_end:]
+    else:
+        init_block = r'''  @override
+  void initState() {
+    super.initState();
+    _refreshEmbeddingInfo();
+  }
+
+'''
+        insert_pos = s.find('  Future<void> _refreshEmbeddingInfo() async {')
+        if insert_pos < 0:
+            raise SystemExit('v188 refresh method anchor missing')
+        s = s[:insert_pos] + init_block + s[insert_pos:]
 
 if 'Future<void> _editContent() async {' not in s:
     anchor = '  Future<void> _review() async {\n'
