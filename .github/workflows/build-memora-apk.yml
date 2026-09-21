@@ -141,7 +141,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.48-Background-Cards-Durable-Binder-release-apk
+          name: Memora-v1.49-Editable-Library-Embeddings-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
