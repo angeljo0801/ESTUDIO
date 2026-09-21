@@ -84,7 +84,7 @@ jobs:
           mkdir -p test
           cp -R "$GITHUB_WORKSPACE/memora_upgrade/test/." test/
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="com.angelapps.local_ai_manager.permission.USE_AI" />\n    <queries>\n        <package android:name="com.angelapps.local_ai_manager" />\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <uses-permission android:name="com.angelapps.local_ai_manager.permission.USE_AI" />\n    <queries>\n        <package android:name="com.angelapps.local_ai_manager" />\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
           python3 - <<'PY'
           from pathlib import Path
           p=Path('android/app/src/main/AndroidManifest.xml');s=p.read_text();marker='    </application>'
@@ -101,6 +101,7 @@ jobs:
           sed -i '/release {/a\            isMinifyEnabled = false\n            isShrinkResources = false' android/app/build.gradle.kts
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MainActivity.kt" android/app/src/main/kotlin/com/memora/memora/MainActivity.kt
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/LocalAiManagerBridge.kt" android/app/src/main/kotlin/com/memora/memora/LocalAiManagerBridge.kt
+          cp "$GITHUB_WORKSPACE/memora_upgrade/android/MemoraBackupStorageBridge.kt" android/app/src/main/kotlin/com/memora/memora/MemoraBackupStorageBridge.kt
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MemoraForegroundService.kt" android/app/src/main/kotlin/com/memora/memora/MemoraForegroundService.kt
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MemoraBackupStorageBridge.kt" android/app/src/main/kotlin/com/memora/memora/MemoraBackupStorageBridge.kt
       - name: Configure stable Android identity and signing
@@ -168,6 +169,51 @@ jobs:
                   flags=re.S,
               )
 
+          p.write_text(s)
+          PY
+
+      - name: Apply stable Android identity and optional release signing
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          MEMORA_KEYSTORE_B64: ${{ secrets.MEMORA_KEYSTORE_B64 }}
+          MEMORA_KEYSTORE_PASSWORD: ${{ secrets.MEMORA_KEYSTORE_PASSWORD }}
+          MEMORA_KEY_ALIAS: ${{ secrets.MEMORA_KEY_ALIAS }}
+          MEMORA_KEY_PASSWORD: ${{ secrets.MEMORA_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [ -n "$MEMORA_KEYSTORE_B64" ]; then
+            printf '%s' "$MEMORA_KEYSTORE_B64" | base64 --decode > android/app/memora-release.jks
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,re
+          p=Path('android/app/build.gradle.kts')
+          s=p.read_text()
+          s=re.sub(r'namespace\s*=\s*"[^"]+"','namespace = "com.memora.memora"',s,count=1)
+          s=re.sub(r'applicationId\s*=\s*"[^"]+"','applicationId = "com.memora.memora"',s,count=1)
+          ks=Path('android/app/memora-release.jks')
+          alias=os.environ.get('MEMORA_KEY_ALIAS','').strip()
+          sp=os.environ.get('MEMORA_KEYSTORE_PASSWORD','').strip()
+          kp=os.environ.get('MEMORA_KEY_PASSWORD','').strip()
+          if ks.exists() and alias and sp and kp:
+              def esc(v): return v.replace('\\','\\\\').replace('"','\\\"')
+              signing='''    signingConfigs {
+                  create("memoraRelease") {
+                      keyAlias = "''' + esc(alias) + '''"
+                      keyPassword = "''' + esc(kp) + '''"
+                      storeFile = file("memora-release.jks")
+                      storePassword = "''' + esc(sp) + '''"
+                  }
+              }
+
+          '''
+              if 'create("memoraRelease")' not in s:
+                  s=s.replace('    buildTypes {',signing+'    buildTypes {',1)
+              s=s.replace(
+                  'signingConfig = signingConfigs.getByName("debug")',
+                  'signingConfig = signingConfigs.getByName("memoraRelease")',
+                  1,
+              )
           p.write_text(s)
           PY
 
