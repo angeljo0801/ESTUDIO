@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'backup_service.dart';
 import 'package:android_file_picker/android_file_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -453,6 +454,17 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
                     onPressed: _save,
                     icon: const Icon(Icons.save),
                     label: const Text('Guardar y usar esta opción'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MemoraBackupPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.backup_outlined),
+                    label: const Text('Copias de seguridad'),
                   ),
                 ],
               ),
