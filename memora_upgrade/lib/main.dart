@@ -4,6 +4,7 @@ import 'guide_store.dart';
 import 'app_shell.dart';
 import 'completion_notification_service.dart';
 import 'daily_exam_headless.dart' as daily_headless;
+import 'backup_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> dailyExamHeadlessMain() async {
@@ -17,6 +18,9 @@ Future<void> main() async {
   final store = GuideStore();
   await store.load();
   runApp(MemoraApp(store: store));
+  try {
+    await MemoraBackupService.autoBackupIfDue();
+  } catch (_) {}
   await CompletionNotificationService.initialize();
 }
 
