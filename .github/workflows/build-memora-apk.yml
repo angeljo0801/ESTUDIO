@@ -102,6 +102,73 @@ jobs:
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MainActivity.kt" android/app/src/main/kotlin/com/memora/memora/MainActivity.kt
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/LocalAiManagerBridge.kt" android/app/src/main/kotlin/com/memora/memora/LocalAiManagerBridge.kt
           cp "$GITHUB_WORKSPACE/memora_upgrade/android/MemoraForegroundService.kt" android/app/src/main/kotlin/com/memora/memora/MemoraForegroundService.kt
+          cp "$GITHUB_WORKSPACE/memora_upgrade/android/MemoraBackupStorageBridge.kt" android/app/src/main/kotlin/com/memora/memora/MemoraBackupStorageBridge.kt
+      - name: Configure stable Android identity and signing
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          MEMORA_KEYSTORE_B64: ${{ secrets.MEMORA_KEYSTORE_B64 }}
+          MEMORA_KEYSTORE_PASSWORD: ${{ secrets.MEMORA_KEYSTORE_PASSWORD }}
+          MEMORA_KEY_ALIAS: ${{ secrets.MEMORA_KEY_ALIAS }}
+          MEMORA_KEY_PASSWORD: ${{ secrets.MEMORA_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,re
+          p=Path('android/app/build.gradle.kts')
+          s=p.read_text()
+          s=re.sub(r'namespace\s*=\s*"[^"]+"','namespace = "com.memora.memora"',s,count=1)
+          s=re.sub(r'applicationId\s*=\s*"[^"]+"','applicationId = "com.memora.memora"',s,count=1)
+          alias=os.environ.get('MEMORA_KEY_ALIAS','').strip()
+          sp=os.environ.get('MEMORA_KEYSTORE_PASSWORD','').strip()
+          kp=os.environ.get('MEMORA_KEY_PASSWORD','').strip()
+          ks=Path('android/app/memora-release.jks')
+          if ks.exists() and alias and sp and kp:
+              def esc(v): return v.replace('\\','\\\\').replace('"','\\\"')
+              block='''    signingConfigs {
+                  create("memoraRelease") {
+                      keyAlias = "''' + esc(alias) + '''"
+                      keyPassword = "''' + esc(kp) + '''"
+                      storeFile = file("memora-release.jks")
+                      storePassword = "''' + esc(sp) + '''"
+                  }
+              }
+
+          '''
+              if 'create("memoraRelease")' not in s:
+                  s=s.replace('    buildTypes {',block+'    buildTypes {',1)
+              s=re.sub(
+                  r'(getByName\("release"\)\s*\{)(.*?)(\n\s*\})',
+                  lambda m:m.group(1)+m.group(2)+'\n            signingConfig = signingConfigs.getByName("memoraRelease")'+m.group(3),
+                  s,count=1,flags=re.S
+              )
+          p.write_text(s)
+          PY
+          if [ -n "$MEMORA_KEYSTORE_B64" ]; then
+            printf '%s' "$MEMORA_KEYSTORE_B64" | base64 --decode > android/app/memora-release.jks
+            python3 - <<'PY'
+            from pathlib import Path
+            import os,re
+            p=Path('android/app/build.gradle.kts');s=p.read_text()
+            alias=os.environ.get('MEMORA_KEY_ALIAS','').strip();sp=os.environ.get('MEMORA_KEYSTORE_PASSWORD','').strip();kp=os.environ.get('MEMORA_KEY_PASSWORD','').strip()
+            if alias and sp and kp and 'create("memoraRelease")' not in s:
+                def esc(v): return v.replace('\\','\\\\').replace('"','\\\"')
+                block='''    signingConfigs {
+                    create("memoraRelease") {
+                        keyAlias = "''' + esc(alias) + '''"
+                        keyPassword = "''' + esc(kp) + '''"
+                        storeFile = file("memora-release.jks")
+                        storePassword = "''' + esc(sp) + '''"
+                    }
+                }
+
+            '''
+                s=s.replace('    buildTypes {',block+'    buildTypes {',1)
+                s=re.sub(r'(getByName\("release"\)\s*\{)(.*?)(\n\s*\})',lambda m:m.group(1)+m.group(2)+'\n            signingConfig = signingConfigs.getByName("memoraRelease")'+m.group(3),s,count=1,flags=re.S)
+                p.write_text(s)
+            PY
+          fi
+
       - name: Install Memora icons
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -141,7 +208,7 @@ jobs:
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.49-Editable-Library-Embeddings-release-apk
+          name: Memora-v1.49.1-Backup-Stable-ID-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
