@@ -22,7 +22,7 @@ on:
       - '.github/ManagerBackupStorageBridge.kt'
 
 concurrency:
-  group: local-ai-manager-apk
+  group: local-ai-manager-file-bridge-validation
   cancel-in-progress: true
 
 jobs:
