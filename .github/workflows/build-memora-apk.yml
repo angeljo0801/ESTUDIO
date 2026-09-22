@@ -22,6 +22,25 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Verify persistent signing secrets
+        env:
+          MEMORA_KEYSTORE_B64: ${{ secrets.MEMORA_KEYSTORE_B64 }}
+          MEMORA_KEYSTORE_PASSWORD: ${{ secrets.MEMORA_KEYSTORE_PASSWORD }}
+          MEMORA_KEY_ALIAS: ${{ secrets.MEMORA_KEY_ALIAS }}
+          MEMORA_KEY_PASSWORD: ${{ secrets.MEMORA_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          missing=0
+          for name in MEMORA_KEYSTORE_B64 MEMORA_KEYSTORE_PASSWORD MEMORA_KEY_ALIAS MEMORA_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing secret $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Memora will not publish an APK with temporary signing."
+            exit 1
+          fi
       - name: Extract base project
         shell: bash
         run: |
@@ -264,12 +283,7 @@ jobs:
           {
             echo "applicationId=com.memora.memora"
             echo "buildNumber=$GITHUB_RUN_NUMBER"
-            if [ -n "$MEMORA_KEYSTORE_B64" ]; then
-              echo "signing=persistent"
-            else
-              echo "signing=temporary-debug"
-              echo "::warning::Memora todavía no tiene la clave persistente configurada; Android puede rechazar actualizaciones entre builds."
-            fi
+            echo "signing=persistent"
           } > build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
 
       - uses: actions/upload-artifact@v4
