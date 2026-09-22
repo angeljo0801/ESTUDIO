@@ -13,7 +13,10 @@ on:
       - '.github/ManagerApplication.kt'
       - '.github/ManagerSelfBridge.kt'
       - '.github/manager_backup.dart'
-      - '.github/phone_bridge.dart.gz'
+      - '.github/file_bridge.dart.gz.b64'
+      - '.github/ManagerFileBridge.kt.gz.b64'
+      - '.github/FileBridgeService.kt.gz.b64'
+      - '.github/ManagerMainActivity.bridge.kt.gz.b64'
       - '.github/patch_phone_bridge.py'
       - '.github/ManagerBackupStorageBridge.kt'
 
@@ -77,7 +80,7 @@ jobs:
           p.write_text(s)
           PY
           cp .github/manager_backup.dart "$SRC/lib/manager_backup.dart"
-          gzip -dc .github/phone_bridge.dart.gz > "$SRC/lib/phone_bridge.dart"
+          base64 --decode .github/file_bridge.dart.gz.b64 | gzip -dc > "$SRC/lib/file_bridge.dart"
           python3 .github/patch_local_ai_manager_recovery.py "$SRC/lib/main.dart"
           python3 .github/patch_phone_bridge.py "$SRC/lib/main.dart"
           flutter create --platforms=android --org com.angelapps --project-name local_ai_manager /tmp/local_ai_manager_build
@@ -110,7 +113,7 @@ jobs:
               'android:name=".ManagerApplication"'
           )
           marker = '    </application>'
-          service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n        <service android:name=".SharedAiService" android:exported="true" android:process=":ai_engine" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps the shared local AI engine alive while Memora or Finanzas use it." />\n            <intent-filter><action android:name="com.angelapps.local_ai_manager.SHARED_AI" /></intent-filter>\n        </service>\n'
+          service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n        <service android:name=".SharedAiService" android:exported="true" android:process=":ai_engine" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps the shared local AI engine alive while Memora or Finanzas use it." />\n            <intent-filter><action android:name="com.angelapps.local_ai_manager.SHARED_AI" /></intent-filter>\n        </service>\n        <service android:name=".FileBridgeService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Shares only the user-selected folder with paired devices over local network or private VPN." />\n        </service>\n'
           if marker not in s:
               raise RuntimeError("application closing tag not found")
           s = s.replace(marker, service + marker, 1)
@@ -122,6 +125,9 @@ jobs:
           cp "$GITHUB_WORKSPACE/.github/ManagerMainActivity.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/MainActivity.kt
           cp "$GITHUB_WORKSPACE/.github/ManagerSelfBridge.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerSelfBridge.kt
           cp "$GITHUB_WORKSPACE/.github/ManagerBackupStorageBridge.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerBackupStorageBridge.kt
+          base64 --decode "$GITHUB_WORKSPACE/.github/ManagerMainActivity.bridge.kt.gz.b64" | gzip -dc > android/app/src/main/kotlin/com/angelapps/local_ai_manager/MainActivity.kt
+          base64 --decode "$GITHUB_WORKSPACE/.github/ManagerFileBridge.kt.gz.b64" | gzip -dc > android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerFileBridge.kt
+          base64 --decode "$GITHUB_WORKSPACE/.github/FileBridgeService.kt.gz.b64" | gzip -dc > android/app/src/main/kotlin/com/angelapps/local_ai_manager/FileBridgeService.kt
 
           # Plugin-style launcher icon.
           mkdir -p android/app/src/main/res/drawable
@@ -299,7 +305,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.2.0-Phone-Bridge-Stable-ID
+          name: Local-AI-Manager-v1.2.0-File-Bridge-Stable-ID
           path: |
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
