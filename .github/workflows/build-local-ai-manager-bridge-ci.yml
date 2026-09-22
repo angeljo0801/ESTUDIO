@@ -152,6 +152,18 @@ jobs:
           PY
           flutter build apk --release --build-number "$BUILD_NUMBER"
 
+      - name: Bundle APK signer for local private signing
+        working-directory: /tmp/local_ai_manager_build
+        shell: bash
+        run: |
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          TOOL_DIR="$(dirname "$APKSIGNER")"
+          mkdir -p build/app/outputs/flutter-apk/signing_tool
+          cp "$APKSIGNER" build/app/outputs/flutter-apk/signing_tool/apksigner
+          cp -R "$TOOL_DIR/lib" build/app/outputs/flutter-apk/signing_tool/lib
+          chmod +x build/app/outputs/flutter-apk/signing_tool/apksigner
+
       - name: Record build identity
         working-directory: /tmp/local_ai_manager_build
         shell: bash
@@ -168,5 +180,6 @@ jobs:
           path: |
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/*.apk
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
+            /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/signing_tool/**
           if-no-files-found: error
           retention-days: 30
