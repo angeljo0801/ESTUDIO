@@ -1,0 +1,172 @@
+name: Build Local AI Manager Bridge CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-local-ai-manager-bridge-ci.yml'
+      - '.github/phone_bridge.dart.gz'
+      - '.github/patch_phone_bridge.py'
+
+concurrency:
+  group: local-ai-manager-bridge-ci
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Extract source
+        shell: bash
+        run: |
+          rm -rf /tmp/local_ai_manager_build /tmp/local_ai_manager_src /tmp/local_ai_manager_source.zip
+          mkdir -p /tmp/local_ai_manager_src
+          git fetch --depth=1 origin 8d0fdd7a6e59ebd5d8459ff3226eee9d518c2aca
+          git show 8d0fdd7a6e59ebd5d8459ff3226eee9d518c2aca:local_ai_manager_source.zip > /tmp/local_ai_manager_source.zip
+          unzip -q /tmp/local_ai_manager_source.zip -d /tmp/local_ai_manager_src
+          SRC="/tmp/local_ai_manager_src/local_ai_manager_source"
+          test -f "$SRC/pubspec.yaml"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("/tmp/local_ai_manager_src/local_ai_manager_source/pubspec.yaml")
+          s=p.read_text()
+          s=s.replace("sdk: '>=3.3.0 <4.0.0'", "sdk: '>=3.10.7 <4.0.0'")
+          s=s.replace("version: 1.0.0+1", "version: 1.2.0+13")
+          s=s.replace("  llama_flutter_android: ^0.2.6", "  llamadart: ^0.8.23")
+          p.write_text(s)
+          PY
+          cp .github/manager_backup.dart "$SRC/lib/manager_backup.dart"
+          gzip -dc .github/phone_bridge.dart.gz > "$SRC/lib/phone_bridge.dart"
+          python3 .github/patch_local_ai_manager_recovery.py "$SRC/lib/main.dart"
+          python3 .github/patch_phone_bridge.py "$SRC/lib/main.dart"
+          flutter create --platforms=android --org com.angelapps --project-name local_ai_manager /tmp/local_ai_manager_build
+          cp "$SRC/pubspec.yaml" /tmp/local_ai_manager_build/pubspec.yaml
+          rm -rf /tmp/local_ai_manager_build/lib
+          cp -R "$SRC/lib" /tmp/local_ai_manager_build/lib
+          rm -rf /tmp/local_ai_manager_build/test
+
+      - name: Configure Android
+        shell: bash
+        working-directory: /tmp/local_ai_manager_build
+        run: |
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 26/' android/app/build.gradle.kts
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          s = s.replace(
+              '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+              '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">'
+          )
+          permissions = '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />\n\n    <application'
+          s = s.replace('<application', permissions, 1)
+          s = s.replace(
+              'android:label="local_ai_manager"',
+              'android:label="Local AI Manager" android:usesCleartextTraffic="true"'
+          )
+          s = s.replace(
+              'android:name="${applicationName}"',
+              'android:name=".ManagerApplication"'
+          )
+          marker = '    </application>'
+          service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n        <service android:name=".SharedAiService" android:exported="true" android:process=":ai_engine" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps the shared local AI engine alive while Memora or Finanzas use it." />\n            <intent-filter><action android:name="com.angelapps.local_ai_manager.SHARED_AI" /></intent-filter>\n        </service>\n'
+          if marker not in s:
+              raise RuntimeError("application closing tag not found")
+          s = s.replace(marker, service + marker, 1)
+          p.write_text(s)
+          PY
+          mkdir -p android/app/src/main/kotlin/com/angelapps/local_ai_manager
+          cp "$GITHUB_WORKSPACE/.github/SharedAiService.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/SharedAiService.kt
+          cp "$GITHUB_WORKSPACE/.github/ManagerApplication.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerApplication.kt
+          cp "$GITHUB_WORKSPACE/.github/ManagerMainActivity.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/MainActivity.kt
+          cp "$GITHUB_WORKSPACE/.github/ManagerSelfBridge.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerSelfBridge.kt
+          cp "$GITHUB_WORKSPACE/.github/ManagerBackupStorageBridge.kt" android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerBackupStorageBridge.kt
+
+          # Plugin-style launcher icon.
+          mkdir -p android/app/src/main/res/drawable
+          cat > android/app/src/main/res/drawable/ic_plugin.xml <<'XML'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:fillColor="#FFFFFFFF"
+                  android:pathData="M20.5,11H19V7c0,-1.1 -0.9,-2 -2,-2h-4V3.5C13,2.12 11.88,1 10.5,1S8,2.12 8,3.5V5H4c-1.1,0 -2,0.9 -2,2v3.8h1.5C4.99,10.8 6.2,12.01 6.2,13.5S4.99,16.2 3.5,16.2H2V20c0,1.1 0.9,2 2,2h3.8v-1.5c0,-1.49 1.21,-2.7 2.7,-2.7s2.7,1.21 2.7,2.7V22H17c1.1,0 2,-0.9 2,-2v-4h1.5c1.38,0 2.5,-1.12 2.5,-2.5S21.88,11 20.5,11z"/>
+          </vector>
+          XML
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          s = s.replace('android:icon="@mipmap/ic_launcher"', 'android:icon="@drawable/ic_plugin"')
+          s = s.replace('android:roundIcon="@mipmap/ic_launcher"', 'android:roundIcon="@drawable/ic_plugin"')
+          if 'android:icon=' not in s:
+              s = s.replace('<application', '<application android:icon="@drawable/ic_plugin"', 1)
+          p.write_text(s)
+          PY
+
+      - name: Install native toolchain
+        shell: bash
+        run: |
+          ANDROID_SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$ANDROID_SDK/cmdline-tools" -type f -path '*/bin/sdkmanager' 2>/dev/null | sort | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$(find "$ANDROID_SDK" -type f -name sdkmanager 2>/dev/null | sort | tail -n 1)"; fi
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "cmake;3.31.0" "ndk;28.0.12674087"
+
+      - name: Get dependencies
+        working-directory: /tmp/local_ai_manager_build
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: /tmp/local_ai_manager_build
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build unsigned release APK
+        working-directory: /tmp/local_ai_manager_build
+        shell: bash
+        run: |
+          BUILD_NUMBER=$((3000 + GITHUB_RUN_NUMBER))
+          echo "MANAGER_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/build.gradle.kts')
+          s=p.read_text()
+          s=s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = null')
+          p.write_text(s)
+          PY
+          flutter build apk --release --build-number "$BUILD_NUMBER"
+
+      - name: Record build identity
+        working-directory: /tmp/local_ai_manager_build
+        shell: bash
+        run: |
+          {
+            echo "applicationId=com.angelapps.local_ai_manager"
+            echo "buildNumber=$MANAGER_BUILD_NUMBER"
+            echo "signing=unsigned-ci"
+          } > build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Local-AI-Manager-v1.2.0-Phone-Bridge-UNSIGNED-CI
+          path: |
+            /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/*.apk
+            /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
+          if-no-files-found: error
+          retention-days: 30
