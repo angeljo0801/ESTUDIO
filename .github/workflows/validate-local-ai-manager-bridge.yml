@@ -234,7 +234,7 @@ jobs:
         working-directory: /tmp/local_ai_manager_build
         shell: bash
         run: |
-          BUILD_NUMBER=$((2000 + GITHUB_RUN_NUMBER))
+          BUILD_NUMBER=$((10000 + GITHUB_RUN_NUMBER))
           echo "MANAGER_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
           flutter build apk --release --build-number "$BUILD_NUMBER"
 
