@@ -35,6 +35,26 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Verify persistent signing secrets
+        env:
+          MANAGER_KEYSTORE_B64: ${{ secrets.MANAGER_KEYSTORE_B64 }}
+          MANAGER_KEYSTORE_PASSWORD: ${{ secrets.MANAGER_KEYSTORE_PASSWORD }}
+          MANAGER_KEY_ALIAS: ${{ secrets.MANAGER_KEY_ALIAS }}
+          MANAGER_KEY_PASSWORD: ${{ secrets.MANAGER_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          missing=0
+          for name in MANAGER_KEYSTORE_B64 MANAGER_KEYSTORE_PASSWORD MANAGER_KEY_ALIAS MANAGER_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing secret $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Local AI Manager will not publish an APK with temporary signing."
+            exit 1
+          fi
+
       - name: Extract source
         shell: bash
         run: |
@@ -206,13 +226,29 @@ jobs:
         working-directory: /tmp/local_ai_manager_build
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Build release APK
+      - name: Build release APK with increasing versionCode
         working-directory: /tmp/local_ai_manager_build
-        run: flutter build apk --release
+        shell: bash
+        run: |
+          BUILD_NUMBER=$((2000 + GITHUB_RUN_NUMBER))
+          echo "MANAGER_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          flutter build apk --release --build-number "$BUILD_NUMBER"
+
+      - name: Record build identity
+        working-directory: /tmp/local_ai_manager_build
+        shell: bash
+        run: |
+          {
+            echo "applicationId=com.angelapps.local_ai_manager"
+            echo "buildNumber=$MANAGER_BUILD_NUMBER"
+            echo "signing=persistent"
+          } > build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
 
       - uses: actions/upload-artifact@v4
         with:
           name: Local-AI-Manager-v1.1.12-Backup-Stable-ID
-          path: /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
+            /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
           if-no-files-found: error
           retention-days: 30
