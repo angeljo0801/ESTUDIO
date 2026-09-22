@@ -13,6 +13,8 @@ on:
       - '.github/ManagerApplication.kt'
       - '.github/ManagerSelfBridge.kt'
       - '.github/manager_backup.dart'
+      - '.github/phone_bridge.dart.gz'
+      - '.github/patch_phone_bridge.py'
       - '.github/ManagerBackupStorageBridge.kt'
 
 concurrency:
@@ -70,12 +72,14 @@ jobs:
           p=Path("/tmp/local_ai_manager_src/local_ai_manager_source/pubspec.yaml")
           s=p.read_text()
           s=s.replace("sdk: '>=3.3.0 <4.0.0'", "sdk: '>=3.10.7 <4.0.0'")
-          s=s.replace("version: 1.0.0+1", "version: 1.1.12+12")
+          s=s.replace("version: 1.0.0+1", "version: 1.2.0+13")
           s=s.replace("  llama_flutter_android: ^0.2.6", "  llamadart: ^0.8.23")
           p.write_text(s)
           PY
           cp .github/manager_backup.dart "$SRC/lib/manager_backup.dart"
+          gzip -dc .github/phone_bridge.dart.gz > "$SRC/lib/phone_bridge.dart"
           python3 .github/patch_local_ai_manager_recovery.py "$SRC/lib/main.dart"
+          python3 .github/patch_phone_bridge.py "$SRC/lib/main.dart"
           flutter create --platforms=android --org com.angelapps --project-name local_ai_manager /tmp/local_ai_manager_build
           cp "$SRC/pubspec.yaml" /tmp/local_ai_manager_build/pubspec.yaml
           rm -rf /tmp/local_ai_manager_build/lib
@@ -295,7 +299,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.1.12-Backup-Stable-ID
+          name: Local-AI-Manager-v1.2.0-Phone-Bridge-Stable-ID
           path: |
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
