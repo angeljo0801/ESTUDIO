@@ -19,6 +19,7 @@ on:
       - '.github/ManagerMainActivity.bridge.kt.gz.b64'
       - '.github/patch_phone_bridge.py'
       - '.github/patch_full_storage_bridge_ui.py'
+      - '.github/patch_file_bridge_auth_v2.py'
       - '.github/ManagerBackupStorageBridge.kt'
 
 concurrency:
@@ -76,7 +77,7 @@ jobs:
           p=Path("/tmp/local_ai_manager_src/local_ai_manager_source/pubspec.yaml")
           s=p.read_text()
           s=s.replace("sdk: '>=3.3.0 <4.0.0'", "sdk: '>=3.10.7 <4.0.0'")
-          s=s.replace("version: 1.0.0+1", "version: 1.2.1+14")
+          s=s.replace("version: 1.0.0+1", "version: 1.2.2+15")
           s=s.replace("  llama_flutter_android: ^0.2.6", "  llamadart: ^0.8.23")
           p.write_text(s)
           PY
@@ -130,6 +131,7 @@ jobs:
           base64 --decode "$GITHUB_WORKSPACE/.github/ManagerMainActivity.bridge.kt.gz.b64" | gzip -dc > android/app/src/main/kotlin/com/angelapps/local_ai_manager/MainActivity.kt
           base64 --decode "$GITHUB_WORKSPACE/.github/ManagerFileBridge.kt.gz.b64" | gzip -dc > android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerFileBridge.kt
           base64 --decode "$GITHUB_WORKSPACE/.github/FileBridgeService.kt.gz.b64" | gzip -dc > android/app/src/main/kotlin/com/angelapps/local_ai_manager/FileBridgeService.kt
+          python3 "$GITHUB_WORKSPACE/.github/patch_file_bridge_auth_v2.py" "$SRC/lib/file_bridge.dart" android/app/src/main/kotlin/com/angelapps/local_ai_manager/FileBridgeService.kt
 
           # Plugin-style launcher icon.
           mkdir -p android/app/src/main/res/drawable
@@ -307,7 +309,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.2.1-Full-Storage-Bridge-Stable-ID
+          name: Local-AI-Manager-v1.2.2-Auth-Fix-Stable-ID
           path: |
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
