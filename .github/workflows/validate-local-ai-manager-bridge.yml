@@ -19,6 +19,7 @@ on:
       - '.github/FileBridgeService.kt.gz.b64'
       - '.github/ManagerMainActivity.bridge.kt.gz.b64'
       - '.github/patch_phone_bridge.py'
+      - '.github/patch_full_storage_bridge_ui.py'
       - '.github/ManagerBackupStorageBridge.kt'
 
 concurrency:
@@ -62,6 +63,7 @@ jobs:
           PY
           cp .github/manager_backup.dart "$SRC/lib/manager_backup.dart"
           base64 --decode .github/file_bridge.dart.gz.b64 | gzip -dc > "$SRC/lib/file_bridge.dart"
+          python3 .github/patch_full_storage_bridge_ui.py "$SRC/lib/file_bridge.dart"
           python3 .github/patch_local_ai_manager_recovery.py "$SRC/lib/main.dart"
           python3 .github/patch_phone_bridge.py "$SRC/lib/main.dart"
           flutter create --platforms=android --org com.angelapps --project-name local_ai_manager /tmp/local_ai_manager_build
