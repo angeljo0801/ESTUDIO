@@ -75,7 +75,7 @@ jobs:
           p=Path("/tmp/local_ai_manager_src/local_ai_manager_source/pubspec.yaml")
           s=p.read_text()
           s=s.replace("sdk: '>=3.3.0 <4.0.0'", "sdk: '>=3.10.7 <4.0.0'")
-          s=s.replace("version: 1.0.0+1", "version: 1.2.0+13")
+          s=s.replace("version: 1.0.0+1", "version: 1.2.1+14")
           s=s.replace("  llama_flutter_android: ^0.2.6", "  llamadart: ^0.8.23")
           p.write_text(s)
           PY
@@ -102,7 +102,7 @@ jobs:
               '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
               '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">'
           )
-          permissions = '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />\n\n    <application'
+          permissions = '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />\n\n    <application'
           s = s.replace('<application', permissions, 1)
           s = s.replace(
               'android:label="local_ai_manager"',
@@ -305,7 +305,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.2.0-File-Bridge-Stable-ID
+          name: Local-AI-Manager-v1.2.1-Full-Storage-Bridge-Stable-ID
           path: |
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
