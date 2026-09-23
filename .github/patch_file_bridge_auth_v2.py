@@ -27,45 +27,53 @@ dart_path.write_text(s)
 
 # Host: persist the selected token synchronously and accept either auth header.
 s = service_path.read_text()
-old = """            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit()
-                .putInt(KEY_PORT, port)
-                .putString(KEY_TOKEN, token)
-                .apply()""
-new = """            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit()
-                .putInt(KEY_PORT, port)
-                .putString(KEY_TOKEN, token)
-                .commit()""
+old = "\n".join([
+    "            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)",
+    "                .edit()",
+    "                .putInt(KEY_PORT, port)",
+    "                .putString(KEY_TOKEN, token)",
+    "                .apply()",
+])
+new = "\n".join([
+    "            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)",
+    "                .edit()",
+    "                .putInt(KEY_PORT, port)",
+    "                .putString(KEY_TOKEN, token)",
+    "                .commit()",
+])
 if old in s:
     s = s.replace(old, new, 1)
 elif ".putString(KEY_TOKEN, token)\n                .commit()" not in s:
     raise RuntimeError("Native token persistence anchor not found")
 
-old = """            val expected = activeToken
-            val auth = headers["authorization"].orEmpty()
-            if (expected.length < 16 || auth != "Bearer $expected") {
-                sendText(output, 401, "Unauthorized")
-                return
-            }""
-new = """            val expected = activeToken
-            val bridgeToken = headers["x-local-manager-token"].orEmpty()
-            val auth = headers["authorization"].orEmpty()
-            val authenticated = expected.length >= 16 && (
-                bridgeToken == expected || auth == "Bearer $expected"
-            )
-            if (!authenticated) {
-                sendText(
-                    output,
-                    401,
-                    if (bridgeToken.isEmpty() && auth.isEmpty()) {
-                        "Unauthorized: token header missing"
-                    } else {
-                        "Unauthorized: token mismatch"
-                    }
-                )
-                return
-            }""
+old = "\n".join([
+    "            val expected = activeToken",
+    "            val auth = headers[\"authorization\"].orEmpty()",
+    "            if (expected.length < 16 || auth != \"Bearer $expected\") {",
+    "                sendText(output, 401, \"Unauthorized\")",
+    "                return",
+    "            }",
+])
+new = "\n".join([
+    "            val expected = activeToken",
+    "            val bridgeToken = headers[\"x-local-manager-token\"].orEmpty()",
+    "            val auth = headers[\"authorization\"].orEmpty()",
+    "            val authenticated = expected.length >= 16 && (",
+    "                bridgeToken == expected || auth == \"Bearer $expected\"",
+    "            )",
+    "            if (!authenticated) {",
+    "                sendText(",
+    "                    output,",
+    "                    401,",
+    "                    if (bridgeToken.isEmpty() && auth.isEmpty()) {",
+    "                        \"Unauthorized: token header missing\"",
+    "                    } else {",
+    "                        \"Unauthorized: token mismatch\"",
+    "                    }",
+    "                )",
+    "                return",
+    "            }",
+])
 if old in s:
     s = s.replace(old, new, 1)
 elif 'headers["x-local-manager-token"]' not in s:
