@@ -131,7 +131,7 @@ jobs:
           base64 --decode "$GITHUB_WORKSPACE/.github/ManagerMainActivity.bridge.kt.gz.b64" | gzip -dc > android/app/src/main/kotlin/com/angelapps/local_ai_manager/MainActivity.kt
           base64 --decode "$GITHUB_WORKSPACE/.github/ManagerFileBridge.kt.gz.b64" | gzip -dc > android/app/src/main/kotlin/com/angelapps/local_ai_manager/ManagerFileBridge.kt
           base64 --decode "$GITHUB_WORKSPACE/.github/FileBridgeService.kt.gz.b64" | gzip -dc > android/app/src/main/kotlin/com/angelapps/local_ai_manager/FileBridgeService.kt
-          python3 "$GITHUB_WORKSPACE/.github/patch_file_bridge_auth_v2.py" "$SRC/lib/file_bridge.dart" android/app/src/main/kotlin/com/angelapps/local_ai_manager/FileBridgeService.kt
+          python3 "$GITHUB_WORKSPACE/.github/patch_file_bridge_auth_v2.py" "/tmp/local_ai_manager_build/lib/file_bridge.dart" android/app/src/main/kotlin/com/angelapps/local_ai_manager/FileBridgeService.kt
 
           # Plugin-style launcher icon.
           mkdir -p android/app/src/main/res/drawable
