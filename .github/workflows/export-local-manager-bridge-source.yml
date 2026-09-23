@@ -1,0 +1,26 @@
+name: Export Local Manager Bridge Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/export-local-manager-bridge-source.yml'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode bridge source
+        shell: bash
+        run: |
+          mkdir -p /tmp/bridge_source
+          base64 --decode .github/file_bridge.dart.gz.b64 | gzip -dc > /tmp/bridge_source/file_bridge.dart
+          base64 --decode .github/ManagerFileBridge.kt.gz.b64 | gzip -dc > /tmp/bridge_source/ManagerFileBridge.kt
+          base64 --decode .github/FileBridgeService.kt.gz.b64 | gzip -dc > /tmp/bridge_source/FileBridgeService.kt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Local-Manager-Bridge-Source
+          path: /tmp/bridge_source
+          retention-days: 1
