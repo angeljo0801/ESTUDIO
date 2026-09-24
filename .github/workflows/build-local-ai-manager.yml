@@ -79,7 +79,7 @@ jobs:
           p=Path("/tmp/local_ai_manager_src/local_ai_manager_source/pubspec.yaml")
           s=p.read_text()
           s=s.replace("sdk: '>=3.3.0 <4.0.0'", "sdk: '>=3.10.7 <4.0.0'")
-          s=s.replace("version: 1.0.0+1", "version: 1.2.4+17")
+          s=s.replace("version: 1.0.0+1", "version: 1.2.5+18")
           s=s.replace("  llama_flutter_android: ^0.2.6", "  llamadart: ^0.8.23")
           p.write_text(s)
           PY
@@ -118,7 +118,7 @@ jobs:
               'android:name=".ManagerApplication"'
           )
           marker = '    </application>'
-          service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n        <service android:name=".SharedAiService" android:exported="true" android:process=":ai_engine" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps the shared local AI engine alive while Memora or Finanzas use it." />\n            <intent-filter><action android:name="com.angelapps.local_ai_manager.SHARED_AI" /></intent-filter>\n        </service>\n        <service android:name=".FileBridgeService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Shares only the user-selected folder with paired devices over local network or private VPN." />\n        </service>\n'
+          service = '        <service android:name="de.julianassmann.flutter_background.IsolateHolderService" android:exported="false" android:foregroundServiceType="specialUse" tools:replace="android:foregroundServiceType">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps a local on-device AI model available to user-selected apps." />\n        </service>\n        <service android:name=".SharedAiService" android:exported="true" android:process=":ai_engine" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps the shared local AI engine alive while Memora, Finanzas or WhatsBot use it." />\n            <intent-filter><action android:name="com.angelapps.local_ai_manager.SHARED_AI" /></intent-filter>\n        </service>\n        <service android:name=".FileBridgeService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Shares only the user-selected folder with paired devices over local network or private VPN." />\n        </service>\n'
           if marker not in s:
               raise RuntimeError("application closing tag not found")
           s = s.replace(marker, service + marker, 1)
@@ -313,7 +313,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.2.4-Remote-Preview-Stable-ID
+          name: Local-AI-Manager-v1.2.5-WhatsBot-Stable-ID
           path: |
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
