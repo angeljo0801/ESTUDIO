@@ -974,3 +974,94 @@ elif "ManagerBackupPage" not in s:
 
 p.write_text(s)
 print("Local AI Manager external backup integration applied")
+
+
+# Synchronize the selected GGUF across Android processes. The UI process writes
+# SharedPreferences, while :ai_engine is a separate process and can retain a
+# stale cached value. SharedAiService reads the preference file fresh for every
+# request and passes the path into Dart as modelPath.
+s = p.read_text()
+
+temp_anchor = """        final rawTemp = args['temperature'];
+        final temperature = rawTemp is num ? rawTemp.toDouble() : 0.2;
+
+        final messages = <ChatMessage>[
+"""
+temp_replacement = """        final rawTemp = args['temperature'];
+        final temperature = rawTemp is num ? rawTemp.toDouble() : 0.2;
+        final modelPathOverride = (args['modelPath'] ?? '').toString().trim();
+
+        final messages = <ChatMessage>[
+"""
+if temp_anchor not in s:
+    raise RuntimeError("model path channel anchor not found")
+s = s.replace(temp_anchor, temp_replacement, 1)
+
+call_anchor = """        return sharedEngine.generate(
+          messages: messages,
+          maxTokens: maxTokens,
+          temperature: temperature,
+        );
+"""
+call_replacement = """        return sharedEngine.generate(
+          messages: messages,
+          maxTokens: maxTokens,
+          temperature: temperature,
+          modelPathOverride: modelPathOverride,
+        );
+"""
+if call_anchor not in s:
+    raise RuntimeError("sharedEngine.generate channel anchor not found")
+s = s.replace(call_anchor, call_replacement, 1)
+
+loader_anchor = """  Future<void> _ensureLoaded(int requestedContext) async {
+    final path = await ManagerSettings.modelPath();
+    if (path.isEmpty) {
+"""
+loader_replacement = """  Future<void> _ensureLoaded(
+    int requestedContext, {
+    String? modelPathOverride,
+  }) async {
+    final persistedPath = await ManagerSettings.modelPath();
+    final override = (modelPathOverride ?? '').trim();
+    final path = override.isNotEmpty ? override : persistedPath;
+    if (path.isEmpty) {
+"""
+if loader_anchor not in s:
+    raise RuntimeError("optimized loader model path anchor not found")
+s = s.replace(loader_anchor, loader_replacement, 1)
+
+signature_anchor = """  Future<String> generate({
+    required List<ChatMessage> messages,
+    required int maxTokens,
+    required double temperature,
+  }) {
+"""
+signature_replacement = """  Future<String> generate({
+    required List<ChatMessage> messages,
+    required int maxTokens,
+    required double temperature,
+    String? modelPathOverride,
+  }) {
+"""
+if signature_anchor not in s:
+    raise RuntimeError("generate signature anchor not found")
+s = s.replace(signature_anchor, signature_replacement, 1)
+
+ensure_anchor = """      final requestedContext = _contextFor(messages, maxTokens);
+      await _ensureLoaded(requestedContext);
+      final engine = _engine!;
+"""
+ensure_replacement = """      final requestedContext = _contextFor(messages, maxTokens);
+      await _ensureLoaded(
+        requestedContext,
+        modelPathOverride: modelPathOverride,
+      );
+      final engine = _engine!;
+"""
+if ensure_anchor not in s:
+    raise RuntimeError("ensureLoaded call anchor not found")
+s = s.replace(ensure_anchor, ensure_replacement, 1)
+
+p.write_text(s)
+print("Local AI Manager cross-process GGUF synchronization applied")
