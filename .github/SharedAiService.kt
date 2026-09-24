@@ -14,7 +14,11 @@ import android.os.Message
 import android.os.Messenger
 import androidx.core.app.NotificationCompat
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.io.FileInputStream
 import java.util.ArrayDeque
+import android.util.Xml
+import org.xmlpull.v1.XmlPullParser
 
 class SharedAiService : Service() {
     companion object {
@@ -135,7 +139,8 @@ class SharedAiService : Service() {
                     "prompt" to request.data.getString("prompt").orEmpty(),
                     "system" to request.data.getString("system").orEmpty(),
                     "maxTokens" to request.data.getInt("maxTokens", 320),
-                    "temperature" to request.data.getDouble("temperature", 0.2)
+                    "temperature" to request.data.getDouble("temperature", 0.2),
+                    "modelPath" to freshConfiguredModelPath()
                 )
                 invokeWithRetry(request, "ask", args, attempt)
             }
@@ -222,6 +227,54 @@ class SharedAiService : Service() {
             { dispatch(request, attempt) },
             500L
         )
+    }
+
+    private fun freshConfiguredModelPath(): String {
+        val prefsFile = File(
+            applicationInfo.dataDir,
+            "shared_prefs/FlutterSharedPreferences.xml"
+        )
+
+        var selected = ""
+        try {
+            if (prefsFile.isFile) {
+                FileInputStream(prefsFile).use { input ->
+                    val parser = Xml.newPullParser()
+                    parser.setInput(input, "UTF-8")
+                    var event = parser.eventType
+                    while (event != XmlPullParser.END_DOCUMENT) {
+                        if (event == XmlPullParser.START_TAG &&
+                            parser.name == "string") {
+                            val key = parser.getAttributeValue(null, "name").orEmpty()
+                            if (key == "flutter.manager_model_path" ||
+                                key == "manager_model_path") {
+                                selected = parser.nextText().trim()
+                                break
+                            }
+                        }
+                        event = parser.next()
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        if (selected.isNotBlank() && File(selected).isFile) {
+            return selected
+        }
+
+        // Recovery path for upgrades or stale preference caches: the Manager
+        // owns its GGUF files under files/models. Prefer the newest valid GGUF.
+        return try {
+            File(filesDir, "models")
+                .listFiles { file ->
+                    file.isFile && file.extension.equals("gguf", ignoreCase = true)
+                }
+                ?.maxByOrNull { it.lastModified() }
+                ?.absolutePath
+                .orEmpty()
+        } catch (_: Exception) {
+            ""
+        }
     }
 
     private fun clientLabel(packageName: String): String {
