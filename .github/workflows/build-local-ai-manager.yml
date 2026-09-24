@@ -79,7 +79,7 @@ jobs:
           p=Path("/tmp/local_ai_manager_src/local_ai_manager_source/pubspec.yaml")
           s=p.read_text()
           s=s.replace("sdk: '>=3.3.0 <4.0.0'", "sdk: '>=3.10.7 <4.0.0'")
-          s=s.replace("version: 1.0.0+1", "version: 1.2.5+18")
+          s=s.replace("version: 1.0.0+1", "version: 1.2.6+19")
           s=s.replace("  llama_flutter_android: ^0.2.6", "  llamadart: ^0.8.23")
           p.write_text(s)
           PY
@@ -313,7 +313,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-AI-Manager-v1.2.5-WhatsBot-Stable-ID
+          name: Local-AI-Manager-v1.2.6-GGUF-Sync-Stable-ID
           path: |
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/app-release.apk
             /tmp/local_ai_manager_build/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
