@@ -31,7 +31,8 @@ class SharedAiService : Service() {
         val what: Int,
         val id: String,
         val data: Bundle,
-        val replyTo: Messenger
+        val replyTo: Messenger,
+        val clientPackage: String
     )
 
     private lateinit var channel: MethodChannel
@@ -43,7 +44,19 @@ class SharedAiService : Service() {
         override fun handleMessage(msg: Message) {
             val reply = msg.replyTo ?: return
             val id = msg.data.getString("id") ?: System.nanoTime().toString()
-            val request = PendingRequest(msg.what, id, Bundle(msg.data), reply)
+            val packages = packageManager.getPackagesForUid(msg.sendingUid).orEmpty()
+            val clientPackage = packages.firstOrNull {
+                it == "com.memora.memora" ||
+                    it == "com.whatsbot.whatsbot" ||
+                    it.contains("finanz", ignoreCase = true)
+            } ?: packages.firstOrNull().orEmpty()
+            val request = PendingRequest(
+                msg.what,
+                id,
+                Bundle(msg.data),
+                reply,
+                clientPackage
+            )
 
             if (msg.what == MSG_PING) {
                 sendReply(request, true, "OK", null)
@@ -115,7 +128,9 @@ class SharedAiService : Service() {
     private fun dispatch(request: PendingRequest, attempt: Int) {
         when (request.what) {
             MSG_ASK -> {
-                updateNotification("Procesando solicitud de IA")
+                updateNotification(
+                    "Procesando para " + clientLabel(request.clientPackage)
+                )
                 val args = hashMapOf<String, Any?>(
                     "prompt" to request.data.getString("prompt").orEmpty(),
                     "system" to request.data.getString("system").orEmpty(),
@@ -209,6 +224,20 @@ class SharedAiService : Service() {
         )
     }
 
+    private fun clientLabel(packageName: String): String {
+        return when (packageName) {
+            "com.memora.memora" -> "Memora"
+            "com.whatsbot.whatsbot" -> "WhatsBot"
+            else -> if (packageName.contains("finanz", ignoreCase = true)) {
+                "Finanzas"
+            } else if (packageName.isNotBlank()) {
+                packageName.substringAfterLast('.')
+            } else {
+                "una aplicación"
+            }
+        }
+    }
+
     private fun sendReply(
         request: PendingRequest,
         ok: Boolean,
@@ -235,7 +264,7 @@ class SharedAiService : Service() {
                 "Local AI Manager",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Mantiene disponible el modelo local para Memora y Finanzas."
+                description = "Mantiene disponible el modelo local para Memora, Finanzas y WhatsBot."
                 setShowBadge(false)
             }
             manager.createNotificationChannel(channel)
