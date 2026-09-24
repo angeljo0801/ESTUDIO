@@ -129,7 +129,7 @@ p.write_text(s)
 print("Local AI Manager recovery patch applied")
 
 
-# Keep the Flutter isolate and localhost server alive while Memora/Finanzas
+# Keep the Flutter isolate and localhost server alive while Memora/Finanzas/WhatsBot
 # are in the foreground. On Android/Samsung this requires opting out of Doze.
 s = p.read_text()
 s = s.replace(
@@ -906,6 +906,55 @@ appbar = "appBar: AppBar(title: const Text('Local AI Manager')),"
 appbar_backup = """appBar: AppBar(
         title: const Text('Local AI Manager'),
         actions: [
+          IconButton(
+            tooltip: 'Aplicaciones conectadas',
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              showDragHandle: true,
+              builder: (sheetContext) => SafeArea(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  children: const [
+                    Text(
+                      'Aplicaciones que usan Local AI Manager',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Estas aplicaciones pueden reutilizar el mismo modelo cargado en RAM, sin cargar otra copia.',
+                    ),
+                    SizedBox(height: 12),
+                    Card(
+                      child: ListTile(
+                        leading: Icon(Icons.school_outlined),
+                        title: Text('Memora'),
+                        subtitle: Text('Cliente de IA compartida'),
+                        trailing: Icon(Icons.check_circle_outline),
+                      ),
+                    ),
+                    Card(
+                      child: ListTile(
+                        leading: Icon(Icons.account_balance_wallet_outlined),
+                        title: Text('Finanzas'),
+                        subtitle: Text('Cliente de IA compartida'),
+                        trailing: Icon(Icons.check_circle_outline),
+                      ),
+                    ),
+                    Card(
+                      child: ListTile(
+                        leading: Icon(Icons.chat_outlined),
+                        title: Text('WhatsBot'),
+                        subtitle: Text('Cliente de IA compartida · com.whatsbot.whatsbot'),
+                        trailing: Icon(Icons.check_circle_outline),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.apps_outlined),
+          ),
           IconButton(
             tooltip: 'Copias de seguridad',
             onPressed: () => Navigator.push(
