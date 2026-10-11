@@ -25,6 +25,15 @@ s=s.replace(anchor,'''    // For private, reusable APK signing only.
             }
         }
     }
+''' + '''    // A real release APK is not debuggable. Sign it only when the secret key is available.
+    buildTypes {
+        getByName("release") {
+            if (!System.getenv("FOCOQUIZ_KEYSTORE_FILE").isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("debug")
+            }
+            isMinifyEnabled = false
+        }
+    }
 ''' + anchor,1)
 s=s.replace('versionName = "0.6.5"','versionName = "0.6.6"').replace('versionCode = 11','versionCode = 12')
 path.write_text(s,encoding='utf-8')
