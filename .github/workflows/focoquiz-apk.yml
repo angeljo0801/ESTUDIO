@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'FocoQuiz/source-v0.6.zip'
+      - 'FocoQuiz/*.zip'
       - 'FocoQuiz/app/**'
       - 'FocoQuiz/settings.gradle.kts'
       - 'FocoQuiz/build.gradle.kts'
@@ -26,11 +26,15 @@ jobs:
 
       - name: Preparar el código de FocoQuiz
         run: |
-          if [ -f 'FocoQuiz/source-v0.6.zip' ]; then
-            unzip -qo 'FocoQuiz/source-v0.6.zip' -d .
-          fi
+          archive=''
+          for candidate in \
+            'FocoQuiz/source-v0.6.zip' \
+            'FocoQuiz/FocoQuiz-Android-v0.6-planes-alarmas-bloqueo-global.zip'; do
+            if [ -f "$candidate" ]; then archive="$candidate"; break; fi
+          done
+          if [ -n "$archive" ]; then unzip -qo "$archive" -d .; fi
           test -f FocoQuiz/settings.gradle.kts || {
-            echo "::error::Falta FocoQuiz/source-v0.6.zip (o el código extraído en FocoQuiz/).";
+            echo "::error::Falta un archivo ZIP de la aplicación dentro de FocoQuiz/ (o el código fuente extraído).";
             exit 1;
           }
           test -f FocoQuiz/app/build.gradle.kts
