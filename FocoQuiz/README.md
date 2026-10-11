@@ -85,3 +85,7 @@ Desde entonces mantén estos secretos y aumenta `versionCode` en cada versión: 
 ## FocoQuiz 0.6.7 — apertura rápida
 
 La pantalla principal no espera a la lectura de aplicaciones instaladas ni a la reprogramación de alarmas al abrir. Estas tareas, junto con la carga de iconos, se realizan en segundo plano. Para evitar demoras al crear una lista enorme, se muestran inicialmente 24 aplicaciones con el botón **Mostrar más aplicaciones** y un buscador con breve espera. El servicio de Accesibilidad sigue funcionando independientemente. La compilación release conserva los secretos de firma permanente configurados para las futuras actualizaciones sin desinstalar.
+
+## FocoQuiz v0.6.8 — inicio fluido y alarmas más eficientes
+
+Se añade una memoria caché temporal de iconos de las aplicaciones para no descodificarlos en cada regreso a la pantalla. Al iniciar, FocoQuiz evita cancelar/reprogramar todas las alarmas si lo hizo hace menos de una hora. Las modificaciones de planes de estudio y los eventos de reinicio/cambio de hora siguen actualizando las alarmas inmediatamente. Es una APK release con el mismo certificado persistente y `versionCode` superior para actualizar encima de 0.6.6 y 0.6.7.
