@@ -1,6 +1,11 @@
 name: FocoQuiz · Compilar APK Android
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'FocoQuiz/**'
+      - '.github/workflows/focoquiz-apk.yml'
   push:
     branches: [main]
     paths:
