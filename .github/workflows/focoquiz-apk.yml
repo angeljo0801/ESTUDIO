@@ -1,0 +1,66 @@
+name: FocoQuiz · Compilar APK Android
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'FocoQuiz/source-v0.6.zip'
+      - 'FocoQuiz/app/**'
+      - 'FocoQuiz/settings.gradle.kts'
+      - 'FocoQuiz/build.gradle.kts'
+      - 'FocoQuiz/gradle.properties'
+
+permissions:
+  contents: read
+
+jobs:
+  build-focoquiz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Clonar repositorio ESTUDIO
+        uses: actions/checkout@v4
+
+      - name: Preparar el código de FocoQuiz
+        run: |
+          if [ -f 'FocoQuiz/source-v0.6.zip' ]; then
+            unzip -qo 'FocoQuiz/source-v0.6.zip' -d .
+          fi
+          test -f FocoQuiz/settings.gradle.kts || {
+            echo "::error::Falta FocoQuiz/source-v0.6.zip (o el código extraído en FocoQuiz/).";
+            exit 1;
+          }
+          test -f FocoQuiz/app/build.gradle.kts
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Instalar plataforma Android 35
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Compilar APK debug de FocoQuiz
+        working-directory: FocoQuiz
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+
+      - name: Publicar APK para descargar
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FocoQuiz-v0.6-debug-APK
+          path: FocoQuiz/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
