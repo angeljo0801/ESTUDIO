@@ -89,3 +89,13 @@ La pantalla principal no espera a la lectura de aplicaciones instaladas ni a la 
 ## FocoQuiz v0.6.8 — inicio fluido y alarmas más eficientes
 
 Se añade una memoria caché temporal de iconos de las aplicaciones para no descodificarlos en cada regreso a la pantalla. Al iniciar, FocoQuiz evita cancelar/reprogramar todas las alarmas si lo hizo hace menos de una hora. Las modificaciones de planes de estudio y los eventos de reinicio/cambio de hora siguen actualizando las alarmas inmediatamente. Es una APK release con el mismo certificado persistente y `versionCode` superior para actualizar encima de 0.6.6 y 0.6.7.
+
+## FocoQuiz v0.6.9 — horario diario para editar la configuración
+
+En la pantalla principal aparece **Horario para configurar FocoQuiz**. Puedes elegir **Hora de inicio** y **Hora de fin**, activar la restricción y pulsar **Guardar horario**. Por seguridad, esta función comienza desactivada hasta que la configures, y no permite elegir inicio y fin idénticos.
+
+Cuando llegue la hora final, la configuración se cierra automáticamente y aparece una pantalla informativa con las horas de acceso permitidas. La restricción se aplica a reglas de apps, preguntas, importación de exámenes, rutinas, planes y al propio horario: **no es posible cambiar el horario fuera de la franja habilitada**. También se comprueba el horario si abres un editor por acceso directo o compartes un examen. Los horarios admiten cruces de medianoche y se aplican todos los días.
+
+**Importante:** el servicio de bloqueo, los retos, el acceso a inicio/atrás de Android y las alarmas de estudio continúan funcionando fuera de las horas de configuración. El horario restringe los **ajustes**, no la navegación normal del dispositivo. Los controles del sistema operativo siguen accesibles y Android permite desactivar el servicio de Accesibilidad desde Ajustes.
+
+Se distribuye como APK release con firma permanente y `versionCode 15`, actualizable sobre la versión 0.6.8.

@@ -38,11 +38,9 @@ mod("QuizSettingsActivity.kt",[
 methods+'''    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {'''),
 ('''        if (resultCode != RESULT_OK) return''',
 '''        if (!configurationGuard.check() || resultCode != RESULT_OK) return'''),
-('''    private fun importFromUri(uri: Uri) {
-        try {''',
+('''    private fun importFromUri(uri: Uri) {''',
 '''    private fun importFromUri(uri: Uri) {
-        if (!configurationGuard.check()) return
-        try {'''),
+        if (!configurationGuard.check()) return'''),
 ('''    private fun editQuestion(index: Int?) {
         val old''',
 '''    private fun editQuestion(index: Int?) {
