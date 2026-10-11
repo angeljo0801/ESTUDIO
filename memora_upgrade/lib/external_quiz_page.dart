@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -197,11 +198,22 @@ class _ExternalQuizPageState extends State<ExternalQuizPage> {
   }
 
   Future<String> _prompt() async {
-    final guide = selectedGuide;
-    final fullPrompt = ExternalQuizFormat.prompt +
+    const asset = 'assets/quiz-format/PLANTILLA_Y_PROMPT_PARA_CUALQUIER_IA.md';
+    final template = await rootBundle.loadString(asset);
+    // Only append the guide if the user explicitly chose it.
+    final guide = selection == null ? null : selectedGuide;
+    final fullPrompt = template +
       (guide == null ? '' : '\n\n=== GUÍA PARA LA IA EXTERNA: ' + guide.title + ' ===\n' + guide.text);
-    final path = await _writeFile('PROMPT_IA_EXTERNA.txt', fullPrompt);
-    return _save(path, 'PROMPT_IA_EXTERNA.txt');
+    final path = await _writeFile('PLANTILLA_Y_PROMPT_PARA_CUALQUIER_IA.md', fullPrompt);
+    return _save(path, 'PLANTILLA_Y_PROMPT_PARA_CUALQUIER_IA.md');
+  }
+
+  Future<String> _example() async {
+    const asset = 'assets/quiz-format/EJEMPLO_EXAMEN.json';
+    final example = await rootBundle.loadString(asset);
+    ExternalQuizFormat.parse(example);
+    final path = await _writeFile('EJEMPLO_EXAMEN.json', example);
+    return _save(path, 'EJEMPLO_EXAMEN.json');
   }
 
   Future<String> _quizPath() async {
@@ -240,18 +252,28 @@ class _ExternalQuizPageState extends State<ExternalQuizPage> {
           onPressed: busy ? null : () => _execute(_import),
           icon: const Icon(Icons.upload_file),
           label: const Text('Importar examen externo (.json)')),
+        const SizedBox(height: 18),
+        const Text('Plantillas descargables (incluidas en la app)',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        const Text('Guarda el prompt para dárselo a cualquier IA externa junto con tu guía. Descarga también un examen JSON de ejemplo para comprobar el formato.'),
         const SizedBox(height: 10),
         OutlinedButton.icon(
           onPressed: busy ? null : () => _execute(_prompt),
           icon: const Icon(Icons.download),
-          label: const Text('Descargar plantilla con prompt')),
+          label: const Text('Descargar plantilla + prompt para IA (.md)')),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: busy ? null : () => _execute(_example),
+          icon: const Icon(Icons.file_download_outlined),
+          label: const Text('Descargar ejemplo de examen (.json)')),
         const SizedBox(height: 24),
         const Text('Intercambiar con FocoQuiz', style: TextStyle(
           fontWeight: FontWeight.bold, fontSize: 19)),
         const SizedBox(height: 10),
         if (guides.isNotEmpty) DropdownButtonFormField<String>(
           initialValue: guides.any((g) => g.id == selection) ? selection : guides.first.id,
-          decoration: const InputDecoration(labelText: 'Guía o examen'),
+          decoration: const InputDecoration(labelText: 'Guía o examen (para exportar o añadir al prompt)'),
           items: guides.map((g) => DropdownMenuItem(
             value: g.id, child: Text(g.title, overflow: TextOverflow.ellipsis))).toList(),
           onChanged: (id) => setState(() => selection = id),
