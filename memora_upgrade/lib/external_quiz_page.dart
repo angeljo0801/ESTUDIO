@@ -14,7 +14,7 @@ import 'study_engine.dart';
 class ExternalQuizFormat {
   static Map<String, dynamic> parse(String raw) {
     if (raw.length > 2000000) throw const FormatException('Archivo demasiado grande (máximo 2 MB).');
-    final data = jsonDecode(raw.trim());
+    final data = jsonDecode(raw.replaceFirst('\uFEFF', '').trim());
     if (data is! Map) throw const FormatException('Se esperaba un objeto JSON.');
     final pack = Map<String, dynamic>.from(data);
     if (pack['format'] != 'focoquiz.quiz' || pack['version'] != 1) {
