@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'guide_file_service.dart';
+import 'external_quiz_runner_page.dart';
 import 'guide_store.dart';
 import 'models.dart';
 import 'quiz_page.dart';
@@ -35,6 +36,13 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
   }
 
   Future<void> _quiz() async {
+    if (widget.guide.sourceType == 'quiz') {
+      await Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ExternalQuizRunnerPage(guide: widget.guide),
+      ));
+      if (mounted) setState(() {});
+      return;
+    }
     if (widget.guide.cards.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Necesito al menos 2 tarjetas para crear un examen.')),
@@ -190,7 +198,7 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
-            onPressed: guide.cards.length < 2 ? null : _quiz,
+            onPressed: (guide.sourceType != 'quiz' && guide.cards.length < 2) ? null : _quiz,
             icon: const Icon(Icons.quiz_rounded),
             label: const Text('Hacer examen'),
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(54)),
