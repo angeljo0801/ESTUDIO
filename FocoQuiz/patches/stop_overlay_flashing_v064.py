@@ -59,6 +59,7 @@ build = build.replace('versionCode = 9', 'versionCode = 10')
 gradle.write_text(build, encoding='utf-8')
 
 tests = root / 'tests/ForegroundWindowEventsSmoke.kt'
+tests.parent.mkdir(parents=True, exist_ok=True)
 tests.write_text('''package com.focoquiz.app
 
 fun main() {

@@ -45,3 +45,9 @@ En Configuración general, las listas de preguntas y minutos tienen ahora texto 
 Si Android bloquea el servicio, abre **Ayuda: permitir Accesibilidad en Samsung**. FocoQuiz muestra las instrucciones oficiales para **Ajustes > Aplicaciones > FocoQuiz > ⋮ > Permitir ajustes restringidos** (cuando Android ofrece esa opción). El permiso solo puede concederlo el usuario, no la app.
 
 Para preservar los exámenes, actualiza sobre la versión anterior; no desinstales sin antes guardar los datos.
+
+## FocoQuiz 0.6.4 — evitar que parpadee la pantalla de examen
+
+Se corrigió la detección de ventanas del servicio de Accesibilidad. Las notificaciones de ventana emitidas por la superposición de bloqueo no deben cerrar el cuestionario. Solo al abrir una pantalla real de FocoQuiz o una aplicación esencial se retira la superposición. Se incluye prueba de regresión en `tests/ForegroundWindowEventsSmoke.kt`.
+
+Esta versión necesita validación en un teléfono Android con servicio de Accesibilidad habilitado. Conserva las preguntas, horarios y planes guardados si el sistema permite actualizar la aplicación sin desinstalar.
