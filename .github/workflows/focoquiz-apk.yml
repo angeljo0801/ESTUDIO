@@ -49,8 +49,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar SDK Android
-        uses: android-actions/setup-android@v3
+      - name: Verificar SDK Android instalado en GitHub Runner
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager
+          sdkmanager --version
 
       - name: Instalar Gradle 8.11.1
         uses: gradle/actions/setup-gradle@v4
