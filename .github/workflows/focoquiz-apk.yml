@@ -87,6 +87,14 @@ jobs:
           grep -q 'Ocultar teclado' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
           grep -q 'setFitInsetsTypes' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
 
+      - name: Configurar firma permanente privada (v0.6.6)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/stable_private_signing_v066.py
+          grep -q 'versionName = "0.6.6"' FocoQuiz/app/build.gradle.kts
+          grep -q 'focoquiz_stable' FocoQuiz/app/build.gradle.kts
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -111,37 +119,44 @@ jobs:
         run: |
           "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
 
-      - name: Compilar APK debug
+      - name: Cargar firma privada estable (solo desde main)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          FQ_KEYSTORE_BASE64: ${{ secrets.FOCOQUIZ_SIGNING_KEYSTORE_BASE64 }}
+          FQ_KEYSTORE_PASSWORD: ${{ secrets.FOCOQUIZ_SIGNING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Firma permanente solo permitida desde la rama main."
+            exit 1
+          fi
+          if [ -z "$FQ_KEYSTORE_BASE64" ] || [ -z "$FQ_KEYSTORE_PASSWORD" ]; then
+            echo "::error::Configura FOCOQUIZ_SIGNING_KEYSTORE_BASE64 y FOCOQUIZ_SIGNING_PASSWORD en Settings > Secrets and variables > Actions antes de publicar."
+            exit 1
+          fi
+          printf '%s' "$FQ_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/focoquiz-estable.p12"
+          chmod 600 "$RUNNER_TEMP/focoquiz-estable.p12"
+          keytool -list -storetype PKCS12 -keystore "$RUNNER_TEMP/focoquiz-estable.p12" -storepass "$FQ_KEYSTORE_PASSWORD" -alias focoquiz_stable >/dev/null
+          echo "::add-mask::$FQ_KEYSTORE_PASSWORD"
+          echo "FOCOQUIZ_KEYSTORE_FILE=$RUNNER_TEMP/focoquiz-estable.p12" >> "$GITHUB_ENV"
+          echo "FOCOQUIZ_KEYSTORE_PASSWORD=$FQ_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Compilar APK de validación (sin publicar)
+        if: github.event_name != 'workflow_dispatch'
         working-directory: FocoQuiz
         run: gradle --no-daemon :app:assembleDebug --stacktrace
 
-      - name: Probar el proceso de firma release con clave temporal NO publicable
-        shell: bash
-        run: |
-          set -euo pipefail
-          umask 077
-          TEMP_KEY="$RUNNER_TEMP/focoquiz-test-only.p12"
-          TEMP_PASS="$(openssl rand -hex 24)"
-          keytool -genkeypair -keystore "$TEMP_KEY" -storetype PKCS12 -alias focoquiz \
-            -keyalg RSA -keysize 2048 -validity 1 -storepass "$TEMP_PASS" \
-            -keypass "$TEMP_PASS" -dname "CN=FocoQuiz CI TEMPORARY, O=TEST ONLY, C=US" -noprompt >/dev/null 2>&1
-          python3 FocoQuiz/patches/permanent_release_signing.py
-          (
-            cd FocoQuiz
-            export FOCOQUIZ_SIGNING_FILE="$TEMP_KEY"
-            export FOCOQUIZ_SIGNING_PASSWORD="$TEMP_PASS"
-            gradle --no-daemon :app:assembleRelease
-          )
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose \
-            FocoQuiz/app/build/outputs/apk/release/app-release.apk
-          rm -f "$TEMP_KEY"
-          echo "Release signing probado correctamente con clave efimera NO PUBLICADA."
+      - name: Compilar APK release con firma permanente
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: FocoQuiz
+        run: gradle --no-daemon :app:assembleRelease --stacktrace
 
-      - name: Publicar APK de FocoQuiz
+      - name: Publicar APK firmada para actualizaciones
         uses: actions/upload-artifact@v4
-        if: success()
+        if: github.event_name == 'workflow_dispatch' && success()
         with:
-          name: FocoQuiz-v0.6.5-debug-APK
-          path: FocoQuiz/app/build/outputs/apk/debug/app-debug.apk
+          name: FocoQuiz-v0.6.6-release-APK-firma-permanente
+          path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
