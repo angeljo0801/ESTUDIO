@@ -81,3 +81,7 @@ Sin secretos el paso de publicación falla de forma deliberada, para no generar 
 
 Antes de instalar la primera v0.6.6 release, **desinstala UNA vez** tu APK v0.6.5 o anterior (se perderán sus datos); ya indicaste que no hace falta conservarlos.
 Desde entonces mantén estos secretos y aumenta `versionCode` en cada versión: las nuevas APK release permitirán actualizar sin desinstalar.
+
+## FocoQuiz 0.6.7 — apertura rápida
+
+La pantalla principal no espera a la lectura de aplicaciones instaladas ni a la reprogramación de alarmas al abrir. Estas tareas, junto con la carga de iconos, se realizan en segundo plano. Para evitar demoras al crear una lista enorme, se muestran inicialmente 24 aplicaciones con el botón **Mostrar más aplicaciones** y un buscador con breve espera. El servicio de Accesibilidad sigue funcionando independientemente. La compilación release conserva los secretos de firma permanente configurados para las futuras actualizaciones sin desinstalar.
