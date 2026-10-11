@@ -61,3 +61,23 @@ Requiere probarlo en Samsung One UI/Android 16, puesto que la gestión de ventan
 ## Firma estable (nueva forma de distribuir FocoQuiz)
 
 En este repositorio publico no se almacena la clave privada de firma. La primera y las futuras APK que se puedan actualizar se generan mediante el flujo **FocoQuiz · APK estable actualizable**, una vez configurados los secretos indicados en [FIRMA_ESTABLE.md](FIRMA_ESTABLE.md). Las APK debug de los otros flujos NO comparten esa clave y deben considerarse solo pruebas. No distribuyas como actualización una APK debug.
+
+## FocoQuiz v0.6.6 — APK actualizable con una misma firma
+
+Las APK anteriores de GitHub Actions tenían firmas de depuración distintas y Android exigía desinstalar.
+Desde esta versión se usa una firma privada persistente **solo para compilaciones release** lanzadas manualmente en la rama `main`.
+No guardes la contraseña ni el fichero de firma como código público.
+
+Preparación única:
+1. Conserva fuera de GitHub el archivo privado `FocoQuiz-FIRMA-PRIVADA.zip` que contiene una clave cifrada y dos textos para secretos.
+2. En el repositorio: **Settings → Secrets and variables → Actions → New repository secret**.
+3. Crea exactamente `FOCOQUIZ_SIGNING_KEYSTORE_BASE64` con el contenido de `FOCOQUIZ_SIGNING_KEYSTORE_BASE64.txt`.
+4. Crea exactamente `FOCOQUIZ_SIGNING_PASSWORD` con el contenido de `FOCOQUIZ_SIGNING_PASSWORD.txt`.
+5. En **Actions → FocoQuiz · Compilar APK Android → Run workflow**, selecciona `main`.
+6. Descarga el artefacto `FocoQuiz-v0.6.6-release-APK-firma-permanente`.
+
+La clave de firma solo existe en los secretos de GitHub (y en el respaldo privado). Los commits y PRs compilan una APK de prueba sin publicar artefactos actualizables.
+Sin secretos el paso de publicación falla de forma deliberada, para no generar APKs con otra firma por accidente.
+
+Antes de instalar la primera v0.6.6 release, **desinstala UNA vez** tu APK v0.6.5 o anterior (se perderán sus datos); ya indicaste que no hace falta conservarlos.
+Desde entonces mantén estos secretos y aumenta `versionCode` en cada versión: las nuevas APK release permitirán actualizar sin desinstalar.
