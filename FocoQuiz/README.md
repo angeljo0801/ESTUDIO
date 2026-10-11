@@ -37,3 +37,11 @@ La actualización 0.6.1 diferencia la plantilla del examen y ofrece instruccione
 ## FocoQuiz v0.6.2 — lectura ampliada
 
 La pantalla **Banco de preguntas** muestra ahora los pasos 1, 2 y 3 como tarjetas independientes, cada una con su botón inmediatamente debajo. Incluye preferencias persistentes **Texto grande** y **Alto contraste**, y todos los botones y etiquetas ganan legibilidad. La prueba de ejemplo se presenta por separado. Ejecutar el workflow `focoquiz-apk.yml` para compilar la APK de Android.
+
+## FocoQuiz v0.6.3 — legibilidad y Accesibilidad
+
+En Configuración general, las listas de preguntas y minutos tienen ahora texto claro sobre fondos oscuros, con opciones desplegadas de alto contraste. También se respetan los bordes seguros de pantalla para que el encabezado no quede oculto por la barra de estado.
+
+Si Android bloquea el servicio, abre **Ayuda: permitir Accesibilidad en Samsung**. FocoQuiz muestra las instrucciones oficiales para **Ajustes > Aplicaciones > FocoQuiz > ⋮ > Permitir ajustes restringidos** (cuando Android ofrece esa opción). El permiso solo puede concederlo el usuario, no la app.
+
+Para preservar los exámenes, actualiza sobre la versión anterior; no desinstales sin antes guardar los datos.

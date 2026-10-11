@@ -21,13 +21,13 @@ change('import android.os.Bundle\n',
 change('import android.view.ViewGroup\n',
        'import android.view.ViewGroup\nimport android.view.WindowInsets\n')
 
-change(
-'''        val scroll = ScrollView(this).apply { setBackgroundColor(Style.bg); fillViewport = true }''',
-'''        val scroll = ScrollView(this).apply {
+scroll_start = s.find('        val scroll = ScrollView(this)')
+scroll_end = s.find('        root = LinearLayout(this).apply', scroll_start)
+if scroll_start < 0 or scroll_end < 0:
+    raise SystemExit('v0.6.3: cannot find main screen scroll container')
+s = s[:scroll_start] + '''        val scroll = ScrollView(this).apply {
             setBackgroundColor(Style.bg)
-            fillViewport = true
-            // On Android 15/16 the app can render behind system bars.
-            // Add safe padding so the title and bottom controls stay visible.
+            isFillViewport = true
             setOnApplyWindowInsetsListener { view, insets ->
                 if (Build.VERSION.SDK_INT >= 30) {
                     val bars = insets.getInsets(WindowInsets.Type.systemBars())
@@ -41,7 +41,8 @@ change(
                 }
                 insets
             }
-        }''')
+        }
+''' + s[scroll_end:]
 
 change(
 '''        serviceCard.addView(activate)
