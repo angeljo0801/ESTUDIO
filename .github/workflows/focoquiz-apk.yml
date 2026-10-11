@@ -33,7 +33,7 @@ jobs:
           set -euo pipefail
           if [ -f 'FocoQuiz/source-v0.6.tar.xz.base64' ]; then
             base64 --decode 'FocoQuiz/source-v0.6.tar.xz.base64' > /tmp/focoquiz-source.tar.xz
-            echo "0ad0a2daaed9bcf7e1ed31be25da5d8822dcb47488f890852dc3d6b3b5d4718e  /tmp/focoquiz-source.tar.xz" | sha256sum -c -
+            echo "96fb373fb4ba000a37ac09f31dc8acfdbf7cb8a2f483366c66c2bc54a1d272fc  /tmp/focoquiz-source.tar.xz" | sha256sum -c -
             tar -xJf /tmp/focoquiz-source.tar.xz -C FocoQuiz
           elif [ -f 'FocoQuiz/source-v0.6.zip' ]; then
             unzip -qo 'FocoQuiz/source-v0.6.zip' -d .
