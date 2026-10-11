@@ -115,6 +115,28 @@ jobs:
         working-directory: FocoQuiz
         run: gradle --no-daemon :app:assembleDebug --stacktrace
 
+      - name: Probar el proceso de firma release con clave temporal NO publicable
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          TEMP_KEY="$RUNNER_TEMP/focoquiz-test-only.p12"
+          TEMP_PASS="$(openssl rand -hex 24)"
+          keytool -genkeypair -keystore "$TEMP_KEY" -storetype PKCS12 -alias focoquiz \
+            -keyalg RSA -keysize 2048 -validity 1 -storepass "$TEMP_PASS" \
+            -keypass "$TEMP_PASS" -dname "CN=FocoQuiz CI TEMPORARY, O=TEST ONLY, C=US" -noprompt >/dev/null 2>&1
+          python3 FocoQuiz/patches/permanent_release_signing.py
+          (
+            cd FocoQuiz
+            export FOCOQUIZ_SIGNING_FILE="$TEMP_KEY"
+            export FOCOQUIZ_SIGNING_PASSWORD="$TEMP_PASS"
+            gradle --no-daemon :app:assembleRelease
+          )
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose \
+            FocoQuiz/app/build/outputs/apk/release/app-release.apk
+          rm -f "$TEMP_KEY"
+          echo "Release signing probado correctamente con clave efimera NO PUBLICADA."
+
       - name: Publicar APK de FocoQuiz
         uses: actions/upload-artifact@v4
         if: success()
