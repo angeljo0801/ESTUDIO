@@ -95,6 +95,14 @@ jobs:
           grep -q 'versionName = "0.6.6"' FocoQuiz/app/build.gradle.kts
           grep -q 'focoquiz_stable' FocoQuiz/app/build.gradle.kts
 
+      - name: Acelerar el inicio de FocoQuiz (v0.6.7)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/nonblocking_startup_v067.py
+          grep -q 'versionName = "0.6.7"' FocoQuiz/app/build.gradle.kts
+          grep -q 'result.take(visibleLimit)' FocoQuiz/app/src/main/java/com/focoquiz/app/MainActivity.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -156,7 +164,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.6-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.7-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
