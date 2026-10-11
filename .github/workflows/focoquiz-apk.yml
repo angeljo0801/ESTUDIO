@@ -4,11 +4,12 @@ on:
   push:
     branches: [main]
     paths:
+      - 'FocoQuiz/source-v0.6.tar.xz.base64'
       - 'FocoQuiz/*.zip'
       - 'FocoQuiz/app/**'
       - 'FocoQuiz/settings.gradle.kts'
       - 'FocoQuiz/build.gradle.kts'
-      - 'FocoQuiz/gradle.properties'
+      - '.github/workflows/focoquiz-apk.yml'
 
 permissions:
   contents: read
@@ -16,53 +17,51 @@ permissions:
 jobs:
   build-focoquiz:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
-    defaults:
-      run:
-        shell: bash
+    timeout-minutes: 40
     steps:
-      - name: Clonar repositorio ESTUDIO
+      - name: Checkout repositorio ESTUDIO
         uses: actions/checkout@v4
 
-      - name: Preparar el código de FocoQuiz
+      - name: Extraer FocoQuiz v0.6 y comprobar integridad
+        shell: bash
         run: |
-          archive=''
-          for candidate in \
-            'FocoQuiz/source-v0.6.zip' \
-            'FocoQuiz/FocoQuiz-Android-v0.6-planes-alarmas-bloqueo-global.zip'; do
-            if [ -f "$candidate" ]; then archive="$candidate"; break; fi
-          done
-          if [ -n "$archive" ]; then unzip -qo "$archive" -d .; fi
-          test -f FocoQuiz/settings.gradle.kts || {
-            echo "::error::Falta un archivo ZIP de la aplicación dentro de FocoQuiz/ (o el código fuente extraído).";
-            exit 1;
-          }
-          test -f FocoQuiz/app/build.gradle.kts
+          set -euo pipefail
+          if [ -f 'FocoQuiz/source-v0.6.tar.xz.base64' ]; then
+            base64 --decode 'FocoQuiz/source-v0.6.tar.xz.base64' > /tmp/focoquiz-source.tar.xz
+            echo "0ad0a2daaed9bcf7e1ed31be25da5d8822dcb47488f890852dc3d6b3b5d4718e  /tmp/focoquiz-source.tar.xz" | sha256sum -c -
+            tar -xJf /tmp/focoquiz-source.tar.xz -C FocoQuiz
+          elif [ -f 'FocoQuiz/source-v0.6.zip' ]; then
+            unzip -qo 'FocoQuiz/source-v0.6.zip' -d .
+          elif [ -f 'FocoQuiz/FocoQuiz-Android-v0.6-planes-alarmas-bloqueo-global.zip' ]; then
+            unzip -qo 'FocoQuiz/FocoQuiz-Android-v0.6-planes-alarmas-bloqueo-global.zip' -d .
+          fi
+          test -f 'FocoQuiz/settings.gradle.kts' || { echo "::error::Faltan fuentes de FocoQuiz"; exit 1; }
+          test -f 'FocoQuiz/app/build.gradle.kts'
 
-      - name: Java 17
+      - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
+      - name: Configurar SDK Android
         uses: android-actions/setup-android@v3
 
-      - name: Gradle 8.11.1
+      - name: Instalar Gradle 8.11.1
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
 
-      - name: Instalar plataforma Android 35
+      - name: Instalar Android API 35
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
 
-      - name: Compilar APK debug de FocoQuiz
+      - name: Compilar APK debug
         working-directory: FocoQuiz
         run: gradle --no-daemon :app:assembleDebug --stacktrace
 
-      - name: Publicar APK para descargar
-        if: success()
+      - name: Publicar APK de FocoQuiz
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: FocoQuiz-v0.6-debug-APK
           path: FocoQuiz/app/build/outputs/apk/debug/app-debug.apk
