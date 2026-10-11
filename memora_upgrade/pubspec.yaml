@@ -34,3 +34,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/quiz-format/PLANTILLA_Y_PROMPT_PARA_CUALQUIER_IA.md
+    - assets/quiz-format/EJEMPLO_EXAMEN.json
