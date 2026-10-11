@@ -57,3 +57,7 @@ Esta versión necesita validación en un teléfono Android con servicio de Acces
 La pantalla del examen se coloca arriba para que el teclado no oculte los botones. Se retira `FLAG_LAYOUT_IN_SCREEN` para respetar las barras de navegación de Android y se ajusta la ventana a la barra de estado, la barra de navegación y el teclado. El cuestionario tiene un botón visible para **Ocultar teclado** y otro para **Ir al inicio sin desbloquear**, de forma que FocoQuiz no impide usar las funciones esenciales del teléfono. El teclado deja de abrirse automáticamente y puede cerrarse con la tecla «Listo».
 
 Requiere probarlo en Samsung One UI/Android 16, puesto que la gestión de ventanas de Accesibilidad e IME depende del fabricante y de la versión del sistema.
+
+## Firma estable (nueva forma de distribuir FocoQuiz)
+
+En este repositorio publico no se almacena la clave privada de firma. La primera y las futuras APK que se puedan actualizar se generan mediante el flujo **FocoQuiz · APK estable actualizable**, una vez configurados los secretos indicados en [FIRMA_ESTABLE.md](FIRMA_ESTABLE.md). Las APK debug de los otros flujos NO comparten esa clave y deben considerarse solo pruebas. No distribuyas como actualización una APK debug.
