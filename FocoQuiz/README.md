@@ -51,3 +51,9 @@ Para preservar los exámenes, actualiza sobre la versión anterior; no desinstal
 Se corrigió la detección de ventanas del servicio de Accesibilidad. Las notificaciones de ventana emitidas por la superposición de bloqueo no deben cerrar el cuestionario. Solo al abrir una pantalla real de FocoQuiz o una aplicación esencial se retira la superposición. Se incluye prueba de regresión en `tests/ForegroundWindowEventsSmoke.kt`.
 
 Esta versión necesita validación en un teléfono Android con servicio de Accesibilidad habilitado. Conserva las preguntas, horarios y planes guardados si el sistema permite actualizar la aplicación sin desinstalar.
+
+## FocoQuiz 0.6.5 — navegación y teclado del cuestionario
+
+La pantalla del examen se coloca arriba para que el teclado no oculte los botones. Se retira `FLAG_LAYOUT_IN_SCREEN` para respetar las barras de navegación de Android y se ajusta la ventana a la barra de estado, la barra de navegación y el teclado. El cuestionario tiene un botón visible para **Ocultar teclado** y otro para **Ir al inicio sin desbloquear**, de forma que FocoQuiz no impide usar las funciones esenciales del teléfono. El teclado deja de abrirse automáticamente y puede cerrarse con la tecla «Listo».
+
+Requiere probarlo en Samsung One UI/Android 16, puesto que la gestión de ventanas de Accesibilidad e IME depende del fabricante y de la versión del sistema.
