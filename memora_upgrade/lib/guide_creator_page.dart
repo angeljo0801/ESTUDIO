@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'ai_service.dart';
 import 'guide_file_service.dart';
+import 'external_quiz_page.dart';
 import 'guide_store.dart';
 import 'study_engine.dart';
 
@@ -265,6 +266,23 @@ Luego crea filas útiles y completas. No uses tabuladores dentro de una celda. S
               onChanged: (value) =>
                   setState(() => aiSource = value ?? 'global'),
             ),
+            const SizedBox(height: 12),
+            Card(child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const Text('Exámenes de IA externa', style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 18)),
+                const SizedBox(height: 6),
+                const Text('Importa pruebas preparadas fuera de Memora por ChatGPT, Gemini, Claude u otra IA; descarga el prompt y comparte los exámenes con FocoQuiz.'),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.quiz_outlined),
+                  onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => ExternalQuizPage(store: widget.store))),
+                  label: const Text('Importar / exportar examen externo'),
+                ),
+              ]),
+            )),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _pickSources,
