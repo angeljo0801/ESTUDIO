@@ -30,6 +30,8 @@ class GuideStore extends ChangeNotifier {
 
       var repaired = false;
       for (final guide in guides) {
+        // External quizzes are validated on import and keep even one-letter or numeric answers.
+        if (guide.sourceType == 'quiz') continue;
         final cleaned = guide.cards.where(StudyEngine.isCardUsable).toList();
         if (cleaned.length != guide.cards.length) {
           guide.cards = cleaned;
