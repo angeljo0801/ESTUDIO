@@ -273,13 +273,13 @@ Luego crea filas útiles y completas. No uses tabuladores dentro de una celda. S
                 const Text('Exámenes de IA externa', style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 6),
-                const Text('Importa pruebas preparadas fuera de Memora por ChatGPT, Gemini, Claude u otra IA; descarga el prompt y comparte los exámenes con FocoQuiz.'),
+                const Text('Aquí puedes descargar el prompt universal y un ejemplo JSON directamente al teléfono, además de importar exámenes creados por una IA externa.'),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.quiz_outlined),
                   onPressed: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => ExternalQuizPage(store: widget.store))),
-                  label: const Text('Importar / exportar examen externo'),
+                  label: const Text('Descargar plantillas / Importar exámenes'),
                 ),
               ]),
             )),
