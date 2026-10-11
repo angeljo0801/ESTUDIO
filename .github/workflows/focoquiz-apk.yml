@@ -78,6 +78,15 @@ jobs:
           grep -q 'versionName = "0.6.4"' FocoQuiz/app/build.gradle.kts
           grep -q 'ForegroundWindowEvents.isOverlayWindow' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
 
+      - name: Mantener navegación y teclado accesibles en el bloqueo (v0.6.5)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/keyboard_nav_safe_v065.py
+          grep -q 'versionName = "0.6.5"' FocoQuiz/app/build.gradle.kts
+          grep -q 'Ocultar teclado' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
+          grep -q 'setFitInsetsTypes' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -110,7 +119,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: FocoQuiz-v0.6.4-debug-APK
+          name: FocoQuiz-v0.6.5-debug-APK
           path: FocoQuiz/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
