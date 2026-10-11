@@ -33,3 +33,7 @@ La APK todavía requiere una compilación correcta en GitHub Actions y pruebas e
 - Para comprobar la importación sin usar IA, usa **Probar con examen de ejemplo incluido**.
 
 La actualización 0.6.1 diferencia la plantilla del examen y ofrece instrucciones detalladas cuando se elige un `.md` por error. Instalar una APK anterior a 0.6.1 seguirá mostrando el mensaje antiguo. Es una APK de prueba y no una versión validada en dispositivos reales.
+
+## FocoQuiz v0.6.2 — lectura ampliada
+
+La pantalla **Banco de preguntas** muestra ahora los pasos 1, 2 y 3 como tarjetas independientes, cada una con su botón inmediatamente debajo. Incluye preferencias persistentes **Texto grande** y **Alto contraste**, y todos los botones y etiquetas ganan legibilidad. La prueba de ejemplo se presenta por separado. Ejecutar el workflow `focoquiz-apk.yml` para compilar la APK de Android.
