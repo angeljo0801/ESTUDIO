@@ -27,7 +27,7 @@ if scroll_start < 0 or scroll_end < 0:
     raise SystemExit('v0.6.3: cannot find main screen scroll container')
 s = s[:scroll_start] + '''        val scroll = ScrollView(this).apply {
             setBackgroundColor(Style.bg)
-            fillViewport = true
+            isFillViewport = true
             setOnApplyWindowInsetsListener { view, insets ->
                 if (Build.VERSION.SDK_INT >= 30) {
                     val bars = insets.getInsets(WindowInsets.Type.systemBars())
