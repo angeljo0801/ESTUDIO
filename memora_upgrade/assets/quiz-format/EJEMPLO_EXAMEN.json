@@ -1,0 +1,36 @@
+{
+  "format": "focoquiz.quiz",
+  "version": 1,
+  "title": "Ejemplo: fundamentos de electrónica",
+  "source": "Mi guía de estudio",
+  "language": "es",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple_choice",
+      "question": "¿En qué unidad se mide la resistencia eléctrica?",
+      "options": [
+        "Ohmios",
+        "Voltios",
+        "Amperios",
+        "Vatios"
+      ],
+      "answer": "Ohmios",
+      "explanation": "La unidad de resistencia eléctrica es el ohmio (Ω).",
+      "topic": "Circuitos",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q2",
+      "type": "short_answer",
+      "question": "¿Qué ley relaciona tensión, corriente y resistencia?",
+      "answer": "Ley de Ohm",
+      "accepted_answers": [
+        "Ohm"
+      ],
+      "explanation": "Se expresa como V = I × R.",
+      "topic": "Circuitos",
+      "difficulty": "easy"
+    }
+  ]
+}
