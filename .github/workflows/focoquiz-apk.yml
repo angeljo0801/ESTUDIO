@@ -70,6 +70,14 @@ jobs:
           grep -q 'versionName = "0.6.3"' FocoQuiz/app/build.gradle.kts
           grep -q 'Ayuda: permitir Accesibilidad en Samsung' FocoQuiz/app/src/main/java/com/focoquiz/app/MainActivity.kt
 
+      - name: Evitar parpadeo del examen por ventanas de Accesibilidad (v0.6.4)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/stop_overlay_flashing_v064.py
+          grep -q 'versionName = "0.6.4"' FocoQuiz/app/build.gradle.kts
+          grep -q 'ForegroundWindowEvents.isOverlayWindow' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -102,7 +110,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: FocoQuiz-v0.6.3-debug-APK
+          name: FocoQuiz-v0.6.4-debug-APK
           path: FocoQuiz/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
