@@ -171,6 +171,16 @@ jobs:
           grep -q 'sin.*cos' FocoQuiz/app/src/main/java/com/focoquiz/app/QuizCalculator.kt
           grep -q 'fun evaluate(input: String, degrees: Boolean = true)' FocoQuiz/app/src/main/java/com/focoquiz/app/CalculatorEngine.kt
 
+      - name: Variar números de problemas matemáticos y recalcular respuestas (v0.6.15)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/parameterized_math_v0615.py
+          python3 FocoQuiz/patches/math_prompt_examples_v0615.py
+          grep -q 'versionName = "0.6.15"' FocoQuiz/app/build.gradle.kts
+          grep -q 'NumericQuizVariants.instantiate' FocoQuiz/app/src/main/java/com/focoquiz/app/QuizEngine.kt
+          grep -q 'numeric_variation' FocoQuiz/app/src/main/assets/plantilla_prompt_ia.md
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -232,7 +242,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.14-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.15-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
