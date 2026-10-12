@@ -103,7 +103,7 @@ jobs:
           mkdir -p test
           cp -R "$GITHUB_WORKSPACE/memora_upgrade/test/." test/
           sed -i 's/android:label="memora"/android:label="Memora" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <uses-permission android:name="com.angelapps.local_ai_manager.permission.USE_AI" />\n    <queries>\n        <package android:name="com.angelapps.local_ai_manager" />\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <uses-permission android:name="com.angelapps.local_ai_manager.permission.USE_AI" />\n    <queries>\n        <package android:name="com.angelapps.local_ai_manager" />\n        <intent>\n            <action android:name="android.speech.RecognitionService" />\n            <action android:name="android.intent.action.TTS_SERVICE" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
           python3 - <<'PY'
           from pathlib import Path
           p=Path('android/app/src/main/AndroidManifest.xml');s=p.read_text();marker='    </application>'
@@ -292,7 +292,7 @@ jobs:
           flutter pub get
       - name: Regression tests
         working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter test test/pdf_extraction_regression_test.dart
+        run: flutter test
       - name: Analyze
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
@@ -314,7 +314,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.50-Backup-Stable-ID-release-apk
+          name: Memora-v1.51-Aventuras-Interactive-Offline-release-apk
           path: |
             ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
             ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
