@@ -153,8 +153,11 @@ for prompt in prompts:
     else:
         # Some bundled guide revisions use a different explanation bullet.
         # Insert the formula contract inside the prompt, above its JSON example.
-        example_heading=s.find("Ejemplo de la ESTRUCTURA")
-        if example_heading < 0: example_heading=s.find('"questions": [')
+        # The bundled v0.6 prompt has an alternate sample heading.
+        # The formula instructions belong BEFORE the JSON example.
+        example_heading=s.find("Ejemplo de ESTRUCTURA")
+        if example_heading < 0: example_heading=s.find("Ejemplo de la ESTRUCTURA")
+        if example_heading < 0: example_heading=s.find("## FIN DEL PROMPT")
         if example_heading < 0: raise RuntimeError("No prompt example found: "+str(prompt))
         s=s[:example_heading]+instructions+"\n"+s[example_heading:]
     example='''  "questions": [
