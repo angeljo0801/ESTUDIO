@@ -242,16 +242,15 @@ g.write_text(v,encoding="utf-8")
 # Add an honest battery/Accessibility settings shortcut, requiring a user's explicit choice.
 m=src/"MainActivity.kt"
 v=m.read_text(encoding="utf-8")
-anchor='''        serviceCard.addView(activate)
-        root.addView(serviceCard)'''
-if anchor not in v:raise SystemExit("missing service status card")
+anchor='''        serviceCard.addView(activate)'''
+if anchor not in v:raise SystemExit("missing service activation button")
 v=v.replace(anchor,'''        serviceCard.addView(activate)
         serviceCard.addView(Style.label(this,
-            "Protección permanente: el servicio de Accesibilidad funciona sin mantener " +
-                "el dashboard abierto. En Samsung, configura Batería → Sin restricciones " +
-                "para reducir pausas; Android aún puede detenerlo tras forzar cierre " +
-                "o desactivar Accesibilidad.", 14f, Style.subtle))
-        serviceCard.addView(Style.action(this, "Ajustes de batería · mantener protección activa").apply {
+            "La protección de Accesibilidad sigue activa sin abrir el dashboard. " +
+                "En Samsung revisa Batería → Sin restricciones. " +
+                "Android puede detenerla si fuerzas el cierre o quitas el permiso.",
+            14f, Style.subtle))
+        serviceCard.addView(Style.action(this, "Batería · permitir funcionamiento prolongado").apply {
             setOnClickListener {
                 try {
                     startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
@@ -260,8 +259,7 @@ v=v.replace(anchor,'''        serviceCard.addView(activate)
                         android.net.Uri.parse("package:" + packageName)))
                 }
             }
-        })
-        root.addView(serviceCard)''',1)
+        })''',1)
 m.write_text(v,encoding="utf-8")
 
 build=root/"app/build.gradle.kts"
