@@ -162,6 +162,15 @@ jobs:
           grep -q 'leaveForHome()' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
           grep -q 'return chosen.shuffled(random)' FocoQuiz/app/src/main/java/com/focoquiz/app/QuizEngine.kt
 
+      - name: Añadir calculadora científica dentro de los quizzes (v0.6.14)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/scientific_calculator_v0614.py
+          grep -q 'versionName = "0.6.14"' FocoQuiz/app/build.gradle.kts
+          grep -q 'sin.*cos' FocoQuiz/app/src/main/java/com/focoquiz/app/QuizCalculator.kt
+          grep -q 'fun evaluate(input: String, degrees: Boolean = true)' FocoQuiz/app/src/main/java/com/focoquiz/app/CalculatorEngine.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -223,7 +232,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.13-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.14-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
