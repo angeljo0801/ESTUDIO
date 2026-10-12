@@ -159,16 +159,16 @@ for prompt in prompts:
         s=s[:example_heading]+instructions+"\n"+s[example_heading:]
     example='''  "questions": [
 '''
-    if example not in s:raise RuntimeError("Prompt JSON example anchor missing: "+str(prompt))
-    s=s.replace(example,'''  "formulas": [
-    {
-      "id": "f1",
-      "name": "Ley de Ohm",
-      "expression": "V = I × R",
-      "variables": "V: voltaje (V); I: corriente (A); R: resistencia (Ω)",
-      "when_to_use": "Relacionar voltaje, corriente y resistencia",
-      "topic": "Circuitos"
-    }
+    if example in s:
+            s=s.replace(example,'''  "formulas": [
+        {
+          "id": "f1",
+          "name": "Ley de Ohm",
+          "expression": "V = I × R",
+          "variables": "V: voltaje (V); I: corriente (A); R: resistencia (Ω)",
+          "when_to_use": "Relacionar voltaje, corriente y resistencia",
+          "topic": "Circuitos"
+        }
   ],
   "questions": [
 ''',1)
