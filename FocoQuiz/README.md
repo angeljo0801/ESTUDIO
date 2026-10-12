@@ -105,3 +105,15 @@ Se distribuye como APK release con firma permanente y `versionCode 15`, actualiz
 En los cuestionarios de bloqueo y los exámenes de planes de estudio aparece un pequeño botón **▦ Calculadora**. Al pulsarlo se despliega una calculadora dentro de la misma pantalla, sin abrir ventanas adicionales, para evitar parpadeos y conservar el progreso. Permite paréntesis, suma, resta, multiplicación, división, porcentajes y raíz cuadrada, con resultado visible. En las preguntas de respuesta escrita ofrece **Usar resultado en mi respuesta**. En preguntas de opción múltiple sirve para hacer cálculos y luego elegir la opción. Se cierra sin cambiar la pregunta actual.
 
 La APK sigue firmada con la clave permanente y el `versionCode` se eleva a 16 para actualizar sobre v0.6.9 sin desinstalar.
+
+## FocoQuiz v0.6.11 — fórmulas de la guía disponibles durante el examen
+
+Hay un nuevo botón compacto **ƒx Fórmulas** junto al botón Calculadora durante los cuestionarios del bloqueo y los exámenes de los planes de estudio. El botón despliega dentro de la misma pregunta las fórmulas extraídas de la guía, mostrando primero las relacionadas con la pregunta y permitiendo consultar las demás sin salir de FocoQuiz. Funciona sin Internet y sin nuevas ventanas flotantes que puedan provocar parpadeos.
+
+El prompt universal y el ejemplo, descargables en **Banco de preguntas**, incluyen dos campos opcionales compatibles con el formato `focoquiz.quiz` versión 1:
+- `formulas`: array en la raíz con elementos `id`, `name`, `expression`, `variables`, `when_to_use` y `topic`. Hasta 120 fórmulas; la IA debe extraer exclusivamente fórmulas existentes en la guía, sin inventar contenido ni revelar soluciones particulares.
+- `formula_ids`: array de IDs en cada pregunta que indica cuáles fórmulas de la guía aplican a ella. Hasta 20 por pregunta.
+
+Al importar, FocoQuiz guarda las fórmulas una sola vez por examen y las relaciones de cada pregunta, y las presenta completamente offline. Los exámenes antiguos siguen funcionando pero, si no contienen fórmulas, el botón indica que se debe regenerar el JSON con el nuevo prompt.
+
+La nueva APK release mantiene la firma permanente y actualiza el código de versión a 17.
