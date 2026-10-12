@@ -84,6 +84,15 @@ jobs:
           python3 v113_exam_timer_notifications_patch.py
           python3 v114_global_tutor_quick_ai_patch.py
           python3 v115_card_fragment_guard_patch.py
+          python3 - <<'PY'
+          # The v1.16-v1.18 migration scripts require the pre-quiz-guard
+          # GuideStore anchor. Restore the quiz guard after all migrations.
+          from pathlib import Path
+          p = Path('lib/guide_store.dart')
+          s = p.read_text()
+          s = s.replace("        if (guide.sourceType == 'quiz') continue;\n", "", 1)
+          p.write_text(s)
+          PY
           python3 v116_semantic_card_quality_patch.py
           python3 v117_plan_local_context_patch.py
           python3 v118_english_system_patch.py
@@ -94,6 +103,16 @@ jobs:
           python3 v122_runner.py
           python3 v123_background_execution_patch.py
           python3 v155_compile_fix_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/guide_store.dart')
+          s = p.read_text()
+          anchor = "      for (final guide in guides) {\n"
+          if anchor not in s:
+              raise RuntimeError('Missing GuideStore quiz restoration anchor')
+          s = s.replace(anchor, anchor + "        if (guide.sourceType == 'quiz') continue;\n", 1)
+          p.write_text(s)
+          PY
       - name: Regenerate modern Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
