@@ -157,12 +157,11 @@ class _ExternalQuizPageState extends State<ExternalQuizPage> {
   }
 
   Future<String> _import() async {
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom, allowedExtensions: ['json'], withData: true);
-    if (picked == null || picked.files.isEmpty) return 'Importación cancelada.';
-    final item = picked.files.single;
-    final bytes = item.bytes ?? (item.path == null ? null : await File(item.path!).readAsBytes());
-    if (bytes == null) throw const FormatException('Archivo no disponible.');
+    final item = await FilePicker.pickFile(
+      type: FileType.custom, allowedExtensions: ['json']);
+    if (item == null) return 'Importación cancelada.';
+    final bytes = await item.readAsBytes();
+    if (bytes.isEmpty) throw const FormatException('Archivo no disponible.');
     final pack = ExternalQuizFormat.parse(utf8.decode(bytes));
     final path = await _writeFile('examen.json', const JsonEncoder.withIndent('  ').convert(pack));
     final now = DateTime.now();
