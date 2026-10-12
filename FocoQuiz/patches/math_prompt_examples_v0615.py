@@ -72,8 +72,15 @@ for p in (root/"app/src/main/assets/plantilla_prompt_ia.md",
     if not p.exists():continue
     text=p.read_text(encoding="utf-8")
     marker="- NO agregues hechos que no estén en la guía."
-    if marker not in text: raise RuntimeError("Missing prompt marker in "+str(p))
-    p.write_text(text.replace(marker,instructions+marker,1),encoding="utf-8")
+    if marker in text:
+        updated=text.replace(marker,instructions+marker,1)
+    elif "## PROMPT PARA LA IA" in text:
+        start=text.index("## PROMPT PARA LA IA")
+        next_line=text.find("\n",start)
+        updated=text[:next_line+1]+"\n"+instructions+"\n"+text[next_line+1:]
+    else:
+        updated=instructions+"\n"+text
+    p.write_text(updated,encoding="utf-8")
 
 # Bundled JSON actually demonstrates how a teacher/AI supplies the formula data.
 for path in (root/"app/src/main/assets/ejemplo_examen.json",
