@@ -148,8 +148,15 @@ instructions="""- NUEVO: Extrae las FÃ“RMULAS que realmente aparecen en esta guÃ
 for prompt in prompts:
     if not prompt.exists():continue
     s=prompt.read_text(encoding="utf-8")
-    if marker not in s: raise RuntimeError("Could not find prompt insertion anchor: "+str(prompt))
-    s=s.replace(marker,instructions+marker,1)
+    if marker in s:
+        s=s.replace(marker,instructions+marker,1)
+    else:
+        # Some bundled guide revisions use a different explanation bullet.
+        # Insert the formula contract inside the prompt, above its JSON example.
+        example_heading=s.find("Ejemplo de la ESTRUCTURA")
+        if example_heading < 0: example_heading=s.find('"questions": [')
+        if example_heading < 0: raise RuntimeError("No prompt example found: "+str(prompt))
+        s=s[:example_heading]+instructions+"\n"+s[example_heading:]
     example='''  "questions": [
 '''
     if example not in s:raise RuntimeError("Prompt JSON example anchor missing: "+str(prompt))
