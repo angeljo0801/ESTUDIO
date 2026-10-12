@@ -121,6 +121,15 @@ jobs:
           grep -q 'configScheduleCard' FocoQuiz/app/src/main/java/com/focoquiz/app/MainActivity.kt
           grep -q 'ConfigurationHoursGuard' FocoQuiz/app/src/main/java/com/focoquiz/app/StudyPlanEditorActivity.kt
 
+      - name: Añadir calculadora dentro de las preguntas (v0.6.10)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/quiz_calculator_v0610.py
+          grep -q 'versionName = "0.6.10"' FocoQuiz/app/build.gradle.kts
+          grep -q 'QuizCalculator.attach' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
+          grep -q 'QuizCalculator.attach' FocoQuiz/app/src/main/java/com/focoquiz/app/StudyGateActivity.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -182,7 +191,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.9-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.10-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
