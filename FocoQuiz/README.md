@@ -99,3 +99,9 @@ Cuando llegue la hora final, la configuración se cierra automáticamente y apar
 **Importante:** el servicio de bloqueo, los retos, el acceso a inicio/atrás de Android y las alarmas de estudio continúan funcionando fuera de las horas de configuración. El horario restringe los **ajustes**, no la navegación normal del dispositivo. Los controles del sistema operativo siguen accesibles y Android permite desactivar el servicio de Accesibilidad desde Ajustes.
 
 Se distribuye como APK release con firma permanente y `versionCode 15`, actualizable sobre la versión 0.6.8.
+
+## FocoQuiz v0.6.10 — calculadora integrada en el cuestionario
+
+En los cuestionarios de bloqueo y los exámenes de planes de estudio aparece un pequeño botón **▦ Calculadora**. Al pulsarlo se despliega una calculadora dentro de la misma pantalla, sin abrir ventanas adicionales, para evitar parpadeos y conservar el progreso. Permite paréntesis, suma, resta, multiplicación, división, porcentajes y raíz cuadrada, con resultado visible. En las preguntas de respuesta escrita ofrece **Usar resultado en mi respuesta**. En preguntas de opción múltiple sirve para hacer cálculos y luego elegir la opción. Se cierra sin cambiar la pregunta actual.
+
+La APK sigue firmada con la clave permanente y el `versionCode` se eleva a 16 para actualizar sobre v0.6.9 sin desinstalar.
