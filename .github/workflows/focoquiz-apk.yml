@@ -141,6 +141,18 @@ jobs:
           grep -q 'QuizFormulas.attach' FocoQuiz/app/src/main/java/com/focoquiz/app/StudyGateActivity.kt
           grep -q 'formula_ids' FocoQuiz/app/src/main/assets/plantilla_prompt_ia.md
 
+      - name: Añadir biblioteca de guías por enlaces SAF y lector con búsqueda (v0.6.12)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/guide_links_library_v0612.py
+          python3 FocoQuiz/patches/guide_viewer_v0612.py
+          python3 FocoQuiz/patches/guide_quiz_button_v0612.py
+          grep -q 'versionName = "0.6.12"' FocoQuiz/app/build.gradle.kts
+          grep -q 'ACTION_OPEN_DOCUMENT' FocoQuiz/app/src/main/java/com/focoquiz/app/GuideLibraryActivity.kt
+          grep -q 'QuizGuideButton.attach' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
+          grep -q 'QuizGuideButton.attach' FocoQuiz/app/src/main/java/com/focoquiz/app/StudyGateActivity.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -202,7 +214,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.11-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.12-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
