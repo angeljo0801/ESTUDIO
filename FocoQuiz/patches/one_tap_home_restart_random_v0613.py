@@ -93,10 +93,13 @@ edit('''            foregroundApp = null
             return
         }''',
 '''            val cls = event.className?.toString().orEmpty()
-            if (guideReturnPackage == null ||
-                (!cls.endsWith(".GuidePickerActivity") && !cls.endsWith(".GuideViewerActivity"))) {
-                abandonAttempt()
-            }
+            // While consulting a guide, ignore the viewer's normal dialogs
+            // and internal window events. Only opening another FocoQuiz editor
+            // counts as leaving the quiz; Home or switching apps is handled below.
+            val isGuideWindow = guideReturnPackage != null &&
+                (cls.endsWith(".GuidePickerActivity") || cls.endsWith(".GuideViewerActivity") ||
+                    cls == "android.app.Dialog" || !cls.startsWith(packageName + "."))
+            if (!isGuideWindow) abandonAttempt()
             foregroundApp = null
             hideOverlay()
             return
@@ -117,7 +120,8 @@ edit('''        foregroundApp = pkg
             // Do not re-open the quiz while Android is moving to Home.
             return
         }
-        if (pkg != guideReturnPackage && session.isNotEmpty()) abandonAttempt()
+        if (pkg != guideReturnPackage && pkg != overlayTarget && session.isNotEmpty())
+            abandonAttempt()
         foregroundApp = pkg
         refreshProtection()
     }''')
