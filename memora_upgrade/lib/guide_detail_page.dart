@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'adventure_page.dart';
 import 'guide_file_service.dart';
 import 'external_quiz_runner_page.dart';
 import 'guide_store.dart';
@@ -190,6 +191,18 @@ class _GuideDetailPageState extends State<GuideDetailPage> {
             ],
           ),
           const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: guide.cards.isEmpty ? null : () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => AdventurePage(store: widget.store, guide: guide)),
+              );
+            },
+            icon: const Icon(Icons.movie_filter_rounded),
+            label: const Text('🎬 Estudiar como una aventura'),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+          ),
+          const SizedBox(height: 10),
           FilledButton.icon(
             onPressed: guide.cards.isEmpty ? null : _review,
             icon: const Icon(Icons.psychology_alt_rounded),
