@@ -117,3 +117,11 @@ El prompt universal y el ejemplo, descargables en **Banco de preguntas**, incluy
 Al importar, FocoQuiz guarda las fórmulas una sola vez por examen y las relaciones de cada pregunta, y las presenta completamente offline. Los exámenes antiguos siguen funcionando pero, si no contienen fórmulas, el botón indica que se debe regenerar el JSON con el nuevo prompt.
 
 La nueva APK release mantiene la firma permanente y actualiza el código de versión a 17.
+
+## FocoQuiz v0.6.12 — biblioteca de guías enlazadas, sin copias
+
+En el **dashboard principal** se encuentra **📖 Biblioteca de guías**. Con **Seleccionar guía del teléfono**, el selector de documentos de Android abre el archivo original usando `ACTION_OPEN_DOCUMENT` y FocoQuiz guarda **solo su URI `content://` y el permiso de lectura persistente**, sin duplicar sus bytes. Esto apenas usa almacenamiento: los documentos originales siguen siendo responsabilidad del proveedor del archivo. Si el archivo se mueve, se elimina o el proveedor revoca acceso, hay que seleccionarlo de nuevo. La biblioteca permite abrir y **Quitar de biblioteca**, que elimina únicamente el enlace y nunca borra el archivo original. El alta/baja respeta el horario para editar la configuración.
+
+En la **esquina superior izquierda del cuestionario**, el pequeño botón **📖 Guía** abre la selección de guías existentes. La guía elegida queda recordada por examen; se puede volver al quiz, conservando el progreso incluso en el bloqueo por Accesibilidad. También funciona en los exámenes de planes de estudio.
+
+El lector incorporado abre PDF, TXT/MD e imágenes referenciadas sin copiarlas. En PDF muestra páginas anterior/siguiente y busca palabras o frases con un extractor de texto local; en TXT/MD busca y resalta texto. PDF escaneado e imágenes no permiten búsqueda sin OCR. Formatos que requieran un visor externo se pueden abrir en una aplicación del teléfono. La lupa y el botón Atrás están siempre visibles. `versionCode 18`, con la misma firma permanente.

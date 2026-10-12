@@ -391,7 +391,7 @@ class GuideViewerActivity : Activity() {
         }
         executor.shutdown()
         shownBitmap?.let {
-            image.setImageDrawable(null)
+            if (::image.isInitialized) image.setImageDrawable(null)
             if (!it.isRecycled) it.recycle()
         }
         super.onDestroy()
