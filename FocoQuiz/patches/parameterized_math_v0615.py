@@ -49,7 +49,8 @@ internal object NumericQuizVariants {
     private val placeholder = Regex("\\\\{([A-Za-z][A-Za-z0-9_]*)\\\\}")
     private val numericResponse = Regex("^[+-]?(?:[0-9]+(?:[.,][0-9]*)?|[.,][0-9]+)(?:[eE][+-]?[0-9]+)?$")
 
-    fun readConfig(config: JSONObject?, prompt: String, type: String): NumericVariation? {
+    fun readConfig(config: JSONObject?, prompt: String, type: String,
+                   validateSamples: Boolean = true): NumericVariation? {
         if (config == null) return null
         require(type == "short_answer" || type == "multiple_choice") {
             "La variante numérica requiere una pregunta del quiz"
@@ -82,6 +83,9 @@ internal object NumericQuizVariants {
         require(expression.length in 1..200 && !expression.contains('|')) {
             "Falta answer_expression"
         }
+        require(placeholder.containsMatchIn(expression)) {
+            "answer_expression debe utilizar las variables para cambiar el resultado"
+        }
         val decimals = config.optInt("decimals", 2)
         require(decimals in 0..6) { "decimals debe estar entre 0 y 6" }
         val unit = config.optString("unit").trim().take(24)
@@ -102,7 +106,7 @@ internal object NumericQuizVariants {
         }
         val spec = NumericVariation(parsed, expression, decimals, unit, expressions)
         // Validate with several seeds before the user can import this exam.
-        for (seed in 1..20) {
+        if (validateSamples) for (seed in 1..20) {
             require(runCatching {
                 instantiate(StudyQuestion(prompt,"0",type, listOf("a","b","c","d"),
                     numericVariation=spec), Random(seed)).answer.isNotBlank()
@@ -237,7 +241,8 @@ modify("LockStore.kt",[
         } catch''',
 '''                } ?: emptyList(),
                 item.optJSONObject("numericVariation")?.let { obj ->
-                    NumericQuizVariants.readConfig(obj, prompt, item.optString("type","short_answer"))
+                    NumericQuizVariants.readConfig(obj, prompt,
+                        item.optString("type","short_answer"), validateSamples = false)
                 })
         }
         } catch'''),
