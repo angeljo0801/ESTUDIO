@@ -307,7 +307,7 @@ for name, parent, anchor in [
     s = p.read_text(encoding="utf-8")
     if anchor not in s:
         raise RuntimeError("Cannot find quiz answer section in "+name)
-    s = s.replace(anchor, "        QuizCalculator.attach(this, "+parent+", answerInput)\\n" + anchor, 1)
+    s = s.replace(anchor, "        QuizCalculator.attach(this, "+parent+", answerInput)\n" + anchor, 1)
     p.write_text(s, encoding="utf-8")
 
 v = gradle.read_text(encoding="utf-8")
