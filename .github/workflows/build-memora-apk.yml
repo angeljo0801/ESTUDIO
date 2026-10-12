@@ -3,6 +3,10 @@ name: Build Memora APK
 on:
   push:
     branches: [main]
+    paths:
+      - 'memora_upgrade/**'
+      - 'Memora_v0.2_Flutter.zip'
+      - '.github/workflows/build-memora-apk.yml'
   workflow_dispatch:
 
 concurrency:
