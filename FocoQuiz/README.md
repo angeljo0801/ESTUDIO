@@ -135,3 +135,9 @@ Cada vez que sales de un quiz para Inicio, otra app o una pantalla no relacionad
 El servicio de Accesibilidad se reconecta/reanuda las comprobaciones cuando Android lo permite, incluso sin tener el dashboard abierto. Se añade en el dashboard «Ajustes de batería · mantener protección activa», que abre la pantalla correspondiente de Android para que el usuario elija «Sin restricciones» en su Samsung. Android puede detener el servicio tras forzar cierre, revocar Accesibilidad o por restricciones del fabricante: la app no puede garantizar ni imponer permanencia indefinida. La navegación del sistema, emergencias y permisos se mantienen bajo control del usuario.
 
 El APK release continúa con la firma permanente y aumenta `versionCode` a 19 para actualizar sobre la v0.6.12 sin borrar los datos.
+
+## FocoQuiz v0.6.14 — calculadora científica durante los exámenes
+
+El botón pequeño **▦ Calculadora científica** se despliega dentro del cuestionario, tanto en el bloqueo por Accesibilidad como en los exámenes de planes de estudio. Conserva el progreso y no abre una ventana flotante. Añade **sin, cos, tan, asin, acos, atan, log base 10, ln, π, e, factorial, potencias (x², x³, xʸ), raíz cuadrada, inverso (1/x), porcentajes, paréntesis y notación científica EE**, además de las cuatro operaciones básicas. **DEG/RAD** cambia el modo angular; por defecto comienza en grados. Las funciones usan paréntesis (ejemplo: `sin(30)`, `2^3`, `log(100)`, `1.2E-3`). El porcentaje equivale a dividir por 100. Incluye protección contra divisiones por cero, errores de dominio y factoriales fuera de rango.
+
+En respuestas escritas puedes pulsar **Usar resultado en mi respuesta**; en selección múltiple puedes consultar el resultado sin alterar las opciones. Funciona completamente sin Internet. El historial temporal de la calculadora no se guarda al salir del quiz. **Actualización firmada** con versión 0.6.14 y `versionCode 20`.
