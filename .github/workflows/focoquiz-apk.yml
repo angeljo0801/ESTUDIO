@@ -153,6 +153,15 @@ jobs:
           grep -q 'QuizGuideButton.attach' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
           grep -q 'QuizGuideButton.attach' FocoQuiz/app/src/main/java/com/focoquiz/app/StudyGateActivity.kt
 
+      - name: Reparar Inicio y mezclar preguntas por cada intento (v0.6.13)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/one_tap_home_restart_random_v0613.py
+          grep -q 'versionName = "0.6.13"' FocoQuiz/app/build.gradle.kts
+          grep -q 'leaveForHome()' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
+          grep -q 'return chosen.shuffled(random)' FocoQuiz/app/src/main/java/com/focoquiz/app/QuizEngine.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -214,7 +223,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.12-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.13-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
