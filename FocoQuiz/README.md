@@ -125,3 +125,13 @@ En el **dashboard principal** se encuentra **📖 Biblioteca de guías**. Con **
 En la **esquina superior izquierda del cuestionario**, el pequeño botón **📖 Guía** abre la selección de guías existentes. La guía elegida queda recordada por examen; se puede volver al quiz, conservando el progreso incluso en el bloqueo por Accesibilidad. También funciona en los exámenes de planes de estudio.
 
 El lector incorporado abre PDF, TXT/MD e imágenes referenciadas sin copiarlas. En PDF muestra páginas anterior/siguiente y busca palabras o frases con un extractor de texto local; en TXT/MD busca y resalta texto. PDF escaneado e imágenes no permiten búsqueda sin OCR. Formatos que requieran un visor externo se pueden abrir en una aplicación del teléfono. La lupa y el botón Atrás están siempre visibles. `versionCode 18`, con la misma firma permanente.
+
+## FocoQuiz v0.6.13 — Inicio al primer toque, protección y exámenes nuevos
+
+En el bloqueo de aplicaciones, ambos botones «Ir al inicio» utilizan una ruta común: solicitan a Android abrir Inicio antes de desmontar el panel. Si Android no confirma el cambio de ventana, hacen **un único reintento automático**; no debe ser necesario tocar dos veces. La transición evita que reaparezca el bloqueo mientras se abre el launcher.
+
+Cada vez que sales de un quiz para Inicio, otra app o una pantalla no relacionada, se descarta el intento actual (pregunta, puntuación y respuestas temporales). El siguiente intento vuelve a la pregunta 1 y se vuelve a seleccionar/mezclar el orden de las preguntas aleatoriamente, sin duplicados dentro del mismo intento. Consultar **Guía** o **Calculadora** durante el quiz no cuenta como abandono; el visor de guías devuelve a la pregunta que estabas respondiendo.
+
+El servicio de Accesibilidad se reconecta/reanuda las comprobaciones cuando Android lo permite, incluso sin tener el dashboard abierto. Se añade en el dashboard «Ajustes de batería · mantener protección activa», que abre la pantalla correspondiente de Android para que el usuario elija «Sin restricciones» en su Samsung. Android puede detener el servicio tras forzar cierre, revocar Accesibilidad o por restricciones del fabricante: la app no puede garantizar ni imponer permanencia indefinida. La navegación del sistema, emergencias y permisos se mantienen bajo control del usuario.
+
+El APK release continúa con la firma permanente y aumenta `versionCode` a 19 para actualizar sobre la v0.6.12 sin borrar los datos.
