@@ -201,3 +201,5 @@ if 'versionName = "0.6.15"' not in s or 'versionCode = 21' not in s:
 p.write_text(s.replace('versionName = "0.6.15"','versionName = "0.6.16"')
               .replace('versionCode = 21','versionCode = 22'),encoding="utf-8")
 print("v0.6.16 bank, no-repeat behavior and legacy math migration applied")
+
+# Release note: verified as part of PR #18; rebuild from main with permanent signing.
