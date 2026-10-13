@@ -125,8 +125,8 @@ for file,selection,newselect,mark,marknew in [
     text=text.replace(mark,marknew.replace("\\n","\n"),1)
     q.write_text(text,encoding="utf-8")
 
-build=p.parents[4]/"build.gradle.kts"
-# p = .../FocoQuiz/app/src/main/java/com/focoquiz/app, .parents[4] = .../FocoQuiz/app?
+build=p.parents[5]/"build.gradle.kts"
+# p = .../FocoQuiz/app/src/main/java/com/focoquiz/app, parents[5] = .../FocoQuiz/app
 assert build.name=="build.gradle.kts",build
 b=build.read_text(encoding="utf-8")
 if 'versionName = "0.6.15"' not in b or 'versionCode = 21' not in b:
