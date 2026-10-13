@@ -74,8 +74,10 @@ s=s.replace(a,'''    private fun bankKey(items: List<StudyQuestion>) =
                 val k="last_variant_"+question.key
                 val old=prefs.getString(k,"")
                 var current=question
+                val original=items.firstOrNull { it.key==question.key } ?: question
                 for (retry in 0..29) {
-                    if (retry>0) current=NumericQuizVariants.instantiate(question)
+                    if (retry>0 || current.prompt.contains('{'))
+                        current=NumericQuizVariants.instantiate(original)
                     if (current.prompt!=old && !current.prompt.contains('{')) break
                 }
                 prefs.edit().putString(k,current.prompt).apply()
