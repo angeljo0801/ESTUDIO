@@ -151,3 +151,11 @@ Ejemplo: `"question": "Con {V} voltios y {R} ohmios, ¿cuál es la corriente?"`,
 **Compatibilidad:** los exámenes existentes sin `numeric_variation` continúan funcionando, pero conservarán sus números originales. Para que las preguntas de cálculo de esos exámenes cambien, hay que regenerar su JSON con el nuevo prompt y volver a importarlo. Las operaciones matemáticas que vienen incluidas como demostración se convierten a preguntas parametrizadas.
 
 Se mantiene la APK release con firma permanente y sube a versión 0.6.15, `versionCode 21`.
+
+## FocoQuiz v0.6.16 — banco persistente de preguntas respondidas y números nuevos
+
+Cada quiz utiliza un **banco de preguntas ya respondidas** que se conserva entre sesiones. Se guarda una marca al comprobar una respuesta, aunque sea incorrecta; simplemente abrir una pregunta o abandonar el examen sin contestarla no la consume. El siguiente intento prioriza preguntas que aún no se han respondido en ese conjunto de guías/dificultad. Si el cuestionario requiere más preguntas que las pendientes, utiliza todas las pendientes primero y completa con preguntas de un nuevo ciclo, sin repetir una pregunta dentro del mismo intento. El contador *Banco de respondidas: n / total* aparece en la pantalla de preguntas y en la de planes de estudio. El banco se vacía automáticamente al llegar a todas las preguntas elegibles y comienza un ciclo nuevo. Para evitar interferencias entre distintas combinaciones de guías/dificultad, cada conjunto tiene su propio banco.
+
+**Números variables mejorados:** se recuerda la última variante de cada ejercicio y se evita repetir inmediatamente los mismos números cuando haya alternativas. También se reconocen preguntas guardadas anteriormente del tipo «¿Cuánto es 7 × 8?» y se convierten automáticamente a ejercicios parametrizados **solo cuando la operación y su respuesta original se verifican matemáticamente**. Otros problemas científicos, financieros, electrónicos o de texto requieren el campo `numeric_variation` del prompt actualizado; de lo contrario, sus cifras no se modifican automáticamente para evitar dar soluciones erróneas.
+
+La versión se firma con el certificado privado estable de FocoQuiz, `versionCode 22`, y puede instalarse sobre v0.6.15 sin desinstalar.
