@@ -191,6 +191,15 @@ jobs:
           grep -q 'QuestionCycle.choose' FocoQuiz/app/src/main/java/com/focoquiz/app/LockStore.kt
           grep -q 'Banco de respondidas' FocoQuiz/app/src/main/java/com/focoquiz/app/BlockAccessibilityService.kt
 
+      - name: Evitar bancos de demostración falsos y preguntas duplicadas (v0.6.17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/robust_answered_bank_v0617.py
+          grep -q 'versionName = "0.6.17"' FocoQuiz/app/build.gradle.kts
+          grep -q 'val unresolved = Regex' FocoQuiz/app/src/main/java/com/focoquiz/app/LockStore.kt
+          grep -q 'return filtered.distinctBy' FocoQuiz/app/src/main/java/com/focoquiz/app/QuestionCycle.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -252,7 +261,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.16-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.17-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
