@@ -200,34 +200,14 @@ jobs:
           grep -q 'val unresolved = Regex' FocoQuiz/app/src/main/java/com/focoquiz/app/LockStore.kt
           grep -q 'return filtered.distinctBy' FocoQuiz/app/src/main/java/com/focoquiz/app/QuestionCycle.kt
 
-      - name: Inspeccionar selección de preguntas (solo diagnóstico PR)
-        if: github.event_name == 'pull_request'
+      - name: Compartir banco de respondidas entre todos los quizzes (v0.6.18)
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          root=Path('FocoQuiz/app/src/main/java/com/focoquiz/app')
-          for name in ('QuizEngine.kt','Policy.kt','QuizFormat.kt','LockStore.kt','BlockAccessibilityService.kt','StudyGateActivity.kt'):
-              lines=(root/name).read_text().splitlines()
-              print('####FILE',name,'LINES',len(lines),flush=True)
-              if name=='QuizEngine.kt':
-                  for n,line in enumerate(lines,1):print(f'{n:04d} {line}',flush=True)
-              else:
-                  needles=['fun select(', 'fun progress(', 'fun record', 'fun putQuestions', 'fun questions(', 'fun exam', 'fun save',
-                           'fun parse(', 'fun beginQuiz', 'fun showQuestion', 'fun renderQuestion', 'fun showQuiz',
-                           'fun checkAnswer', 'setOnClickListener', 'data class StudyQuestion(', 'fun onAccessibilityEvent',
-                           'fun showOverlay', 'fun showBlock', 'val question = session[index]', 'quizEngine',
-                           'QuizEngine.select(', 'QuizEngine.', 'private fun showQuestion',
-                           'val right =', 'store.record', 'store.update', 'val correct =','setQuestionTarget',
-                           'fun mark', 'question.key', 'fun onResume(', 'fun hideOverlay',
-                           'override fun onDestroy', 'fun write', 'fun saveProgress']
-                  indices=set()
-                  for i,line in enumerate(lines):
-                      if any(x in line for x in needles):
-                          indices.update(range(max(0,i-5),min(len(lines),i+19)))
-                  for n in sorted(indices):
-                      print(f'{n+1:04d} {lines[n]}',flush=True)
-          PY
+          set -euo pipefail
+          python3 FocoQuiz/patches/global_answer_bank_v0618.py
+          grep -q 'versionName = "0.6.18"' FocoQuiz/app/build.gradle.kts
+          grep -q 'answered_cycle_global_v2' FocoQuiz/app/src/main/java/com/focoquiz/app/LockStore.kt
+          grep -q 'questionId = "num_"' FocoQuiz/app/src/main/java/com/focoquiz/app/QuestionCycle.kt
 
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
@@ -290,7 +270,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.17-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.18-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
