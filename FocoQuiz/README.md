@@ -167,3 +167,11 @@ La versión v0.6.17 guardaba las preguntas respondidas en bancos separados segú
 El registro ocurre solo al pulsar Comprobar sobre una respuesta no vacía, independientemente de si es correcta o incorrecta. Salir con una pregunta pendiente **no** la marca como respondida. Se migran los bancos creados por versiones previas para conservar el avance. Las preguntas numéricas sin ID explícito reciben un ID estable derivado de su plantilla antes de sustituir valores, para que el cambio de números no impida reconocer una pregunta como respondida. El orden y los datos matemáticos se siguen mezclando por intento.
 
 Los problemas antiguos sin configuración `numeric_variation` continúan mostrando números fijos salvo aritmética simple verificable; las instrucciones de importación actuales permiten generar plantillas variables. La APK release mantiene la firma permanente y sube a v0.6.18 / versionCode 24.
+
+## FocoQuiz v0.6.19 — historial global sin preguntas duplicadas entre guías
+
+Además del banco persistente compartido de v0.6.18, ahora se compara una identidad única creada a partir del **contenido original de cada pregunta** (texto normalizado), no del ID generado por cada guía o examen. Si importas dos guías con la misma pregunta, contestarla en un examen evita que reaparezca en el otro mientras queden preguntas nuevas. Esta regla se aplica también a los quizzes del bloqueo y a los planes de estudio.
+
+Las preguntas numéricas se identifican usando la **plantilla previa a la sustitución de valores**, de modo que cambiar las cifras no borra el historial de esa pregunta. Al instalar la actualización se convierten los registros de respuestas de la v0.6.16/17/18 al nuevo identificador, conservando las respuestas ya registradas cuando la pregunta todavía pertenece al catálogo.
+
+Se mantiene el criterio de apartar únicamente las preguntas **realmente respondidas**, no las que simplemente aparecen en pantalla. Si el quiz necesita más preguntas que las pendientes de la selección actual, podrá reutilizar las antiguas para completar el quiz después de mostrar las nuevas. El ciclo del catálogo global se reinicia tras responder todas sus preguntas. Preguntas teóricas intactas, números variables para plantillas paramétricas, misma firma estable y `versionCode 25`.
