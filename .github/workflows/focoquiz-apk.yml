@@ -200,6 +200,16 @@ jobs:
           grep -q 'val unresolved = Regex' FocoQuiz/app/src/main/java/com/focoquiz/app/LockStore.kt
           grep -q 'return filtered.distinctBy' FocoQuiz/app/src/main/java/com/focoquiz/app/QuestionCycle.kt
 
+      - name: Compartir banco de respondidas entre todos los quizzes (v0.6.18)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/global_answer_bank_v0618.py
+          python3 FocoQuiz/patches/cycle_regression_tests_v0618.py
+          grep -q 'versionName = "0.6.18"' FocoQuiz/app/build.gradle.kts
+          grep -q 'answered_cycle_global_v2' FocoQuiz/app/src/main/java/com/focoquiz/app/LockStore.kt
+          grep -q 'questionId = "num_"' FocoQuiz/app/src/main/java/com/focoquiz/app/QuestionCycle.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -247,6 +257,11 @@ jobs:
           echo "FOCOQUIZ_KEYSTORE_FILE=$RUNNER_TEMP/focoquiz-estable.p12" >> "$GITHUB_ENV"
           echo "FOCOQUIZ_KEYSTORE_PASSWORD=$FQ_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
 
+      - name: Comprobar banco de preguntas con pruebas Kotlin
+        if: github.event_name == 'pull_request'
+        working-directory: FocoQuiz
+        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
+
       - name: Compilar APK de validación (sin publicar)
         if: github.event_name == 'pull_request'
         working-directory: FocoQuiz
@@ -261,7 +276,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.17-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.18-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
