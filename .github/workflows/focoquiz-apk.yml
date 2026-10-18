@@ -210,6 +210,15 @@ jobs:
           grep -q 'answered_cycle_global_v2' FocoQuiz/app/src/main/java/com/focoquiz/app/LockStore.kt
           grep -q 'questionId = "num_"' FocoQuiz/app/src/main/java/com/focoquiz/app/QuestionCycle.kt
 
+      - name: Unificar preguntas duplicadas entre guías (v0.6.19)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 FocoQuiz/patches/canonical_answer_bank_v0619.py
+          grep -q 'versionName = "0.6.19"' FocoQuiz/app/build.gradle.kts
+          grep -q 'answered_cycle_global_v3' FocoQuiz/app/src/main/java/com/focoquiz/app/LockStore.kt
+          grep -q 'fun canonicalId' FocoQuiz/app/src/main/java/com/focoquiz/app/QuestionCycle.kt
+
       - name: Instalar JDK 17
         uses: actions/setup-java@v4
         with:
@@ -276,7 +285,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && success()
         with:
-          name: FocoQuiz-v0.6.18-release-APK-firma-permanente
+          name: FocoQuiz-v0.6.19-release-APK-firma-permanente
           path: FocoQuiz/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
