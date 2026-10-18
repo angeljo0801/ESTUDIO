@@ -205,6 +205,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 FocoQuiz/patches/global_answer_bank_v0618.py
+          python3 FocoQuiz/patches/cycle_regression_tests_v0618.py
           grep -q 'versionName = "0.6.18"' FocoQuiz/app/build.gradle.kts
           grep -q 'answered_cycle_global_v2' FocoQuiz/app/src/main/java/com/focoquiz/app/LockStore.kt
           grep -q 'questionId = "num_"' FocoQuiz/app/src/main/java/com/focoquiz/app/QuestionCycle.kt
@@ -255,6 +256,11 @@ jobs:
           echo "::add-mask::$FQ_KEYSTORE_PASSWORD"
           echo "FOCOQUIZ_KEYSTORE_FILE=$RUNNER_TEMP/focoquiz-estable.p12" >> "$GITHUB_ENV"
           echo "FOCOQUIZ_KEYSTORE_PASSWORD=$FQ_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Comprobar banco de preguntas con pruebas Kotlin
+        if: github.event_name == 'pull_request'
+        working-directory: FocoQuiz
+        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
 
       - name: Compilar APK de validación (sin publicar)
         if: github.event_name == 'pull_request'
