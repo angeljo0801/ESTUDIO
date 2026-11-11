@@ -28,7 +28,7 @@ void main() {
     await openApp(tester);
     await tester.tap(find.text('Nueva nota'));
     await tester.pumpAndSettle();
-    expect(find.text('S Pen'), findsOneWidget);
+    expect(find.byTooltip('Escritura con S Pen'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'Prueba de guardado');
     await tester.pump(const Duration(milliseconds: 850));
     await tester.tap(find.byIcon(Icons.arrow_back).first);
