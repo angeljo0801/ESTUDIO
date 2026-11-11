@@ -1,0 +1,67 @@
+name: Notas Cientificas - compilar APK
+on:
+  push:
+    branches:
+      - notas-cientificas
+    paths:
+      - 'notas_cientificas_v2/**'
+      - '.github/workflows/notas-cientificas-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-debug-apk:
+    name: Compilar Notas Cientificas
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Extraer codigo fuente v0.2
+        run: |
+          tar -xJf notas_cientificas_v2/source.tar.xz
+          test -f notas_cientificas_v2/pubspec.yaml
+          test -f notas_cientificas_v2/lib/main.dart
+
+      - name: Generar proyecto Android
+        working-directory: notas_cientificas_v2
+        run: flutter create --platforms=android --org com.alascargo --project-name notas_cientificas .
+
+      - name: Ajustar nombre mostrado
+        working-directory: notas_cientificas_v2
+        run: sed -i 's/android:label="notas_cientificas"/android:label="Notas Científicas"/' android/app/src/main/AndroidManifest.xml
+
+      - name: Obtener dependencias
+        working-directory: notas_cientificas_v2
+        run: flutter pub get
+
+      - name: Ejecutar pruebas
+        working-directory: notas_cientificas_v2
+        run: flutter test
+
+      - name: Compilar APK debug
+        working-directory: notas_cientificas_v2
+        run: flutter build apk --debug
+
+      - name: Publicar APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Notas-Cientificas-v0.2-debug-apk
+          path: notas_cientificas_v2/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 30
