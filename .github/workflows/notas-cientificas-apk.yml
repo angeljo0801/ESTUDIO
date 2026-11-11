@@ -1,4 +1,4 @@
-name: Notas Cientificas - compilar APK
+name: Notas Cientificas - APK v0.2.1
 on:
   push:
     branches:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  android-debug-apk:
+  android-release-apk:
     name: Compilar Notas Cientificas
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -38,6 +38,11 @@ jobs:
           test -f notas_cientificas_v2/pubspec.yaml
           test -f notas_cientificas_v2/lib/main.dart
 
+      - name: Aplicar corrección de navegación y pruebas de interfaz
+        run: |
+          python notas_cientificas_v2/patches/v021_fix_navigation.py
+          cp notas_cientificas_v2/patches/widget_test.dart notas_cientificas_v2/test/widget_test.dart
+
       - name: Generar proyecto Android
         working-directory: notas_cientificas_v2
         run: flutter create --platforms=android --org com.alascargo --project-name notas_cientificas .
@@ -54,14 +59,14 @@ jobs:
         working-directory: notas_cientificas_v2
         run: flutter test
 
-      - name: Compilar APK debug
+      - name: Compilar APK release
         working-directory: notas_cientificas_v2
-        run: flutter build apk --debug
+        run: flutter build apk --release
 
       - name: Publicar APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Notas-Cientificas-v0.2-debug-apk
-          path: notas_cientificas_v2/build/app/outputs/flutter-apk/app-debug.apk
+          name: Notas-Cientificas-v0.2.1-release-apk
+          path: notas_cientificas_v2/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
