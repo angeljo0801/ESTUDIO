@@ -1,4 +1,4 @@
-name: Notas Cientificas - APK v0.2.2
+name: Notas Cientificas - APK v0.2.3 (firma permanente)
 on:
   push:
     branches:
@@ -53,6 +53,12 @@ jobs:
         working-directory: notas_cientificas_v2
         run: sed -i 's/android:label="notas_cientificas"/android:label="Notas Científicas"/' android/app/src/main/AndroidManifest.xml
 
+      - name: Configurar firma permanente (GitHub Secret)
+        env:
+          NC_SIGNING_BUNDLE_B64: ${{ secrets.NC_SIGNING_BUNDLE_B64 }}
+        run: |
+          python notas_cientificas_v2/patches/v023_stable_signing.py
+
       - name: Obtener dependencias
         working-directory: notas_cientificas_v2
         run: flutter pub get
@@ -63,12 +69,12 @@ jobs:
 
       - name: Compilar APK release
         working-directory: notas_cientificas_v2
-        run: flutter build apk --release
+        run: flutter build apk --release --build-name=0.2.3 --build-number=$((10000 + GITHUB_RUN_NUMBER))
 
       - name: Publicar APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Notas-Cientificas-v0.2.2-release-apk
+          name: Notas-Cientificas-v0.2.3-firma-permanente-apk
           path: notas_cientificas_v2/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
