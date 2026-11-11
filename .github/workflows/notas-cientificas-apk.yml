@@ -1,4 +1,4 @@
-name: Notas Cientificas - APK v0.2.1
+name: Notas Cientificas - APK v0.2.2
 on:
   push:
     branches:
@@ -38,10 +38,12 @@ jobs:
           test -f notas_cientificas_v2/pubspec.yaml
           test -f notas_cientificas_v2/lib/main.dart
 
-      - name: Aplicar corrección de navegación y pruebas de interfaz
+      - name: Corregir navegación y diseño del editor
         run: |
           python notas_cientificas_v2/patches/v021_fix_navigation.py
+          python notas_cientificas_v2/patches/v022_editor_layout.py
           cp notas_cientificas_v2/patches/widget_test.dart notas_cientificas_v2/test/widget_test.dart
+          cp notas_cientificas_v2/patches/editor_layout_test.dart notas_cientificas_v2/test/editor_layout_test.dart
 
       - name: Generar proyecto Android
         working-directory: notas_cientificas_v2
@@ -67,6 +69,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Notas-Cientificas-v0.2.1-release-apk
+          name: Notas-Cientificas-v0.2.2-release-apk
           path: notas_cientificas_v2/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
