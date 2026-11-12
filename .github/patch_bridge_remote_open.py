@@ -235,6 +235,30 @@ if "private fun openRemote(" not in s:
 '''
     s = replace_once(s, pick_anchor, open_native + pick_anchor, "manager openRemote function")
 
+# Native browser launch; avoids url_launcher_android's incompatible lint dependency.
+screen_anchor = '                    "pickRoot" -> pickRoot(result)\n'
+if '"openScreenViewer" ->' not in s:
+    screen_method = '''                    "openScreenViewer" -> {
+                        val url = call.argument<String>("url").orEmpty()
+                        val uri = Uri.parse(url)
+                        val storeLinks = setOf(
+                            "https://play.google.com/store/apps/details?id=net.christianbeier.droidvnc_ng",
+                            "https://play.google.com/store/apps/details?id=com.tailscale.ipn"
+                        )
+                        val parts = uri.host.orEmpty().split(".").map { it.toIntOrNull() }
+                        val privateHost = parts.size == 4 &&
+                            parts.all { it != null && it in 0..255 } &&
+                            parts[0] == 100 && (parts[1] ?: 0) in 64..127
+                        val privateViewer = uri.scheme in listOf("http", "https") &&
+                            privateHost && uri.port in 1..65535 &&
+                            uri.userInfo == null && uri.query == null && uri.fragment == null
+                        require(url in storeLinks || privateViewer) { "Dirección no permitida." }
+                        activity.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                        result.success(true)
+                    }
+'''
+    s = replace_once(s, screen_anchor, screen_method + screen_anchor, "manager screen viewer switch")
+
 manager_path.write_text(s)
 
 # ---------- FileProvider ----------

@@ -87,7 +87,7 @@ print("Local AI Manager persistent file bridge UI patch applied")
 # Never expose VNC to a public Internet address or pass credentials in a URL.
 remote_page = r"""
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 class RemoteScreenPage extends StatefulWidget {
   const RemoteScreenPage({super.key});
@@ -127,7 +127,10 @@ class _RemoteScreenPageState extends State<RemoteScreenPage> {
 
   Future<void> _open(Uri uri) async {
     try {
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      final opened = await const MethodChannel(
+        'com.angelapps.local_ai_manager/file_bridge',
+      ).invokeMethod<bool>('openScreenViewer', {'url': uri.toString()});
+      if (opened != true) {
         throw StateError('No browser available');
       }
     } catch (_) {
@@ -238,13 +241,6 @@ class _RemoteScreenPageState extends State<RemoteScreenPage> {
 }
 """
 (p.parent / "remote_screen.dart").write_text(remote_page.lstrip(), encoding="utf-8")
-pubspec = p.parent.parent / "pubspec.yaml"
-pub = pubspec.read_text()
-if "  url_launcher:" not in pub:
-    if "\ndependencies:\n" not in pub:
-        raise RuntimeError("pubspec dependencies anchor not found")
-    pub = pub.replace("\ndependencies:\n", "\ndependencies:\n  url_launcher: ^6.3.2\n", 1)
-    pubspec.write_text(pub)
 s = p.read_text()
 if "import 'remote_screen.dart';" not in s:
     s = s.replace("import 'file_bridge.dart';", "import 'file_bridge.dart';\nimport 'remote_screen.dart';", 1)
