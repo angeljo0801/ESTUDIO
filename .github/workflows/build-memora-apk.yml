@@ -287,6 +287,11 @@ jobs:
                   'signingConfig = signingConfigs.getByName("memoraRelease")',
                   1,
               )
+          # Keep the original keystore and explicitly emit compatible signing schemes.
+          marker = 'create("memoraRelease") {'
+          if marker not in s:
+              raise RuntimeError('Persistent release signing config missing')
+          s = s.replace(marker, marker + '\n                enableV1Signing = true\n                enableV2Signing = true\n                enableV3Signing = true', 1)
           p.write_text(s)
           PY
 
@@ -326,7 +331,7 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Build release APK with increasing versionCode
         working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter build apk --release --build-number "${GITHUB_RUN_NUMBER}"
+        run: flutter build apk --release --target-platform android-arm64 --build-number "${GITHUB_RUN_NUMBER}"
 
       - name: Record build identity
         working-directory: ${{ env.PROJECT_DIR }}
@@ -340,9 +345,21 @@ jobs:
             echo "signing=persistent"
           } > build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
 
+      - name: Verify APK signature and native alignment
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SIGNER="$(find "$SDK/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
+          ALIGN="$(dirname "$SIGNER")/zipalign"
+          test -f "$APK"
+          "$SIGNER" verify --verbose --print-certs "$APK"
+          "$ALIGN" -c -P 16 -v 4 "$APK"
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.51-Aventuras-Interactive-Offline-release-apk
+          name: Memora-v1.51-ARM64-signed-apk
           path: |
             ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
             ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
