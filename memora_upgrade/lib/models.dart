@@ -9,7 +9,6 @@ class StudyCard {
     this.ease = 2.5,
     this.correct = 0,
     this.wrong = 0,
-    this.adventureStory = '',
     this.streak = 0,
   });
 
@@ -17,7 +16,6 @@ class StudyCard {
   final String question;
   final String answer;
   final String source;
-  final String adventureStory;
   DateTime dueAt;
   int intervalDays;
   double ease;
@@ -65,7 +63,6 @@ class StudyCard {
         'question': question,
         'answer': answer,
         'source': source,
-        'adventureStory': adventureStory,
         'dueAt': dueAt.toIso8601String(),
         'intervalDays': intervalDays,
         'ease': ease,
@@ -79,7 +76,6 @@ class StudyCard {
         question: json['question'] as String,
         answer: json['answer'] as String,
         source: (json['source'] as String?) ?? '',
-        adventureStory: (json['adventureStory'] as String?) ?? '',
         dueAt: DateTime.tryParse((json['dueAt'] as String?) ?? '') ?? DateTime.now(),
         intervalDays: (json['intervalDays'] as num?)?.toInt() ?? 0,
         ease: (json['ease'] as num?)?.toDouble() ?? 2.5,
