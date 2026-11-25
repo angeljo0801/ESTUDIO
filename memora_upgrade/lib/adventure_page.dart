@@ -186,6 +186,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   }
 
   String _narrative() {
+    if (_card.adventureStory.trim().isNotEmpty) return _card.adventureStory;
     return '${AdventureEngine.storyHook(_step)} '
         'La respuesta de la guía es: ${_card.answer}.';
   }
@@ -299,7 +300,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
         children: [
           const Text('🎭 ESCENA ANIMADA', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
           const SizedBox(height: 12),
-          Text(AdventureEngine.storyHook(_step),
+          Text(_card.adventureStory.trim().isNotEmpty ? _card.adventureStory : AdventureEngine.storyHook(_step),
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 20),
           Card(
