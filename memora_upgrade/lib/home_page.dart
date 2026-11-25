@@ -4,6 +4,7 @@ import 'guide_creator_page.dart';
 import 'guide_detail_page.dart';
 import 'guide_importer.dart';
 import 'guide_store.dart';
+import 'chatgpt_sync_page.dart';
 import 'study_engine.dart';
 
 class HomePage extends StatefulWidget {
@@ -246,6 +247,9 @@ class _HomePageState extends State<HomePage> {
         final guides = widget.store.guides;
         return Scaffold(
           appBar: AppBar(
+            actions: [
+              IconButton(tooltip: 'Memora ↔ ChatGPT', icon: const Icon(Icons.sync_rounded), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatgptSyncPage(store: widget.store)))),
+            ],
             title: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
