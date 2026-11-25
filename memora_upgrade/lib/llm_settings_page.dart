@@ -257,8 +257,8 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
                   _choice(
                     'openai',
                     Icons.public,
-                    'LLM online compatible',
-                    'OpenAI o cualquier API compatible con /chat/completions.',
+                    'ChatGPT / OpenAI (API)',
+                    'Modelos GPT de OpenAI u otra API compatible. El uso de la API se factura por separado; no inicia sesión en tu cuenta ChatGPT.',
                   ),
                   _choice(
                     'local',
@@ -302,7 +302,7 @@ class _LlmSettingsPageState extends State<LlmSettingsPage> {
                       controller: onlineModel,
                       decoration: const InputDecoration(
                         labelText: 'Modelo',
-                        hintText: 'gpt-4.1-mini',
+                        hintText: 'chat-latest, gpt-6.2-astra o modelo compatible',
                       ),
                     ),
                     const SizedBox(height: 12),
