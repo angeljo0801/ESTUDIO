@@ -9,6 +9,22 @@ def add_import(s):
     marker = "import 'chatgpt_sync_page.dart';"
     return s if marker in s else marker + '\n' + s
 
+# Add the story field ONLY after the old provenance/model migrations have run.
+p,s=read('models.dart')
+if 'final String adventureStory;' not in s:
+    replacements = [
+        ("    this.streak = 0,\n", "    this.adventureStory = '',\n    this.streak = 0,\n"),
+        ("  final String source;\n", "  final String source;\n  final String adventureStory;\n"),
+        ("        'source': source,\n", "        'source': source,\n        'adventureStory': adventureStory,\n"),
+        ("        source: (json['source'] as String?) ?? '',\n",
+         "        source: (json['source'] as String?) ?? '',\n        adventureStory: (json['adventureStory'] as String?) ?? '',\n"),
+    ]
+    for old,new in replacements:
+        if old not in s:
+            raise RuntimeError('Memora-Sync model migration missing anchor: '+old)
+        s=s.replace(old,new,1)
+    p.write_text(s)
+
 p,s=read('ai_service.dart')
 s=add_import(s)
 anchor="if (provider == 'openai') {"
