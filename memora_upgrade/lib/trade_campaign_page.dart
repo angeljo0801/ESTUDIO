@@ -137,6 +137,8 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
   Set<int> mastered=<int>{};
   String? feedback;
   bool showingHint=false;
+  final Set<int> chapterCases=<int>{};
+  String? caseFeedback;
   int get xp=>mastered.length*100;
   TradeLesson? get pendingLesson=>state.day>0&&!mastered.contains(state.day)?lessons[state.day]:null;
   String get masteryKey=>'${key}_mastery';
@@ -148,7 +150,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
   int get maxBuy=>min(100,max(0,(funds-d.rent-action.fee)~/d.cost));
   int get outlay=>quantity*d.cost+d.rent+action.fee;
   @override void initState(){super.initState();lessons=TradeLesson.fromGuide(widget.guide,c.days.length);_load();}
-  void _resetPlan(){choice=0;borrow=false;quantity=0;price=done?1:d.marketPrice;feedback=null;showingHint=false;}
+  void _resetPlan(){choice=0;borrow=false;quantity=0;price=done?1:d.marketPrice;feedback=null;showingHint=false;caseFeedback=null;}
   Future<void> _load()async{
     final prefs=await SharedPreferences.getInstance();
     TradeState next=TradeEngine.start(c,Random.secure().nextInt(1<<30));
@@ -206,7 +208,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
     final yes=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('¿Iniciar una nueva partida?'),content:const Text('Se reiniciará esta campaña. Tus guías y tarjetas de estudio permanecerán intactas.'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancelar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Reiniciar'))]));
     if(yes!=true||!mounted)return;
     setState(()=>busy=true);
-    try{final next=TradeEngine.start(c,Random.secure().nextInt(1<<30));await _save(next);final prefs=await SharedPreferences.getInstance();await prefs.remove(masteryKey);if(mounted)setState((){state=next;mastered.clear();_resetPlan();});}finally{if(mounted)setState(()=>busy=false);}
+    try{final next=TradeEngine.start(c,Random.secure().nextInt(1<<30));await _save(next);final prefs=await SharedPreferences.getInstance();await prefs.remove(masteryKey);if(mounted)setState((){state=next;mastered.clear();chapterCases.clear();_resetPlan();});}finally{if(mounted)setState(()=>busy=false);}
   }
   Future<void> _insolvent()async{
     if(busy||done)return;
@@ -227,6 +229,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
   String get rank=>xp>=2400?'Maestro del gremio':xp>=1800?'Estratega':xp>=1200?'Comerciante':xp>=600?'Aprendiz avanzado':'Aprendiz';
   Future<void> _answerLesson(TradeLesson l,String answer)async{
     if(busy||mastered.contains(l.day)||l.day>state.day)return;
+    if(l.day==state.day&&l.day%6==0&&!chapterCases.contains(l.day)){setState(()=>feedback='Resuelve primero el balance de tu propio arco.');return;}
     if(answer!=l.answer){
       HapticFeedback.lightImpact();
       setState((){feedback='Todavía no. Revisa la explicación y el ejemplo de ${l.mentor}; después vuelve a intentarlo.';showingHint=true;});
@@ -261,6 +264,30 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
     const SizedBox(height:12),Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:const Color(0xff243c50),borderRadius:BorderRadius.circular(12)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('EJEMPLO RESUELTO',style:TextStyle(fontWeight:FontWeight.w900,color:Color(0xff94ddcf),fontSize:12)),const SizedBox(height:6),Text(l.example,style:const TextStyle(height:1.45))])),
     if(!post)...[const SizedBox(height:8),const Text('Utiliza este concepto en la decisión que viene. Al terminar la jornada, tu mentor comprobará que lo entendiste.',style:TextStyle(color:Color(0xffb6c6de),fontSize:12))],
   ]);
+
+  Widget _chapterCase(TradeLesson l){
+    final rows=state.history.where((r)=>(r['day'] as int)>l.day-6&&(r['day'] as int)<=l.day);
+    int total(String k)=>rows.fold<int>(0,(sum,r)=>sum+(r[k] as int));
+    final revenue=total('revenue'),cogs=total('cogs'),rent=total('rent'),fees=total('fee');
+    final profit=revenue-cogs-rent-fees;
+    final options=<int>{profit,revenue,profit+rent+fees,profit-50};
+    if(options.length<4)options.add(profit+75);
+    final ordered=options.toList()..shuffle(Random(state.seed+l.day*31));
+    final passed=chapterCases.contains(l.day);
+    return _panel([
+      const Text('EXAMEN PRÁCTICO DEL ARCO',style:TextStyle(fontWeight:FontWeight.w900,color:Color(0xfff6ce85))),
+      const SizedBox(height:8),
+      const Text('Astra te entrega el balance de tus últimas seis jornadas. Calcula el beneficio operativo real antes de poder continuar.'),
+      const Divider(),_line('Ingresos',revenue),_line('Costo de mercancía vendida',cogs),_line('Alquiler',rent),_line('Gastos de estrategia',fees),
+      const SizedBox(height:8),
+      if(passed)Text('Correcto: $revenue − $cogs − $rent − $fees = $profit monedas.',style:const TextStyle(color:Color(0xff94ddcf),fontWeight:FontWeight.bold))
+      else for(final amount in ordered)Padding(padding:const EdgeInsets.only(bottom:8),child:OutlinedButton(onPressed:busy?null:()=>setState((){
+        if(amount==profit){chapterCases.add(l.day);caseFeedback=null;feedback=null;HapticFeedback.mediumImpact();}
+        else{caseFeedback='Recuerda: resta el costo de las unidades vendidas y todos los gastos operativos a los ingresos.';HapticFeedback.lightImpact();}
+      }),child:Text('$amount monedas'))),
+      if(caseFeedback!=null)Text(caseFeedback!,style:const TextStyle(color:Color(0xffffc0a0))),
+    ]);
+  }
   Widget _masteryScreen(TradeLesson l){
     final row=state.history.last;
     return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
@@ -272,6 +299,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
         TextButton(onPressed:busy?null:()=>_report(row),child:const Text('Revisar las cuentas reales de mi jornada')),
       ]),
       const SizedBox(height:12),_teach(l,post:true),
+      if(l.day%6==0)...[const SizedBox(height:12),_chapterCase(l)],
       const SizedBox(height:12),_panel([
         Text(l.day%6==0?'PRUEBA DEL ARCO':'PRUEBA DE DOMINIO',style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w900)),
         const SizedBox(height:10),Text(l.question,style:const TextStyle(fontSize:19,fontWeight:FontWeight.bold)),
