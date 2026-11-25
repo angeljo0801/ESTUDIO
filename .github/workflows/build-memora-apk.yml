@@ -112,6 +112,36 @@ jobs:
           s = s.replace(anchor, anchor + "        if (guide.sourceType == 'quiz') continue;\n", 1)
           p.write_text(s)
           PY
+      - name: Integrate private guide sync in final library UI
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('lib/home_page.dart')
+          s=p.read_text()
+          imp="import 'chatgpt_sync_page.dart';"
+          if imp not in s:
+              s=imp+"\n"+s
+          start=s.index('appBar: AppBar(')
+          end=s.index('floatingActionButton:',start)
+          app=s[start:end]
+          button="""IconButton(
+              tooltip: 'Memora ↔ ChatGPT',
+              icon: const Icon(Icons.sync_rounded),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => ChatgptSyncPage(store: widget.store)),
+              ),
+            ),"""
+          m=re.search(r'actions:\s*\[',app)
+          if m:
+              app=app[:m.end()]+"\n"+button+app[m.end():]
+          else:
+              app=app.replace('appBar: AppBar(', 'appBar: AppBar(\n actions: [\n'+button+'\n],',1)
+          s=s[:start]+app+s[end:]
+          p.write_text(s)
+          PY
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -359,7 +389,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-v1.51-ARM64-signed-apk
+          name: Memora-v1.52-ARM64-signed-apk
           path: |
             ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
             ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/BUILD_IDENTITY.txt
