@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -114,7 +116,7 @@ class _AdventurePageState extends State<AdventurePage> {
                         ),
                         title: Text('Episodio ${episode.number}',
                             style: const TextStyle(fontWeight: FontWeight.w800)),
-                        subtitle: Text(episode.title,
+                        subtitle: Text(_Scene.from(episode.cards.first).arc ?? episode.title,
                             maxLines: 2, overflow: TextOverflow.ellipsis),
                         trailing: Icon(episode.number > _unlocked
                             ? Icons.lock_outline_rounded
@@ -156,7 +158,13 @@ class _EpisodePlayer extends StatefulWidget {
   State<_EpisodePlayer> createState() => _EpisodePlayerState();
 }
 
-class _EpisodePlayerState extends State<_EpisodePlayer> {
+class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProviderStateMixin {
+  late final AnimationController _motion;
+  int _dialogueIndex = 0;
+  int _correctCount = 0;
+  bool _completing = false;
+  _Scene get _scene => _Scene.from(_card);
+  List<String> get _dialogues => _scene.dialogue.isNotEmpty ? _scene.dialogue : [AdventureEngine.storyHook(_step), _card.answer];
   final FlutterTts _tts = FlutterTts();
   int _step = 0;
   int _earned = 0;
@@ -174,6 +182,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   @override
   void initState() {
     super.initState();
+    _motion = AnimationController(vsync: this, duration: const Duration(seconds: 9))..repeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _say(_narrative());
     });
@@ -181,15 +190,12 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
 
   @override
   void dispose() {
+    _motion.dispose();
     _tts.stop();
     super.dispose();
   }
 
-  String _narrative() {
-    if (_card.adventureStory.trim().isNotEmpty) return _card.adventureStory;
-    return '${AdventureEngine.storyHook(_step)} '
-        'La respuesta de la guía es: ${_card.answer}.';
-  }
+  String _narrative() => _dialogues[_dialogueIndex.clamp(0, _dialogues.length - 1).toInt()];
 
   Future<void> _say(String text) async {
     if (!_voiceOn || !mounted) return;
@@ -199,7 +205,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
               .allMatches(text).length >= 2;
       await _tts.setLanguage(english ? 'en-US' : 'es-ES');
       await _tts.setSpeechRate(0.47);
-      await _tts.setPitch(1.05);
+      await _tts.setPitch(_scene.role == 'boss' ? .84 : _scene.role == 'rival' ? 1.17 : .98);
       if (_voiceOn && mounted) await _tts.speak(text);
     } catch (_) {
       // Device TTS voice packs can be missing; the lesson remains usable.
@@ -221,6 +227,8 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
       _selected = selected;
       _stage = 'feedback';
       _earned += correct ? 100 : 20;
+      if (correct) _correctCount++;
+      HapticFeedback.mediumImpact();
     });
     _tts.stop();
     _card.rate(correct ? 2 : 0);
@@ -240,6 +248,8 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   }
 
   Future<void> _complete() async {
+    if (_completing) return;
+    _completing = true;
     _tts.stop();
     final prefs = await SharedPreferences.getInstance();
     final bestKey = '${widget.progressKey}_best_${widget.episode.number}';
@@ -263,6 +273,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     }
     setState(() {
       _step++;
+      _dialogueIndex = 0;
       _stage = 'story';
       _rated = false;
       _wasCorrect = null;
@@ -272,69 +283,78 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     _say(_narrative());
   }
 
-  Widget _robot(ColorScheme cs) {
-    return TweenAnimationBuilder<double>(
-      key: ValueKey<String>('${_stage}_$_step'),
-      tween: Tween(begin: 0.88, end: 1),
-      duration: const Duration(milliseconds: 650),
-      curve: Curves.elasticOut,
-      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
-      child: Container(
-        width: 126,
-        height: 126,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(colors: [cs.primaryContainer, cs.tertiaryContainer]),
-          boxShadow: [BoxShadow(color: cs.primary.withValues(alpha: 0.25), blurRadius: 35)],
-        ),
-        child: Text(widget.episode.icon == '🚀' ? '🤖' : widget.episode.icon,
-            style: const TextStyle(fontSize: 69)),
-      ),
+  Widget _world(ColorScheme cs) {
+    final scene = _scene;
+    final palette = scene.biome == 'forja' ? const [Color(0xff411c31),Color(0xffe98443)] :
+      scene.biome == 'torre' ? const [Color(0xff171f4b),Color(0xff9178ff)] :
+      const [Color(0xff193447),Color(0xff62b7b5)];
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: SizedBox(height:244,child:Stack(fit:StackFit.expand,children:[
+        AnimatedBuilder(animation:_motion,builder:(context,_)=>CustomPaint(
+          painter:_WorldPainter(palette,scene.biome,scene.role,_motion.value))),
+        Positioned(top:12,left:12,right:12,child:Row(children:[
+          Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),
+            decoration:BoxDecoration(color:const Color(0xdd0b1424),borderRadius:BorderRadius.circular(8)),
+            child:Text(scene.role=='boss'?'JEFE DE ARCO':'MISIÓN ${_step+1}',
+              style:const TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1.1))),
+          const Spacer(),const Icon(Icons.auto_awesome,color:Color(0xffffdf9b),size:19),
+        ])),
+        Positioned(bottom:0,left:0,right:0,child:Container(
+          padding:const EdgeInsets.fromLTRB(14,22,14,12),
+          decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Colors.transparent,Color(0xf20b1424)])),
+          child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text(scene.location??'Santuario del conocimiento',style:const TextStyle(color:Colors.white,fontSize:18,fontWeight:FontWeight.w800)),
+            Text(scene.speaker??'Kael',style:const TextStyle(color:Color(0xfff9d499),fontSize:13,fontWeight:FontWeight.w700)),
+          ]),
+        )),
+      ])),
     );
   }
 
   Widget _story(ColorScheme cs) => Column(
-        key: const ValueKey('story'),
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text('🎭 ESCENA ANIMADA', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
-          const SizedBox(height: 12),
-          Text(_card.adventureStory.trim().isNotEmpty ? _card.adventureStory : AdventureEngine.storyHook(_step),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 20),
-          Card(
-            color: cs.surfaceContainerHigh,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('📖 Del material de tu guía', style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
-                SelectableText(_card.answer, style: const TextStyle(fontSize: 19, height: 1.5)),
-                if (_card.source.trim().isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text('Fuente: ${_card.source}', style: Theme.of(context).textTheme.bodySmall,
-                      maxLines: 3, overflow: TextOverflow.ellipsis),
-                ],
-              ]),
-            ),
-          ),
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: () => _changeStage('challenge', voiceText: _card.question),
-            icon: const Icon(Icons.sports_esports_rounded),
-            label: const Text('¡Acepto el desafío!'),
-          ),
-        ],
-      );
+    key: ValueKey('story-$_step-$_dialogueIndex'),
+    crossAxisAlignment:CrossAxisAlignment.stretch,
+    children:[
+      Row(children:[
+        Icon(_scene.role=='rival'?Icons.flash_on_rounded:Icons.chat_bubble_outline_rounded,color:cs.primary,size:19),
+        const SizedBox(width:8),
+        Expanded(child:Text(_scene.speaker??'Kael · Mentor',style:TextStyle(color:cs.primary,fontWeight:FontWeight.w900,letterSpacing:1))),
+        Text('${_dialogueIndex+1}/${_dialogues.length}',style:TextStyle(color:cs.onSurfaceVariant)),
+      ]),
+      const SizedBox(height:12),
+      Container(padding:const EdgeInsets.all(18),
+        decoration:BoxDecoration(color:cs.surfaceContainerHigh,borderRadius:BorderRadius.circular(16),border:Border.all(color:cs.primary.withValues(alpha:.25))),
+        child:TweenAnimationBuilder<double>(
+          key:ValueKey('dialogue-$_step-$_dialogueIndex'),
+          tween:Tween(begin:0.0,end:1.0),
+          duration:Duration(milliseconds:min(2600,max(350,_narrative().length*13))),
+          builder:(context,value,_)=>Text(_narrative().substring(0,(_narrative().length*value).floor().clamp(0,_narrative().length).toInt()),
+            style:const TextStyle(fontSize:18,height:1.5,fontWeight:FontWeight.w500)),
+        ),
+      ),
+      const SizedBox(height:16),
+      FilledButton.icon(onPressed:(){
+        if(_dialogueIndex+1<_dialogues.length){
+          setState(()=>_dialogueIndex++);
+          _say(_narrative());
+        }else{
+          _changeStage('challenge',voiceText:_card.question);
+        }
+      },icon:Icon(_dialogueIndex+1<_dialogues.length?Icons.arrow_forward_rounded:Icons.sports_esports_rounded),
+        label:Text(_dialogueIndex+1<_dialogues.length?'Continuar diálogo':'Aceptar misión')),
+      if(_dialogueIndex+1<_dialogues.length)
+        TextButton(onPressed:()=>_changeStage('challenge',voiceText:_card.question),child:const Text('Ir al desafío')),
+    ],
+  );
 
   Widget _challenge(ColorScheme cs) {
-    final choices = AdventureEngine.choicesFor(_card, widget.allCards);
+    final choices = _scene.validChoices(_card) ?? AdventureEngine.choicesFor(_card, widget.allCards);
     return Column(
       key: const ValueKey('challenge'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('⚡ DESAFÍO DE MEMORIA', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+        Text(_scene.role=='boss'?'BATALLA CONTRA EL GUARDIÁN':'TU DECISIÓN',style:const TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),
         const SizedBox(height: 14),
         Text(_card.question, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         const SizedBox(height: 18),
@@ -346,7 +366,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                 onPressed: _saving ? null : () => _answer(choice == _card.answer.trim(), selected: choice),
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16),
                     alignment: Alignment.centerLeft),
-                child: Text(choice, style: const TextStyle(fontSize: 16)),
+                child: Row(children:[CircleAvatar(radius:15,backgroundColor:cs.primaryContainer,child:Text(String.fromCharCode(65+choices.indexOf(choice)),style:TextStyle(fontWeight:FontWeight.bold,color:cs.onPrimaryContainer))),const SizedBox(width:12),Expanded(child:Text(choice,style:const TextStyle(fontSize:16)))]),
               ),
             )
         else ...[
@@ -374,7 +394,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
         children: [
           Text(_needsSelfGrade
               ? '🎯 Comprueba tu respuesta'
-              : _wasCorrect == true ? '🎉 ¡Correcto! +100 XP' : '🧠 ¡A seguir practicando! +20 XP',
+              : _wasCorrect == true ? '¡MISIÓN SUPERADA! +100 XP' : '¡REAGRÚPATE! +20 XP',
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
           const SizedBox(height: 14),
           if (_selected != null && _wasCorrect == false)
@@ -386,7 +406,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Respuesta de la guía', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
-                SelectableText(_card.answer, style: const TextStyle(fontSize: 19, height: 1.4)),
+                SelectableText(_scene.explanation ?? _card.answer,style:const TextStyle(fontSize:19,height:1.4)),
               ]),
             ),
           ),
@@ -424,6 +444,8 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
             const SizedBox(height: 12),
             Text('Conseguiste $_earned XP en esta partida',
                 textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
+            const SizedBox(height:12),
+            Text('$_correctCount/${widget.episode.cards.length} misiones superadas · ${_correctCount == widget.episode.cards.length ? 'Rango S' : _correctCount > 0 ? 'Rango A' : 'En entrenamiento'}',textAlign:TextAlign.center,style:const TextStyle(fontWeight:FontWeight.w800)),
             const SizedBox(height: 15),
             const Text('Tus resultados se añadieron al repaso espaciado de Memora.',
                 textAlign: TextAlign.center),
@@ -476,10 +498,11 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                 borderRadius: BorderRadius.circular(8),
               ),
               const SizedBox(height: 23),
-              Center(child: _robot(cs)),
+              _world(cs),
               const SizedBox(height: 24),
               AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
+                duration: const Duration(milliseconds: 320),
+                transitionBuilder:(child,animation)=>FadeTransition(opacity:animation,child:SlideTransition(position:Tween<Offset>(begin:const Offset(.04,.03),end:Offset.zero).animate(animation),child:child)),
                 child: _stage == 'story' ? _story(cs)
                     : _stage == 'challenge' ? _challenge(cs) : _feedback(cs),
               ),
@@ -488,4 +511,78 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
       ),
     );
   }
+}
+
+
+class _Scene {
+  const _Scene({this.arc,this.location,this.speaker,this.biome='mercado',this.role='mentor',this.dialogue=const [],this.choices=const [],this.explanation});
+  final String? arc,location,speaker,explanation;
+  final String biome,role;
+  final List<String> dialogue,choices;
+  static _Scene from(StudyCard card){
+    final raw=card.adventureStory.trim();
+    if(raw.isEmpty)return const _Scene();
+    try{
+      final v=jsonDecode(raw);
+      if(v is Map && v['kind']=='memora_scene_v1'){
+        String? str(String k)=>v[k] is String?v[k] as String:null;
+        List<String> list(String k)=>v[k] is List?(v[k] as List).whereType<String>().where((x)=>x.trim().isNotEmpty).take(8).toList():<String>[];
+        return _Scene(arc:str('arc'),location:str('location'),speaker:str('speaker'),biome:str('biome')??'mercado',role:str('role')??'mentor',dialogue:list('dialogue'),choices:list('choices'),explanation:str('explanation'));
+      }
+    }catch(_){}
+    return _Scene(dialogue:[raw,card.answer]);
+  }
+  List<String>? validChoices(StudyCard card){
+    final clean=choices.map((x)=>x.trim()).toSet().toList();
+    return clean.length>=2&&clean.length<=6&&clean.contains(card.answer.trim())?clean:null;
+  }
+}
+
+/// Animated original vector scenery and portrait, rendered offline.
+class _WorldPainter extends CustomPainter {
+  _WorldPainter(this.colors,this.biome,this.role,this.phase);
+  final List<Color> colors;
+  final String biome,role;
+  final double phase;
+  @override
+  void paint(Canvas canvas,Size size){
+    final w=size.width,h=size.height,p=Paint();
+    p.shader=LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:colors).createShader(Offset.zero&size);
+    canvas.drawRect(Offset.zero&size,p);p.shader=null;
+    p.color=const Color(0xfff7dca5).withValues(alpha:.8);canvas.drawCircle(Offset(w*.76,h*.22),h*.13,p);
+    for(var i=0;i<13;i++){
+      final x=i*w/12-w*.07,bh=h*(.14+((i*7)%5)*.045),bw=w*.09;
+      p.color=Color.lerp(colors.first,const Color(0xff0d1528),.45)!;
+      canvas.drawRect(Rect.fromLTWH(x,h*.66-bh,bw,bh),p);
+      final roof=Path()..moveTo(x-bw*.1,h*.66-bh)..lineTo(x+bw*.5,h*.66-bh-bw*.46)..lineTo(x+bw*1.1,h*.66-bh)..close();
+      canvas.drawPath(roof,p);
+      p.color=colors.last.withValues(alpha:.48);canvas.drawRect(Rect.fromLTWH(x+bw*.35,h*.66-bh*.65,bw*.18,bh*.2),p);
+    }
+    p.color=const Color(0xff102237).withValues(alpha:.8);
+    canvas.drawPath(Path()..moveTo(0,h*.73)..quadraticBezierTo(w*.47,h*.57,w,h*.73)..lineTo(w,h)..lineTo(0,h)..close(),p);
+    for(var i=0;i<11;i++){
+      final x=((i*.127+phase*.13)%1)*w,y=h*(.12+((i*17)%61)/100);
+      p.color=const Color(0xfffbe6a8).withValues(alpha:.25+.5*(.5+.5*sin(phase*2*pi+i)));
+      canvas.drawCircle(Offset(x,y),1.2+(i%3)*.6,p);
+    }
+    canvas.save();canvas.translate(w*.49,h*.45+sin(phase*2*pi)*3);canvas.scale(min(w/330,h/240));
+    final hair=role=='boss'?const Color(0xffd9d5ff):role=='rival'?const Color(0xffd88656):const Color(0xff31455d);
+    final cloak=role=='boss'?const Color(0xff563f85):role=='rival'?const Color(0xff913f48):const Color(0xff316b72);
+    p.color=cloak;canvas.drawPath(Path()..moveTo(-22,25)..quadraticBezierTo(-65,32,-75,88)..lineTo(75,88)..quadraticBezierTo(61,32,22,25)..close(),p);
+    p.color=const Color(0xff17263b);canvas.drawPath(Path()..moveTo(-38,32)..lineTo(0,63)..lineTo(38,32)..lineTo(25,76)..lineTo(-25,76)..close(),p);
+    p.color=const Color(0xffd2a381);canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-11,12,22,31),const Radius.circular(8)),p);
+    p.color=hair;canvas.drawOval(const Rect.fromLTWH(-46,-73,92,91),p);
+    p.color=const Color(0xfff0c5a2);
+    canvas.drawPath(Path()..moveTo(-34,-39)..quadraticBezierTo(-36,1,-17,21)..lineTo(0,31)..lineTo(17,21)..quadraticBezierTo(36,1,34,-39)..close(),p);
+    p.color=hair;canvas.drawPath(Path()..moveTo(-43,-44)..lineTo(-49,-72)..lineTo(-20,-69)..lineTo(-6,-85)..lineTo(13,-72)..lineTo(42,-76)..lineTo(49,-42)..lineTo(24,-19)..lineTo(27,-51)..lineTo(4,-25)..lineTo(0,-52)..lineTo(-24,-26)..lineTo(-18,-49)..lineTo(-40,-23)..close(),p);
+    for(final x in [-17.0,17.0]){
+      p.color=const Color(0xfffff6e9);canvas.drawOval(Rect.fromCenter(center:Offset(x,-9),width:18,height:10),p);
+      p.color=role=='boss'?const Color(0xff8a62cc):const Color(0xff327687);canvas.drawOval(Rect.fromCenter(center:Offset(x,-9),width:8,height:9),p);
+      p.color=const Color(0xff142031);canvas.drawCircle(Offset(x,-9),2.6,p);p.strokeWidth=1.6;canvas.drawLine(Offset(x-9,-15),Offset(x+8,-16),p);
+    }
+    p.color=const Color(0xffa45f59);p.strokeWidth=1.5;p.style=PaintingStyle.stroke;canvas.drawArc(const Rect.fromLTWH(-7,8,14,8),.25,2.5,false,p);p.style=PaintingStyle.fill;
+    p.color=const Color(0xffeac47d);canvas.drawCircle(const Offset(0,60),5,p);canvas.restore();
+  }
+  @override
+  bool shouldRepaint(covariant _WorldPainter oldDelegate)=>oldDelegate.phase!=phase||oldDelegate.biome!=biome||oldDelegate.role!=role;
 }
