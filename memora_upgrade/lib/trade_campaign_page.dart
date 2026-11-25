@@ -92,9 +92,10 @@ class TradeEngine {
 }
 
 class TradeCampaignPage extends StatefulWidget {
-  const TradeCampaignPage({super.key,required this.guide,required this.campaign});
+  const TradeCampaignPage({super.key,required this.guide,required this.campaign,this.sceneBuilder});
   final StudyGuide guide;
   final TradeCampaign campaign;
+  final Widget Function(TradeDay)? sceneBuilder;
   @override State<TradeCampaignPage> createState()=>_TradeCampaignPageState();
 }
 class _TradeCampaignPageState extends State<TradeCampaignPage> {
@@ -184,6 +185,8 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
     const SizedBox(height:12),
     LinearProgressIndicator(value:state.day/c.days.length,minHeight:7,borderRadius:BorderRadius.circular(5)),
     const SizedBox(height:6),
+    Row(children:[for(var i=0;i<c.days.length;i++) Expanded(child:Padding(padding:const EdgeInsets.symmetric(horizontal:2),child:Container(height:25,decoration:BoxDecoration(color:i<state.day?const Color(0xff426f62):i==state.day?const Color(0xfff6ce85):const Color(0xff28364c),borderRadius:BorderRadius.circular(5)),alignment:Alignment.center,child:Icon(i<state.day?Icons.check_rounded:i==state.day?Icons.flag_rounded:Icons.lock_outline,size:13,color:i==state.day?const Color(0xff17263b):Colors.white))))]),
+    const SizedBox(height:6),
     Text('Jornadas completadas ${state.day}/${c.days.length} · Meta final: ${c.targetCash} monedas y ${c.targetReputation} de prestigio',style:const TextStyle(fontSize:12,color:Color(0xffbac9dc))),
   ]);
   Widget _panel(List<Widget> children)=>Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:const Color(0xff18243a),borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0xff344360))),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:children));
@@ -197,9 +200,11 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
     return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
       if(state.day==0)_panel([Text(c.subtitle,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.bold)),const SizedBox(height:10),Text(c.intro,style:const TextStyle(height:1.45)),const SizedBox(height:10),const Text('Tu licencia se decide por el efectivo que conservas después de liquidar el inventario y pagar las deudas, no por la cantidad de ventas.',style:TextStyle(color:Color(0xffc0d0e5)))]),
       const SizedBox(height:12),
+      if(widget.sceneBuilder!=null) ...[widget.sceneBuilder!(day),const SizedBox(height:10)],
       Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(gradient:LinearGradient(colors:[tone,const Color(0xff142139)],begin:Alignment.topLeft,end:Alignment.bottomRight),borderRadius:BorderRadius.circular(18)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[Icon(day.biome=='torre'?Icons.castle_outlined:day.biome=='forja'?Icons.local_fire_department_outlined:Icons.storefront_outlined,size:38,color:const Color(0xfff6ce85)),const SizedBox(width:12),Expanded(child:Text('JORNADA ${state.day+1} · ${day.place.toUpperCase()}',style:const TextStyle(fontSize:11,fontWeight:FontWeight.bold,letterSpacing:1)))]),
         const SizedBox(height:16),Text(day.title,style:const TextStyle(fontSize:27,fontWeight:FontWeight.w900)),const SizedBox(height:8),Text(day.speaker,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w800)),const SizedBox(height:8),Text(day.story,style:const TextStyle(fontSize:16,height:1.45)),
+        if(state.history.isNotEmpty)...[const SizedBox(height:12),Text(state.reputation>=80?'Los vecinos te saludan al abrir el puesto. Tu reputación ya atrae compradores.':state.reputation<30?'Los clientes desconfían de tus promesas. La mala fama reduce tu demanda.':(state.history.last['profit'] as int)<0?'Mira señala las cuentas de ayer. Perdiste dinero; necesitas cambiar de estrategia.':'Mira revisa el libro de cuentas. Tu última jornada dejó beneficios.',style:const TextStyle(color:Color(0xfff6ce85),height:1.35))],
       ])),
       const SizedBox(height:12),
       _panel([const Text('01 · ELIGE TU ESTRATEGIA',style:TextStyle(fontWeight:FontWeight.w800,color:Color(0xfff6ce85))),const SizedBox(height:8),
