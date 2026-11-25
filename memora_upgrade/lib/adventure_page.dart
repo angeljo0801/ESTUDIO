@@ -63,7 +63,7 @@ class _AdventurePageState extends State<AdventurePage> {
   @override
   Widget build(BuildContext context) {
     final campaign = TradeCampaign.fromGuide(widget.guide);
-    if (campaign != null) return TradeCampaignPage(guide: widget.guide, campaign: campaign);
+    if (campaign != null) return TradeCampaignPage(guide: widget.guide, campaign: campaign, sceneBuilder: (day) => _TradeSceneArt(day: day));
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Memora Aventuras')),
@@ -588,4 +588,25 @@ class _WorldPainter extends CustomPainter {
   }
   @override
   bool shouldRepaint(covariant _WorldPainter oldDelegate)=>oldDelegate.phase!=phase||oldDelegate.biome!=biome||oldDelegate.role!=role;
+}
+
+
+class _TradeSceneArt extends StatefulWidget {
+  const _TradeSceneArt({required this.day});
+  final TradeDay day;
+  @override State<_TradeSceneArt> createState()=>_TradeSceneArtState();
+}
+class _TradeSceneArtState extends State<_TradeSceneArt> with SingleTickerProviderStateMixin {
+  late final AnimationController motion;
+  @override void initState(){super.initState();motion=AnimationController(vsync:this,duration:const Duration(seconds:9))..repeat();}
+  @override void dispose(){motion.dispose();super.dispose();}
+  @override Widget build(BuildContext context){
+    final biome=widget.day.biome;
+    final role=widget.day.speaker=='Rin'?'rival':widget.day.speaker=='Astra'?'boss':'mentor';
+    final colors=biome=='forja'?const [Color(0xff411c31),Color(0xffe98443)]:biome=='torre'?const [Color(0xff171f4b),Color(0xff9178ff)]:const [Color(0xff193447),Color(0xff62b7b5)];
+    return ClipRRect(borderRadius:BorderRadius.circular(16),child:SizedBox(height:210,child:Stack(fit:StackFit.expand,children:[
+      AnimatedBuilder(animation:motion,builder:(context,_)=>CustomPaint(painter:_WorldPainter(colors,biome,role,motion.value))),
+      Positioned(left:12,bottom:10,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:const Color(0xe0101a2b),borderRadius:BorderRadius.circular(8)),child:Text(widget.day.speaker,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w800)))),
+    ])));
+  }
 }
