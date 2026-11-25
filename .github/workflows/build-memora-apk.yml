@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'memora_upgrade/**'
+      - 'memora_sync_provider_patch.py'
       - 'Memora_v0.2_Flutter.zip'
       - '.github/workflows/build-memora-apk.yml'
   workflow_dispatch:
@@ -142,6 +143,11 @@ jobs:
           s=s[:start]+app+s[end:]
           p.write_text(s)
           PY
+      - name: Integrate Memora-Sync as a selectable AI provider
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          python3 "$GITHUB_WORKSPACE/memora_sync_provider_patch.py"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
