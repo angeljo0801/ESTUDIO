@@ -48,6 +48,36 @@ class TradeCampaign {
     return null;
   }
 }
+
+class TradeLesson {
+  const TradeLesson(this.day,this.title,this.mentor,this.teach,this.example,this.question,this.answer,this.choices,this.explanation);
+  final int day;
+  final String title,mentor,teach,example,question,answer,explanation;
+  final List<String> choices;
+  static Map<int,TradeLesson> fromGuide(StudyGuide guide,int dayCount){
+    final out=<int,TradeLesson>{};
+    for(final card in guide.cards){
+      try{
+        final root=jsonDecode(card.adventureStory);
+        if(root is! Map||root['kind']!='memora_trade_lessons_v1'||root['lessons'] is! List)continue;
+        for(final item in (root['lessons'] as List).take(30)){
+          if(item is! Map)continue;
+          final day=item['day'];
+          if(day is! int||day<1||day>dayCount||out.containsKey(day))continue;
+          String str(String k){final v=item[k];if(v is! String||v.trim().isEmpty||v.length>3000)throw const FormatException('Lección inválida');return v.trim();}
+          final raw=item['choices'];
+          if(raw is! List)continue;
+          final choices=raw.whereType<String>().map((v)=>v.trim()).where((v)=>v.isNotEmpty&&v.length<=300).toSet().toList();
+          final answer=str('answer');
+          if(choices.length<2||choices.length>6||!choices.contains(answer))continue;
+          out[day]=TradeLesson(day,str('title'),str('mentor'),str('teach'),str('example'),str('question'),answer,choices,str('explanation'));
+        }
+      }catch(_){}
+    }
+    return out;
+  }
+}
+
 class TradeState {
   TradeState({required this.cash,required this.debt,required this.seed,this.day=0,this.stock=0,this.inventoryCost=0,this.reputation=40,this.loanUsed=false,this.insolvent=false,this.history=const []});
   final int cash,debt,seed,day,stock,inventoryCost,reputation;
@@ -103,6 +133,13 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
   late TradeState state;
   bool loading=true,busy=false,borrow=false;
   int choice=0,quantity=0,price=1;
+  late final Map<int,TradeLesson> lessons;
+  Set<int> mastered=<int>{};
+  String? feedback;
+  bool showingHint=false;
+  int get xp=>mastered.length*100;
+  TradeLesson? get pendingLesson=>state.day>0&&!mastered.contains(state.day)?lessons[state.day]:null;
+  String get masteryKey=>'${key}_mastery';
   String get key=>'memora_trade_${widget.guide.id}_v${c.version}';
   TradeDay get d=>c.days[state.day];
   TradeChoice get action=>d.choices[choice];
@@ -110,8 +147,8 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
   int get funds=>state.cash+(borrow?c.loanCash:0);
   int get maxBuy=>min(100,max(0,(funds-d.rent-action.fee)~/d.cost));
   int get outlay=>quantity*d.cost+d.rent+action.fee;
-  @override void initState(){super.initState();_load();}
-  void _resetPlan(){choice=0;borrow=false;quantity=0;price=done?1:d.marketPrice;}
+  @override void initState(){super.initState();lessons=TradeLesson.fromGuide(widget.guide,c.days.length);_load();}
+  void _resetPlan(){choice=0;borrow=false;quantity=0;price=done?1:d.marketPrice;feedback=null;showingHint=false;}
   Future<void> _load()async{
     final prefs=await SharedPreferences.getInstance();
     TradeState next=TradeEngine.start(c,Random.secure().nextInt(1<<30));
@@ -122,8 +159,9 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
         if(loaded.day>=0&&loaded.day<=c.days.length&&loaded.cash>=0&&loaded.debt>=0&&loaded.stock>=0&&loaded.inventoryCost>=0&&loaded.reputation>=0&&loaded.reputation<=100&&loaded.history.length==loaded.day)next=loaded;
       }
     }catch(_){}
+    final learned=(prefs.getStringList(masteryKey)??const <String>[]).map(int.tryParse).whereType<int>().where((n)=>n>0&&n<=next.day&&lessons.containsKey(n)).toSet();
     if(!mounted)return;
-    setState((){state=next;loading=false;_resetPlan();});
+    setState((){state=next;mastered=learned;loading=false;_resetPlan();});
   }
   Future<void> _save(TradeState next)async{
     final prefs=await SharedPreferences.getInstance();
@@ -131,7 +169,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
   }
   void _adjust(){quantity=min(quantity,maxBuy);}
   Future<void> _play()async{
-    if(busy||done||outlay>funds)return;
+    if(busy||done||pendingLesson!=null||outlay>funds)return;
     setState(()=>busy=true);
     try{
       final next=TradeEngine.turn(c,state,choice:choice,quantity:quantity,price:price,borrow:borrow);
@@ -168,7 +206,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
     final yes=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('¿Iniciar una nueva partida?'),content:const Text('Se reiniciará esta campaña. Tus guías y tarjetas de estudio permanecerán intactas.'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancelar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Reiniciar'))]));
     if(yes!=true||!mounted)return;
     setState(()=>busy=true);
-    try{final next=TradeEngine.start(c,Random.secure().nextInt(1<<30));await _save(next);if(mounted)setState((){state=next;_resetPlan();});}finally{if(mounted)setState(()=>busy=false);}
+    try{final next=TradeEngine.start(c,Random.secure().nextInt(1<<30));await _save(next);final prefs=await SharedPreferences.getInstance();await prefs.remove(masteryKey);if(mounted)setState((){state=next;mastered.clear();_resetPlan();});}finally{if(mounted)setState(()=>busy=false);}
   }
   Future<void> _insolvent()async{
     if(busy||done)return;
@@ -178,14 +216,95 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
       await _save(next);if(mounted)setState(()=>state=next);
     }finally{if(mounted)setState(()=>busy=false);}
   }
+
+  String get arc {
+    final n=min(c.days.length,max(1,state.day+(pendingLesson==null?1:0)));
+    if(n<=6)return 'ARCO I · El aprendiz';
+    if(n<=12)return 'ARCO II · La conspiración';
+    if(n<=18)return 'ARCO III · La expansión';
+    return 'ARCO IV · El juicio';
+  }
+  String get rank=>xp>=2400?'Maestro del gremio':xp>=1800?'Estratega':xp>=1200?'Comerciante':xp>=600?'Aprendiz avanzado':'Aprendiz';
+  Future<void> _answerLesson(TradeLesson l,String answer)async{
+    if(busy||mastered.contains(l.day)||l.day>state.day)return;
+    if(answer!=l.answer){
+      HapticFeedback.lightImpact();
+      setState((){feedback='Todavía no. Revisa la explicación y el ejemplo de ${l.mentor}; después vuelve a intentarlo.';showingHint=true;});
+      return;
+    }
+    setState(()=>busy=true);
+    try{
+      final updated=<int>{...mastered,l.day};
+      final prefs=await SharedPreferences.getInstance();
+      if(!await prefs.setStringList(masteryKey,updated.map((n)=>n.toString()).toList()))throw StateError('No se pudo guardar el dominio.');
+      if(!mounted)return;
+      HapticFeedback.mediumImpact();
+      setState((){mastered=updated;feedback=null;showingHint=false;});
+      await showDialog<void>(context:context,builder:(ctx)=>AlertDialog(
+        title:Text(l.day%6==0?'Arco superado · +100 XP':'Conocimiento adquirido · +100 XP'),
+        content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Icon(Icons.auto_awesome_rounded,size:42,color:Color(0xfff6ce85)),
+          const SizedBox(height:12),Text(l.title,style:const TextStyle(fontWeight:FontWeight.w900,fontSize:20)),
+          const SizedBox(height:10),Text(l.explanation),
+          if(l.day%6==0)...[const Divider(),Text('Revisa las cuentas del arco: ${state.history.where((r)=>(r['day'] as int)>l.day-6&&(r['day'] as int)<=l.day).fold<int>(0,(sum,r)=>sum+(r['profit'] as int))} monedas de beneficio operativo acumulado. La caja puede diferir por el inventario y el crédito.')],
+          const SizedBox(height:12),Text('Rango: $rank · $xp XP'),
+        ])),
+        actions:[FilledButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Continuar aventura'))],
+      ));
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}
+    finally{if(mounted)setState(()=>busy=false);}
+  }
+  Widget _teach(TradeLesson l,{bool post=false})=>_panel([
+    Row(children:[const Icon(Icons.auto_stories_rounded,color:Color(0xfff6ce85)),const SizedBox(width:10),Expanded(child:Text(post?'ENTRENAMIENTO · ${l.mentor.toUpperCase()}':'ANTES DE LA MISIÓN · ${l.mentor.toUpperCase()}',style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w900,fontSize:12,letterSpacing:.6)))]),
+    const SizedBox(height:12),Text(l.title,style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900)),
+    const SizedBox(height:8),Text(l.teach,style:const TextStyle(fontSize:16,height:1.5)),
+    const SizedBox(height:12),Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:const Color(0xff243c50),borderRadius:BorderRadius.circular(12)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('EJEMPLO RESUELTO',style:TextStyle(fontWeight:FontWeight.w900,color:Color(0xff94ddcf),fontSize:12)),const SizedBox(height:6),Text(l.example,style:const TextStyle(height:1.45))])),
+    if(!post)...[const SizedBox(height:8),const Text('Utiliza este concepto en la decisión que viene. Al terminar la jornada, tu mentor comprobará que lo entendiste.',style:TextStyle(color:Color(0xffb6c6de),fontSize:12))],
+  ]);
+  Widget _masteryScreen(TradeLesson l){
+    final row=state.history.last;
+    return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      if(widget.sceneBuilder!=null) ...[widget.sceneBuilder!(c.days[l.day-1]),const SizedBox(height:12)],
+      _panel([
+        Text('JORNADA ${l.day} COMPLETADA',style:const TextStyle(color:Color(0xff94ddcf),fontWeight:FontWeight.w900)),
+        const SizedBox(height:6),Text('Tu resultado: ${row['sold']} ventas · ${row['profit']} de beneficio operativo · ${row['cash']} de caja.'),
+        const SizedBox(height:8),Text((row['profit'] as int)<0?'Tu mentor quiere revisar por qué perdiste dinero antes de continuar.':'Tu mentor quiere que puedas explicar tu resultado, no solo conseguirlo.'),
+        TextButton(onPressed:busy?null:()=>_report(row),child:const Text('Revisar las cuentas reales de mi jornada')),
+      ]),
+      const SizedBox(height:12),_teach(l,post:true),
+      const SizedBox(height:12),_panel([
+        Text(l.day%6==0?'PRUEBA DEL ARCO':'PRUEBA DE DOMINIO',style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w900)),
+        const SizedBox(height:10),Text(l.question,style:const TextStyle(fontSize:19,fontWeight:FontWeight.bold)),
+        const SizedBox(height:12),
+        for(final option in l.choices)Padding(padding:const EdgeInsets.only(bottom:8),child:OutlinedButton(onPressed:busy?null:()=>_answerLesson(l,option),style:OutlinedButton.styleFrom(alignment:Alignment.centerLeft,padding:const EdgeInsets.all(14)),child:Text(option))),
+        if(feedback!=null)...[const SizedBox(height:8),Text(feedback!,style:const TextStyle(color:Color(0xffffc0a0),height:1.4))],
+        if(showingHint)TextButton(onPressed:()=>showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Ayuda del mentor'),content:Text(l.explanation),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Entendido, volver a intentar'))])),child:const Text('Pedir ayuda al mentor')),
+        const SizedBox(height:8),const Text('No pierdes dinero por equivocarte. Aprende del error y vuelve a intentarlo.',style:TextStyle(color:Color(0xffb6c6de),fontSize:12)),
+      ]),
+    ]);
+  }
+  Future<void> _academy()=>showDialog<void>(context:context,builder:(ctx)=>AlertDialog(
+    title:Text('Academia del gremio · ${mastered.length}/${lessons.length}'),
+    content:SizedBox(width:double.maxFinite,child:ListView(shrinkWrap:true,children:[
+      for(final n in (lessons.keys.toList()..sort()))ListTile(
+        contentPadding:EdgeInsets.zero,leading:Icon(mastered.contains(n)?Icons.check_circle_rounded:n<=state.day+1?Icons.menu_book_rounded:Icons.lock_outline),
+        title:Text('$n. ${lessons[n]!.title}'),subtitle:Text(mastered.contains(n)?'Dominado':n<=state.day+1?'Disponible':'Desbloquea la jornada'),
+        enabled:n<=state.day+1,onTap:n>state.day+1?null:(){Navigator.pop(ctx);final l=lessons[n]!;showDialog<void>(context:context,builder:(context)=>AlertDialog(title:Text(l.title),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[Text(l.teach),const Divider(),Text(l.example),if(n<=state.day&&!mastered.contains(n))...[
+          const Divider(),Text(l.question),for(final opt in l.choices)TextButton(onPressed:(){Navigator.pop(context);_answerLesson(l,opt);},child:Text(opt)),
+        ]else if(mastered.contains(n))...[const Divider(),Text(l.explanation)]])),actions:[TextButton(onPressed:()=>Navigator.pop(context),child:const Text('Cerrar'))]));}),
+    ])),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cerrar'))],
+  ));
   Widget _line(String name,int value)=>Padding(padding:const EdgeInsets.symmetric(vertical:4),child:Row(children:[Expanded(child:Text(name)),Text('$value monedas',style:const TextStyle(fontWeight:FontWeight.w700))]));
   Widget _stat(String title,String value,IconData icon)=>Expanded(child:Container(padding:const EdgeInsets.symmetric(vertical:12,horizontal:8),decoration:BoxDecoration(color:const Color(0xff1c2940),borderRadius:BorderRadius.circular(12)),child:Column(children:[Icon(icon,color:const Color(0xfff6ce85),size:18),const SizedBox(height:5),Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900,color:Colors.white)),Text(title,style:const TextStyle(fontSize:11,color:Color(0xffb6c6de)))])));
   Widget _header()=>Column(children:[
     Row(children:[_stat('CAJA','${state.cash}',Icons.account_balance_wallet_outlined),const SizedBox(width:6),_stat('STOCK','${state.stock}',Icons.inventory_2_outlined),const SizedBox(width:6),_stat('DEUDA','${state.debt}',Icons.receipt_long),const SizedBox(width:6),_stat('PRESTIGIO','${state.reputation}',Icons.shield_outlined)]),
     const SizedBox(height:12),
+    Text(arc,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w900,letterSpacing:1)),
+    const SizedBox(height:6),
+    Row(children:[Expanded(child:Text('$rank · $xp XP',style:const TextStyle(fontWeight:FontWeight.bold))),TextButton.icon(onPressed:busy?null:_academy,icon:const Icon(Icons.menu_book_rounded),label:Text('${mastered.length}/${lessons.length}'))]),
     LinearProgressIndicator(value:state.day/c.days.length,minHeight:7,borderRadius:BorderRadius.circular(5)),
     const SizedBox(height:6),
-    Row(children:[for(var i=0;i<c.days.length;i++) Expanded(child:Padding(padding:const EdgeInsets.symmetric(horizontal:2),child:Container(height:25,decoration:BoxDecoration(color:i<state.day?const Color(0xff426f62):i==state.day?const Color(0xfff6ce85):const Color(0xff28364c),borderRadius:BorderRadius.circular(5)),alignment:Alignment.center,child:Icon(i<state.day?Icons.check_rounded:i==state.day?Icons.flag_rounded:Icons.lock_outline,size:13,color:i==state.day?const Color(0xff17263b):Colors.white))))]),
+    Wrap(spacing:4,runSpacing:4,children:[for(var i=0;i<c.days.length;i++) Container(width:30,height:25,decoration:BoxDecoration(color:i<state.day?const Color(0xff426f62):i==state.day?const Color(0xfff6ce85):const Color(0xff28364c),borderRadius:BorderRadius.circular(5)),alignment:Alignment.center,child:Text('${i+1}',style:TextStyle(fontSize:11,color:i==state.day?const Color(0xff17263b):Colors.white,fontWeight:FontWeight.bold)))]),
     const SizedBox(height:6),
     Text('Jornadas completadas ${state.day}/${c.days.length} · Meta final: ${c.targetCash} monedas y ${c.targetReputation} de prestigio',style:const TextStyle(fontSize:12,color:Color(0xffbac9dc))),
   ]);
@@ -207,6 +326,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
         if(state.history.isNotEmpty)...[const SizedBox(height:12),Text(state.reputation>=80?'Los vecinos te saludan al abrir el puesto. Tu reputación ya atrae compradores.':state.reputation<30?'Los clientes desconfían de tus promesas. La mala fama reduce tu demanda.':(state.history.last['profit'] as int)<0?'Mira señala las cuentas de ayer. Perdiste dinero; necesitas cambiar de estrategia.':'Mira revisa el libro de cuentas. Tu última jornada dejó beneficios.',style:const TextStyle(color:Color(0xfff6ce85),height:1.35))],
       ])),
       const SizedBox(height:12),
+      if(lessons[state.day+1]!=null)...[_teach(lessons[state.day+1]!),const SizedBox(height:12)],
       _panel([const Text('01 · ELIGE TU ESTRATEGIA',style:TextStyle(fontWeight:FontWeight.w800,color:Color(0xfff6ce85))),const SizedBox(height:8),
         for(var i=0;i<day.choices.length;i++)Padding(padding:const EdgeInsets.only(bottom:8),child:InkWell(onTap:busy?null:()=>setState((){choice=i;_adjust();}),borderRadius:BorderRadius.circular(12),child:Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:choice==i?const Color(0xff30445b):const Color(0xff202e43),border:Border.all(color:choice==i?const Color(0xfff6ce85):Colors.transparent),borderRadius:BorderRadius.circular(12)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(day.choices[i].name,style:const TextStyle(fontWeight:FontWeight.bold)),const SizedBox(height:5),Text(day.choices[i].note),Text('Costo: ${day.choices[i].fee} · Prestigio: ${day.choices[i].rep>=0?'+':''}${day.choices[i].rep}',style:const TextStyle(fontSize:12,color:Color(0xffbcd0e7)))])))),
       ]),
@@ -238,7 +358,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
   }
   @override Widget build(BuildContext context)=>Theme(data:ThemeData.dark(useMaterial3:true),child:Scaffold(backgroundColor:const Color(0xff101a2b),appBar:AppBar(backgroundColor:const Color(0xff101a2b),title:Text(c.title,style:const TextStyle(fontSize:16)),actions:[IconButton(tooltip:'Reiniciar partida',onPressed:loading||busy?null:_restart,icon:const Icon(Icons.restart_alt))]),body:loading?const Center(child:CircularProgressIndicator()):SafeArea(child:ListView(padding:const EdgeInsets.all(14),children:[
     _header(),const SizedBox(height:14),
-    if(done)_ending()else _playScreen(),
+    if(pendingLesson!=null)_masteryScreen(pendingLesson!)else if(done)_ending()else _playScreen(),
     if(state.history.isNotEmpty)...[
       const SizedBox(height:16),_panel([const Text('LIBRO DE CUENTAS',style:TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.bold)),for(final row in state.history.reversed)ListTile(contentPadding:EdgeInsets.zero,title:Text('Día ${row['day']} · ${row['title']}'),subtitle:Text('Caja ${row['cash']} · Ventas ${row['sold']} · Beneficio ${row['profit']}'),trailing:const Icon(Icons.chevron_right),onTap:busy?null:()=>_report(row))]),
     ],
