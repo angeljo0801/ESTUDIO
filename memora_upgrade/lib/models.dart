@@ -9,8 +9,8 @@ class StudyCard {
     this.ease = 2.5,
     this.correct = 0,
     this.wrong = 0,
-    this.streak = 0,
     this.adventureStory = '',
+    this.streak = 0,
   });
 
   final String id;
