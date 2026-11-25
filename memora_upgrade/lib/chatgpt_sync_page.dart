@@ -145,6 +145,79 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
     if (mounted) prompt.clear();
     return 'Solicitud enviada. Pide a ChatGPT que revise Memora-Sync.';
   }
+  Future<void> chooseCardsGuide() async {
+    if(busy || !saved) return;
+    final eligible=widget.store.guides.where((g)=>g.text.trim().length>=40).toList();
+    if(eligible.isEmpty) {
+      setState(()=>status='No hay guías con texto suficiente.');
+      return;
+    }
+    final choice=await showDialog<StudyGuide>(
+      context:context,
+      builder:(ctx)=>SimpleDialog(
+        title:const Text('Crear tarjetas con ChatGPT'),
+        children:[
+          const Padding(padding:EdgeInsets.all(16),child:Text('Se enviará el texto extraído de la guía seleccionada al repositorio privado Memora-Sync. Se crearán hasta 50 tarjetas; no se eliminarán las existentes.')),
+          for(final g in eligible) SimpleDialogOption(
+            onPressed:()=>Navigator.pop(ctx,g),
+            child:Text(g.title),
+          ),
+          SimpleDialogOption(onPressed:()=>Navigator.pop(ctx),child:const Text('Cancelar')),
+        ],
+      ),
+    );
+    if(choice!=null && mounted) await run(()=>createCards(choice));
+  }
+  Future<String> createCards(StudyGuide guide) async {
+    final original=guide.text.trim();
+    final material=original.length>60000 ? original.substring(0,60000) : original;
+    final task='Crea hasta 50 tarjetas de estudio precisas y variadas basadas exclusivamente en el MATERIAL. '
+      'Cubre los conceptos más importantes, evita repeticiones y preguntas ambiguas. '
+      'Devuelve únicamente un objeto JSON con una propiedad cards, que sea una lista de objetos con question, answer y evidence. '
+      'Cada evidence debe ser una cita literal no vacía del material, de 12 a 600 caracteres, que respalde la respuesta. '
+      'No inventes datos. Si hay menos de 50 conceptos válidos, devuelve menos. '
+      'Responde en el idioma del material.\nMATERIAL:\n'+material;
+    final response=await MemoraSyncModel.ask(prompt:task,mode:'deep',cancelled:()=>!mounted);
+    if(!mounted) throw Exception('Generación cancelada.');
+    var jsonText=response.trim();
+    if(jsonText.startsWith('~~~') || jsonText.startsWith('\u0060\u0060\u0060')) {
+      final first=jsonText.indexOf('\n');
+      final last=jsonText.lastIndexOf('\n');
+      if(first>=0 && last>first) jsonText=jsonText.substring(first+1,last).trim();
+    }
+    final decoded=obj(jsonDecode(jsonText));
+    if(decoded['cards'] is! List) throw const FormatException('La respuesta no contiene tarjetas.');
+    final current=widget.store.findById(guide.id);
+    if(current==null) throw const FormatException('La guía ya no existe.');
+    if(current.text.trim()!=original) throw const FormatException('El texto de la guía cambió. Vuelve a iniciar la tarea.');
+    final existing=List<StudyCard>.of(current.cards);
+    final seen=existing.map((c)=>c.question.trim().toLowerCase()).toSet();
+    final generated=<StudyCard>[];
+    final now=DateTime.now();
+    for(final item in (decoded['cards'] as List).take(50)) {
+      try {
+        final row=obj(item);
+        final q=str(row['question'],4000), a=str(row['answer'],12000), evidence=str(row['evidence'],600);
+        if(evidence.length<12 || !material.contains(evidence) || seen.contains(q.toLowerCase())) continue;
+        final card=StudyCard.fromJson({'id':'sync-card-'+now.microsecondsSinceEpoch.toString()+'-'+generated.length.toString(),'question':q,'answer':a,'source':guide.title,'sourceExcerpt':evidence,'dueAt':now.toIso8601String()});
+        if(!StudyEngine.isCardUsable(card)) continue;
+        generated.add(card);
+        seen.add(q.toLowerCase());
+      } catch(_) {
+        // Reject individual malformed cards without losing the existing library.
+      }
+    }
+    if(generated.isEmpty) return 'No se encontraron tarjetas nuevas con evidencia literal válida. Tus tarjetas siguen intactas.';
+    current.cards=[...existing,...generated];
+    try {
+      await widget.store.update(current);
+    } catch(_) {
+      current.cards=existing;
+      rethrow;
+    }
+    return 'Tarjetas nuevas: '+generated.length.toString()+'. Se conservaron las existentes y su progreso.'+(original.length>material.length?' Se usaron los primeros 60 000 caracteres del documento.':'');
+  }
+
   Future<String> sendProgress() async {
     final a = await connection();
     final old = await a.read('memora-progress.json');
@@ -171,6 +244,8 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
       if(saved) TextButton(onPressed:busy?null:()=>run(disconnect),child:const Text('Desvincular')),
       const Divider(height:32),
       FilledButton.icon(onPressed:busy||!saved?null:()=>run(download),icon:const Icon(Icons.cloud_download_outlined),label:const Text('Recibir / actualizar guías')),
+      const SizedBox(height:10),
+      FilledButton.icon(onPressed:busy||!saved?null:chooseCardsGuide,icon:const Icon(Icons.style_outlined),label:const Text('Crear tarjetas con ChatGPT')),
       const SizedBox(height:20),
       const Text('Solicitar una guía',style:TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
       DropdownButton<String>(value:type,isExpanded:true,onChanged:busy?null:(v){if(v!=null)setState(()=>type=v);},items:const [
