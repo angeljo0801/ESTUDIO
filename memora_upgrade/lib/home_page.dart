@@ -247,9 +247,6 @@ class _HomePageState extends State<HomePage> {
         final guides = widget.store.guides;
         return Scaffold(
           appBar: AppBar(
-            actions: [
-              IconButton(tooltip: 'Memora ↔ ChatGPT', icon: const Icon(Icons.sync_rounded), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatgptSyncPage(store: widget.store)))),
-            ],
             title: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
