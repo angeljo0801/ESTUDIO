@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'adventure_engine.dart';
 import 'guide_store.dart';
 import 'models.dart';
+import 'trade_campaign_page.dart';
 
 /// A free, offline, animated interactive lesson - not an MP4 generator.
 class AdventurePage extends StatefulWidget {
@@ -61,6 +62,8 @@ class _AdventurePageState extends State<AdventurePage> {
 
   @override
   Widget build(BuildContext context) {
+    final campaign = TradeCampaign.fromGuide(widget.guide);
+    if (campaign != null) return TradeCampaignPage(guide: widget.guide, campaign: campaign);
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Memora Aventuras')),
