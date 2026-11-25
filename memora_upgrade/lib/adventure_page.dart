@@ -543,7 +543,8 @@ class _Scene {
 
 /// Animated original vector scenery and portrait, rendered offline.
 class _WorldPainter extends CustomPainter {
-  _WorldPainter(this.colors,this.biome,this.role,this.phase);
+  _WorldPainter(this.colors,this.biome,this.role,this.phase,{this.duo=false});
+  final bool duo;
   final List<Color> colors;
   final String biome,role;
   final double phase;
@@ -568,26 +569,34 @@ class _WorldPainter extends CustomPainter {
       p.color=const Color(0xfffbe6a8).withValues(alpha:.25+.5*(.5+.5*sin(phase*2*pi+i)));
       canvas.drawCircle(Offset(x,y),1.2+(i%3)*.6,p);
     }
-    canvas.save();canvas.translate(w*.49,h*.45+sin(phase*2*pi)*3);canvas.scale(min(w/330,h/240));
-    final hair=role=='boss'?const Color(0xffd9d5ff):role=='rival'?const Color(0xffd88656):const Color(0xff31455d);
-    final cloak=role=='boss'?const Color(0xff563f85):role=='rival'?const Color(0xff913f48):const Color(0xff316b72);
+    void portrait(String role,double x,double y,double scale){
+    canvas.save();canvas.translate(x,y);canvas.scale(scale);
+    final hair=role=='boss'?const Color(0xffd9d5ff):role=='rival'?const Color(0xffd88656):role=='hero'?const Color(0xff18223d):role=='ally'?const Color(0xffa75c37):const Color(0xff31455d);
+    final cloak=role=='boss'?const Color(0xff563f85):role=='rival'?const Color(0xff913f48):role=='hero'?const Color(0xff224a91):role=='ally'?const Color(0xff557e60):const Color(0xff316b72);
     p.color=cloak;canvas.drawPath(Path()..moveTo(-22,25)..quadraticBezierTo(-65,32,-75,88)..lineTo(75,88)..quadraticBezierTo(61,32,22,25)..close(),p);
+    p.color=const Color(0xffeac47d);p.strokeWidth=2.2;canvas.drawLine(const Offset(-39,38),const Offset(-62,82),p);canvas.drawLine(const Offset(39,38),const Offset(62,82),p);
     p.color=const Color(0xff17263b);canvas.drawPath(Path()..moveTo(-38,32)..lineTo(0,63)..lineTo(38,32)..lineTo(25,76)..lineTo(-25,76)..close(),p);
     p.color=const Color(0xffd2a381);canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-11,12,22,31),const Radius.circular(8)),p);
     p.color=hair;canvas.drawOval(const Rect.fromLTWH(-46,-73,92,91),p);
     p.color=const Color(0xfff0c5a2);
     canvas.drawPath(Path()..moveTo(-34,-39)..quadraticBezierTo(-36,1,-17,21)..lineTo(0,31)..lineTo(17,21)..quadraticBezierTo(36,1,34,-39)..close(),p);
     p.color=hair;canvas.drawPath(Path()..moveTo(-43,-44)..lineTo(-49,-72)..lineTo(-20,-69)..lineTo(-6,-85)..lineTo(13,-72)..lineTo(42,-76)..lineTo(49,-42)..lineTo(24,-19)..lineTo(27,-51)..lineTo(4,-25)..lineTo(0,-52)..lineTo(-24,-26)..lineTo(-18,-49)..lineTo(-40,-23)..close(),p);
+    p.color=const Color(0xffcf956e).withValues(alpha:.7);canvas.drawPath(Path()..moveTo(0,-6)..lineTo(-3,5)..lineTo(3,5)..close(),p);
+    if(role=='ally'||role=='boss'){p.color=hair;canvas.drawPath(Path()..moveTo(-38,-30)..quadraticBezierTo(-52,10,-48,44)..lineTo(-31,27)..lineTo(-29,-14)..close(),p);canvas.drawPath(Path()..moveTo(38,-30)..quadraticBezierTo(52,10,48,44)..lineTo(31,27)..lineTo(29,-14)..close(),p);}
     for(final x in [-17.0,17.0]){
       p.color=const Color(0xfffff6e9);canvas.drawOval(Rect.fromCenter(center:Offset(x,-9),width:18,height:10),p);
       p.color=role=='boss'?const Color(0xff8a62cc):const Color(0xff327687);canvas.drawOval(Rect.fromCenter(center:Offset(x,-9),width:8,height:9),p);
-      p.color=const Color(0xff142031);canvas.drawCircle(Offset(x,-9),2.6,p);p.strokeWidth=1.6;canvas.drawLine(Offset(x-9,-15),Offset(x+8,-16),p);
+      p.color=const Color(0xff142031);canvas.drawCircle(Offset(x,-9),2.6,p);p.strokeWidth=1.6;canvas.drawLine(Offset(x-9,-15),Offset(x+8,-16),p);p.color=Colors.white;canvas.drawCircle(Offset(x-1.6,-11),1.3,p);
     }
     p.color=const Color(0xffa45f59);p.strokeWidth=1.5;p.style=PaintingStyle.stroke;canvas.drawArc(const Rect.fromLTWH(-7,8,14,8),.25,2.5,false,p);p.style=PaintingStyle.fill;
     p.color=const Color(0xffeac47d);canvas.drawCircle(const Offset(0,60),5,p);canvas.restore();
+    }
+    final scale=min(w/330,h/240);
+    if(duo){portrait('hero',w*.27,h*.46+sin(phase*2*pi)*2,scale*.98);portrait(role,w*.73,h*.46+cos(phase*2*pi)*2,scale*.98);}
+    else{portrait(role,w*.49,h*.45+sin(phase*2*pi)*3,scale);}
   }
   @override
-  bool shouldRepaint(covariant _WorldPainter oldDelegate)=>oldDelegate.phase!=phase||oldDelegate.biome!=biome||oldDelegate.role!=role;
+  bool shouldRepaint(covariant _WorldPainter oldDelegate)=>oldDelegate.phase!=phase||oldDelegate.biome!=biome||oldDelegate.role!=role||oldDelegate.duo!=duo;
 }
 
 
@@ -602,11 +611,12 @@ class _TradeSceneArtState extends State<_TradeSceneArt> with SingleTickerProvide
   @override void dispose(){motion.dispose();super.dispose();}
   @override Widget build(BuildContext context){
     final biome=widget.day.biome;
-    final role=widget.day.speaker=='Rin'?'rival':widget.day.speaker=='Astra'?'boss':'mentor';
+    final role=widget.day.speaker=='Rin'?'rival':widget.day.speaker=='Astra'?'boss':widget.day.speaker=='Mira'?'ally':'mentor';
     final colors=biome=='forja'?const [Color(0xff411c31),Color(0xffe98443)]:biome=='torre'?const [Color(0xff171f4b),Color(0xff9178ff)]:const [Color(0xff193447),Color(0xff62b7b5)];
     return ClipRRect(borderRadius:BorderRadius.circular(16),child:SizedBox(height:210,child:Stack(fit:StackFit.expand,children:[
-      AnimatedBuilder(animation:motion,builder:(context,_)=>CustomPaint(painter:_WorldPainter(colors,biome,role,motion.value))),
-      Positioned(left:12,bottom:10,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:const Color(0xe0101a2b),borderRadius:BorderRadius.circular(8)),child:Text(widget.day.speaker,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w800)))),
+      AnimatedBuilder(animation:motion,builder:(context,_)=>CustomPaint(painter:_WorldPainter(colors,biome,role,motion.value,duo:true))),
+      Positioned(left:12,bottom:10,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:const Color(0xe0101a2b),borderRadius:BorderRadius.circular(8)),child:const Text('TÚ · Heredero',style:TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w800)))),
+      Positioned(right:12,bottom:10,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:const Color(0xe0101a2b),borderRadius:BorderRadius.circular(8)),child:Text(widget.day.speaker,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w800)))),
     ])));
   }
 }
