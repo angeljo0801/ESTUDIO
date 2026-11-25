@@ -244,3 +244,87 @@ class _Api {
     if(r.statusCode!=200&&r.statusCode!=201)throw FormatException('No se pudo enviar: '+r.statusCode.toString()+'. Si hubo un conflicto, reintenta.');
   }
 }
+
+
+/// A queued model provider, not a live OpenAI API. The authorized ChatGPT
+/// conversation reads pending jobs and writes responses to the private repo.
+class MemoraSyncModel {
+  static const vault = FlutterSecureStorage();
+  static Future<bool> configured() async {
+    final p = await SharedPreferences.getInstance();
+    return (p.getString('memora_sync_repo_v1') ?? '').isNotEmpty &&
+        (await vault.read(key:'memora_sync_token_v1') ?? '').isNotEmpty;
+  }
+
+  static Future<String> ask({
+    required String prompt,
+    required String mode,
+    required bool Function() cancelled,
+  }) async {
+    if (prompt.trim().isEmpty || utf8.encode(prompt).length > 180000) {
+      throw const FormatException('La solicitud Memora-Sync está vacía o es demasiado grande.');
+    }
+    final p = await SharedPreferences.getInstance();
+    final repo = p.getString('memora_sync_repo_v1');
+    final token = await vault.read(key:'memora_sync_token_v1');
+    if(repo == null || token == null || token.isEmpty) {
+      throw const FormatException('Configura Memora-Sync desde Biblioteca → sincronización.');
+    }
+    final api = _Api(repo,token);
+    await api.verify();
+    const path = 'memora-model-queue.json';
+    String? id;
+    final now = DateTime.now().toUtc();
+    for(var attempt=0;attempt<3;attempt++) {
+      if(cancelled()) throw Exception('Generación cancelada.');
+      final old = await api.read(path);
+      final root = old?.data ?? <String,dynamic>{'schema':1,'jobs':[]};
+      if(root['schema']!=1 || root['jobs'] is! List) throw const FormatException('Cola Memora-Sync incompatible.');
+      final jobs=List<dynamic>.from(root['jobs'] as List);
+      // Reuse a recent identical job, so retrying after a timeout does not
+      // create duplicates or discard a response that arrived late.
+      for(final raw in jobs.reversed) {
+        final job=obj(raw);
+        final created=DateTime.tryParse(job['createdAt']?.toString() ?? '');
+        if(created!=null && now.difference(created).inHours<24 &&
+            job['prompt']==prompt && job['mode']==mode &&
+            job['id'] is String && (job['status']=='pending'||job['status']=='done')) {
+          id=job['id'] as String;
+          break;
+        }
+      }
+      if(id!=null) break;
+      if(jobs.length>=50) throw const FormatException('La cola tiene 50 tareas. Archiva las terminadas en el repositorio privado.');
+      final next=now.microsecondsSinceEpoch.toString()+'-'+Random.secure().nextInt(1<<30).toString();
+      jobs.add({'id':next,'status':'pending','mode':mode,'prompt':prompt,'createdAt':now.toIso8601String()});
+      try {
+        await api.write(path,{'schema':1,'jobs':jobs},old?.sha);
+        id=next;
+        break;
+      } on FormatException {
+        if(attempt==2) rethrow;
+        await Future<void>.delayed(const Duration(seconds:2));
+      }
+    }
+    if(id==null) throw const FormatException('No se pudo registrar la tarea.');
+    final deadline=DateTime.now().add(const Duration(seconds:90));
+    do {
+      if(cancelled()) throw Exception('Generación cancelada.');
+      final remote=await api.read(path);
+      if(remote!=null && remote.data['jobs'] is List) {
+        for(final raw in remote.data['jobs'] as List) {
+          final job=obj(raw);
+          if(job['id']!=id) continue;
+          if(job['status']=='done') {
+            final answer=job['response'];
+            if(answer is String && answer.trim().isNotEmpty) return answer;
+            throw const FormatException('Respuesta Memora-Sync vacía.');
+          }
+          if(job['status']=='error') throw FormatException(job['error']?.toString() ?? 'No se pudo procesar la solicitud.');
+        }
+      }
+      await Future<void>.delayed(const Duration(seconds:5));
+    } while(DateTime.now().isBefore(deadline));
+    throw FormatException('Solicitud guardada en Memora-Sync ('+id+'). Pide a ChatGPT revisar la cola y vuelve a intentar la misma tarea para recoger la respuesta.');
+  }
+}
