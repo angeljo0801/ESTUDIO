@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
+import 'nebula_art.dart';
 
 class TradeChoice {
   const TradeChoice(this.name,this.note,this.fee,this.rep,this.boost);
@@ -384,7 +385,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
     final text=state.insolvent?'No pudiste cubrir los gastos de la jornada. El consejo cierra el negocio.':net<0?'La deuda supera tus recursos. Astra rechaza la renovación.':result=='LA CORONA DEL COMERCIO'?'Astra aprueba tu licencia. Mira se une al gremio y los ciudadanos te nombran su representante. Rin pierde el monopolio.':result=='EL MAGNATE SOLITARIO'?'Pagaste la deuda y construiste riqueza, pero el consejo desconfía de tus métodos. Conservas tu taller sin el apoyo del barrio.':result=='EL PACTO DEL BARRIO'?'El barrio confía en ti y consigue una licencia provisional. Debes mejorar el margen y la caja.':'Pagaste la deuda, pero el taller sigue siendo frágil. El consejo te concede un nuevo intento.';
     return _panel([const Icon(Icons.emoji_events_outlined,color:Color(0xfff6ce85),size:70),const SizedBox(height:10),Text(result,textAlign:TextAlign.center,style:const TextStyle(fontSize:26,fontWeight:FontWeight.w900,color:Color(0xfff6ce85))),const SizedBox(height:10),Text(text,style:const TextStyle(height:1.5)),const Divider(),_line('Caja antes del cierre',state.cash),_line('Liquidación de inventario',state.stock*c.liquidation),_line('Deuda exigible',-state.debt),_line('Saldo final simulado',net),Text('Prestigio final: ${state.reputation}/100'),const SizedBox(height:16),FilledButton(onPressed:busy?null:_restart,child:const Text('Jugar otra estrategia'))]);
   }
-  @override Widget build(BuildContext context)=>Theme(data:ThemeData.dark(useMaterial3:true),child:Scaffold(backgroundColor:const Color(0xff101a2b),appBar:AppBar(backgroundColor:const Color(0xff101a2b),title:Text(c.title,style:const TextStyle(fontSize:16)),actions:[IconButton(tooltip:'Reiniciar partida',onPressed:loading||busy?null:_restart,icon:const Icon(Icons.restart_alt))]),body:loading?const Center(child:CircularProgressIndicator()):SafeArea(child:ListView(padding:const EdgeInsets.all(14),children:[
+  @override Widget build(BuildContext context)=>Theme(data:ThemeData.dark(useMaterial3:true),child:Scaffold(backgroundColor:const Color(0xff101a2b),appBar:AppBar(backgroundColor:const Color(0xff101a2b),title:Text(c.title,style:const TextStyle(fontSize:16)),actions:[IconButton(tooltip:'Personajes',icon:const Icon(Icons.groups_rounded),onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>NebulaCastPage(guide:widget.guide)))),IconButton(tooltip:'Reiniciar partida',onPressed:loading||busy?null:_restart,icon:const Icon(Icons.restart_alt))]),body:loading?const Center(child:CircularProgressIndicator()):SafeArea(child:ListView(padding:const EdgeInsets.all(14),children:[
     _header(),const SizedBox(height:14),
     if(pendingLesson!=null)_masteryScreen(pendingLesson!)else if(done)_ending()else _playScreen(),
     if(state.history.isNotEmpty)...[
