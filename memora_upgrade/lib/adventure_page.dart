@@ -10,6 +10,7 @@ import 'adventure_engine.dart';
 import 'guide_store.dart';
 import 'models.dart';
 import 'trade_campaign_page.dart';
+import 'nebula_art.dart';
 
 /// A free, offline, animated interactive lesson - not an MP4 generator.
 class AdventurePage extends StatefulWidget {
@@ -600,23 +601,23 @@ class _WorldPainter extends CustomPainter {
 }
 
 
-class _TradeSceneArt extends StatefulWidget {
+
+class _TradeSceneArt extends StatelessWidget {
   const _TradeSceneArt({required this.day});
   final TradeDay day;
-  @override State<_TradeSceneArt> createState()=>_TradeSceneArtState();
-}
-class _TradeSceneArtState extends State<_TradeSceneArt> with SingleTickerProviderStateMixin {
-  late final AnimationController motion;
-  @override void initState(){super.initState();motion=AnimationController(vsync:this,duration:const Duration(seconds:9))..repeat();}
-  @override void dispose(){motion.dispose();super.dispose();}
   @override Widget build(BuildContext context){
-    final biome=widget.day.biome;
-    final role=widget.day.speaker=='Rin'?'rival':widget.day.speaker=='Astra'?'boss':widget.day.speaker=='Mira'?'ally':'mentor';
-    final colors=biome=='forja'?const [Color(0xff411c31),Color(0xffe98443)]:biome=='torre'?const [Color(0xff171f4b),Color(0xff9178ff)]:const [Color(0xff193447),Color(0xff62b7b5)];
-    return ClipRRect(borderRadius:BorderRadius.circular(16),child:SizedBox(height:210,child:Stack(fit:StackFit.expand,children:[
-      AnimatedBuilder(animation:motion,builder:(context,_)=>CustomPaint(painter:_WorldPainter(colors,biome,role,motion.value,duo:true))),
-      Positioned(left:12,bottom:10,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:const Color(0xe0101a2b),borderRadius:BorderRadius.circular(8)),child:const Text('TÚ · Heredero',style:TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w800)))),
-      Positioned(right:12,bottom:10,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:const Color(0xe0101a2b),borderRadius:BorderRadius.circular(8)),child:Text(widget.day.speaker,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w800)))),
-    ])));
+    final id=day.speaker.toLowerCase().trim();
+    return ClipRRect(borderRadius:BorderRadius.circular(16),child:Container(
+      height:235,decoration:BoxDecoration(gradient:LinearGradient(colors:day.biome=='torre'?const [Color(0xff1b1837),Color(0xff51406b)]:day.biome=='forja'?const [Color(0xff281e30),Color(0xff78462d)]:const [Color(0xff101c31),Color(0xff28474f)])),
+      child:Row(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+        Expanded(child:_portrait('hero','TÚ · Heredero')),
+        const SizedBox(width:2),
+        Expanded(child:_portrait(id,day.speaker)),
+      ]),
+    ));
   }
+  Widget _portrait(String id,String label)=>Stack(fit:StackFit.expand,children:[
+    AnimatedSwitcher(duration:const Duration(milliseconds:320),child:AnimePortrait(key:ValueKey(id),id:id)),
+    Positioned(bottom:0,left:0,right:0,child:Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:10),decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Colors.transparent,Color(0xf5101a2b)])),child:Text(label,textAlign:TextAlign.center,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w900)))),
+  ]);
 }
