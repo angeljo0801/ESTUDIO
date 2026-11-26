@@ -57,7 +57,7 @@ Uint8List synthesizeAdventureMusic(String mood) {
     if(mood!='silent') {
       for(final f in chord) { sample+=.085*pad*tone(f,local); }
       sample+=.15*pad*sin(2*pi*chord.first*.5*local);
-      sample+=(mood=='study'?.065:.15)*pulse*tone(melody,nt);
+      sample+=(mood == 'study' ? .065 : .15)*pulse*tone(melody,nt);
       if(mood=='battle') {
         final kickT=local%beat;
         sample+=.16*exp(-kickT*18)*sin(2*pi*(48*kickT+2*(1-exp(-kickT*24))));
@@ -128,7 +128,7 @@ class _AdventureMusicButtonState extends State<AdventureMusicButton> with Widget
       await _player.stop();_playing=null;
       final bytes=_tracks[mood]??=await compute(synthesizeAdventureMusic,mood);
       if(_disposed||rev!=_revision)return;
-      await _player.setAudioContext(AudioContext(android: const AudioContextAndroid(audioFocus: AndroidAudioFocus.none)));
+      await _player.setAudioContext(AudioContext(android: AudioContextAndroid(audioFocus: AndroidAudioFocus.none)));
       await _player.setReleaseMode(ReleaseMode.loop);
       await _player.play(BytesSource(bytes,mimeType:'audio/wav'),volume:_volume);
       _playing=mood;
