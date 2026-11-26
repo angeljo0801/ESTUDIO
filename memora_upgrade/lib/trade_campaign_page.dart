@@ -12,10 +12,11 @@ class TradeChoice {
   final int fee,rep,boost;
 }
 class TradeDay {
-  const TradeDay(this.title,this.speaker,this.place,this.biome,this.story,this.cost,this.demand,this.marketPrice,this.rent,this.choices);
+  const TradeDay(this.title,this.speaker,this.place,this.biome,this.story,this.cost,this.demand,this.marketPrice,this.rent,this.choices,{this.visual});
   final String title,speaker,place,biome,story;
   final int cost,demand,marketPrice,rent;
   final List<TradeChoice> choices;
+  final AdventureVisualSpec? visual;
 }
 class TradeCampaign {
   const TradeCampaign(this.title,this.subtitle,this.intro,this.product,this.version,this.initialCash,this.initialDebt,this.targetCash,this.targetReputation,this.liquidation,this.loanCash,this.loanDebt,this.days);
@@ -41,7 +42,7 @@ class TradeCampaign {
             if(c is! Map)throw const FormatException('Decisión inválida');
             choices.add(TradeChoice(str(c,'name'),str(c,'note'),num(c,'fee',0,500),num(c,'rep',-40,40),num(c,'boost',-50,60)));
           }
-          days.add(TradeDay(str(d,'title'),str(d,'speaker'),str(d,'place'),str(d,'biome'),str(d,'story'),num(d,'cost',1,100),num(d,'demand',0,100),num(d,'marketPrice',1,100),num(d,'rent',0,300),choices));
+          days.add(TradeDay(str(d,'title'),str(d,'speaker'),str(d,'place'),str(d,'biome'),str(d,'story'),num(d,'cost',1,100),num(d,'demand',0,100),num(d,'marketPrice',1,100),num(d,'rent',0,300),choices,visual:AdventureVisualSpec.parse(d['visual'])));
         }
         return TradeCampaign(str(v,'title'),str(v,'subtitle'),str(v,'intro'),str(v,'product'),num(v,'version',1,100000),num(v,'initialCash',1,10000),num(v,'initialDebt',0,10000),num(v,'targetCash',0,100000),num(v,'targetReputation',0,100),num(v,'liquidation',0,100),num(v,'loanCash',0,1000),num(v,'loanDebt',0,2000),days);
       }catch(_){}

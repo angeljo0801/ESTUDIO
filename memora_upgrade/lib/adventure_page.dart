@@ -64,10 +64,10 @@ class _AdventurePageState extends State<AdventurePage> {
   @override
   Widget build(BuildContext context) {
     final campaign = TradeCampaign.fromGuide(widget.guide);
-    if (campaign != null) return TradeCampaignPage(guide: widget.guide, campaign: campaign, sceneBuilder: (day) => _TradeSceneArt(day: day));
+    if (campaign != null) return TradeCampaignPage(guide: widget.guide, campaign: campaign, sceneBuilder: (day) => _TradeSceneArt(day: day,guide:widget.guide));
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Memora Aventuras')),
+      appBar: AppBar(title: const Text('Memora Aventuras'),actions:[IconButton(tooltip:'Personajes y paisajes',icon:const Icon(Icons.people_outline),onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>NebulaCastPage(guide:widget.guide))))]),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -289,6 +289,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
 
   Widget _world(ColorScheme cs) {
     final scene = _scene;
+    if(scene.visual!=null)return AdventureSceneView(guide:widget.guide,visual:scene.visual!,location:scene.location??'');
     final palette = scene.biome == 'forja' ? const [Color(0xff411c31),Color(0xffe98443)] :
       scene.biome == 'torre' ? const [Color(0xff171f4b),Color(0xff9178ff)] :
       const [Color(0xff193447),Color(0xff62b7b5)];
@@ -519,8 +520,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
 
 
 class _Scene {
-  const _Scene({this.arc,this.location,this.speaker,this.biome='mercado',this.role='mentor',this.dialogue=const [],this.choices=const [],this.explanation});
+  const _Scene({this.arc,this.location,this.speaker,this.biome='mercado',this.role='mentor',this.dialogue=const [],this.choices=const [],this.explanation,this.visual});
   final String? arc,location,speaker,explanation;
+  final AdventureVisualSpec? visual;
   final String biome,role;
   final List<String> dialogue,choices;
   static _Scene from(StudyCard card){
@@ -531,7 +533,7 @@ class _Scene {
       if(v is Map && v['kind']=='memora_scene_v1'){
         String? str(String k)=>v[k] is String?v[k] as String:null;
         List<String> list(String k)=>v[k] is List?(v[k] as List).whereType<String>().where((x)=>x.trim().isNotEmpty).take(8).toList():<String>[];
-        return _Scene(arc:str('arc'),location:str('location'),speaker:str('speaker'),biome:str('biome')??'mercado',role:str('role')??'mentor',dialogue:list('dialogue'),choices:list('choices'),explanation:str('explanation'));
+        return _Scene(arc:str('arc'),location:str('location'),speaker:str('speaker'),biome:str('biome')??'mercado',role:str('role')??'mentor',dialogue:list('dialogue'),choices:list('choices'),explanation:str('explanation'),visual:AdventureVisualSpec.parse(v['visual']));
       }
     }catch(_){}
     return _Scene(dialogue:[raw,card.answer]);
@@ -603,31 +605,19 @@ class _WorldPainter extends CustomPainter {
 
 
 class _TradeSceneArt extends StatelessWidget {
-  const _TradeSceneArt({required this.day});
+  const _TradeSceneArt({required this.day,required this.guide});
   final TradeDay day;
+  final StudyGuide guide;
   @override Widget build(BuildContext context){
     final id=day.speaker.toLowerCase().trim();
-    return ClipRRect(borderRadius:BorderRadius.circular(16),child:SizedBox(
-      height:320,
-      child:Stack(fit:StackFit.expand,children:[
-        DecoratedBox(decoration:BoxDecoration(gradient:LinearGradient(colors:day.biome=='torre'?const [Color(0xff1b1837),Color(0xff51406b)]:day.biome=='forja'?const [Color(0xff281e30),Color(0xff78462d)]:const [Color(0xff101c31),Color(0xff28474f)]))),
-        AnimatedSwitcher(duration:const Duration(milliseconds:380),child:NebulaLandscape(key:ValueKey(day.place),place:day.place,biome:day.biome)),
-        const DecoratedBox(decoration:BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Colors.transparent,Colors.transparent,Color(0x990a1020)],stops:[0,.42,1]))),
-        Positioned(top:10,left:10,right:10,child:Align(alignment:Alignment.topLeft,child:Container(
-          padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),
-          decoration:BoxDecoration(color:const Color(0xbf101a2b),borderRadius:BorderRadius.circular(12)),
-          child:Text(day.place,style:const TextStyle(color:Color(0xfff6ce85),fontSize:12,fontWeight:FontWeight.w800)),
-        ))),
-        Positioned(left:0,right:0,bottom:0,height:174,child:Row(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-          Expanded(child:_portrait('hero','TÚ · Heredero')),
-          const SizedBox(width:16),
-          Expanded(child:_portrait(id,day.speaker)),
-        ])),
-      ]),
-    ));
+    final legacy=AdventureArtStore.isNebula(guide.id);
+    final visual=day.visual??AdventureVisualSpec(
+      background:legacy?nebulaLandscapeKey(day.place,day.biome):null,
+      actors:[
+        if(legacy)const AdventureActor('hero',label:'TÚ · Heredero',position:-.95),
+        if(AdventureArtStore.validId(id))AdventureActor(id,label:day.speaker,position:legacy ? .95 : 0),
+      ],height:320,
+    );
+    return AdventureSceneView(guide:guide,visual:visual,location:day.place);
   }
-  Widget _portrait(String id,String label)=>Stack(fit:StackFit.expand,children:[
-    Positioned.fill(bottom:12,child:AnimatedSwitcher(duration:const Duration(milliseconds:320),child:AnimePortrait(key:ValueKey(id),id:id,fit:BoxFit.contain,transparentBackground:true))),
-    Positioned(bottom:0,left:0,right:0,child:Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:10),decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Colors.transparent,Color(0xf5101a2b)])),child:Text(label,textAlign:TextAlign.center,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w900)))),
-  ]);
 }

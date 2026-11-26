@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:convert';
 
 import 'models.dart';
 import 'study_engine.dart';
@@ -26,6 +27,20 @@ class AdventureEngine {
             c.question.trim().isNotEmpty &&
             c.answer.trim().isNotEmpty)).toList();
     final episodes = <AdventureEpisode>[];
+    final authored=<int,List<StudyCard>>{};
+    for(final card in cards){
+      try{
+        final scene=jsonDecode(card.adventureStory);
+        if(scene is Map&&scene['kind']=='memora_scene_v1'&&scene['chapter'] is int){
+          final n=scene['chapter'] as int;
+          if(n>=1&&n<=300)authored.putIfAbsent(n,()=>[]).add(card);
+        }
+      }catch(_){}
+    }
+    if(authored.isNotEmpty){
+      final ordered=authored.keys.toList()..sort();
+      if(ordered.asMap().entries.every((e)=>e.value==e.key+1))return [for(final n in ordered)AdventureEpisode(number:n,title:'Capítulo $n',cards:authored[n]!,icon:iconFor(guide.title))];
+    }
     for (var start = 0; start < cards.length; start += 3) {
       final end = min(start + 3, cards.length);
       final chunk = cards.sublist(start, end);

@@ -88,6 +88,7 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
     if (rows.length > 100) throw const FormatException('Demasiadas guías.');
     final p = await SharedPreferences.getInstance();
     final pending = <StudyGuide>[];
+    final artRows=<Map<String,dynamic>>[];
     final revisions = <String,int>{};
     final seen = <String>{};
     for (final raw in rows) {
@@ -98,6 +99,7 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
       if (rev is! int || rev < 1) throw const FormatException('Revisión inválida.');
       final old = widget.store.findById(id);
       if (old != null && old.sourceType != 'chatgpt') throw const FormatException('Conflicto con guía local.');
+      if(row['art']!=null)artRows.add(row);
       if (rev <= (p.getInt('sync_revision_'+id) ?? 0)) continue;
       final title = str(row['title'],180);
       final summary = str(row['summary'],20000);
@@ -131,14 +133,47 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
       else { await widget.store.update(g); }
       await p.setInt('sync_revision_'+g.id,revisions[g.id]!);
     }
-    return pending.isEmpty ? 'No hay revisiones nuevas.' : 'Guías recibidas: '+pending.length.toString()+'. Ábrelas en Biblioteca.';
+    final count=await _syncAdventureArt(a,p,artRows);
+    return 'Guías actualizadas: ${pending.length}. Recursos gráficos actualizados: $count. Ábrelas en Biblioteca.';
+  }
+  Future<int> _syncAdventureArt(_Api a,SharedPreferences p,List<Map<String,dynamic>> rows)async{
+    var total=0;
+    for(final row in rows){
+      final adventure=identifier(row['id']),guideId=a.prefix+adventure;
+      final spec=obj(row['art']);
+      final rev=spec['revision'],parts=spec['parts'];
+      if(rev is! int||rev<1||parts is! List||parts.isEmpty||parts.length>64)throw const FormatException('Manifiesto gráfico inválido.');
+      final key='sync_art_revision_'+guideId;
+      if(rev<=(p.getInt(key)??0))continue;
+      final names=<String>{},data=<dynamic>[];
+      var bytes=0;
+      for(final raw in parts){
+        final part=identifier(raw);
+        if(!names.add(part))throw const FormatException('Parte gráfica duplicada.');
+        final file=await a.read('adventure-art/$adventure/$part.json');
+        if(file==null)throw FormatException('Falta arte de $adventure: $part');
+        bytes+=utf8.encode(jsonEncode(file.data)).length;
+        if(bytes>AdventureArtStore.maxBytes)throw const FormatException('Paquete demasiado grande.');
+        data.add(file.data);
+      }
+      total+=await AdventureArtStore.saveParts(guideId,adventure,data);
+      await p.setInt(key,rev);
+    }
+    return total;
   }
   Future<String> receiveArt() async {
     final a=await connection();
-    final file=await a.read('memora-art.json');
-    if(file==null)return 'No hay paquete de arte en el repositorio. Puedes importarlo desde Personajes en la aventura.';
-    final count=await MemoraArtStore.save(file.data);
-    return 'Paquete de arte recibido: '+count.toString()+' retratos y expresiones.';
+    final p=await SharedPreferences.getInstance();
+    final catalog=await a.read('memora-guides.json');
+    var count=0;
+    if(catalog!=null){
+      final rows=catalog.data['guides'];
+      if(catalog.data['schema']!=1||rows is! List||rows.length>100)throw const FormatException('Catálogo incompatible.');
+      count+=await _syncAdventureArt(a,p,rows.map(obj).where((row)=>row['art']!=null).toList());
+    }
+    final legacy=await a.read('memora-art.json');
+    if(legacy!=null)count+=await MemoraArtStore.save(legacy.data);
+    return count==0?'No hay arte nuevo. También puedes importarlo desde Personajes.':'Recursos gráficos recibidos: $count.';
   }
   Future<String> sendRequest() async {
     final message = str(prompt.text,12000);
@@ -251,11 +286,11 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
       FilledButton.icon(onPressed:busy?null:()=>run(configure),icon:const Icon(Icons.lock_outline),label:const Text('Guardar y verificar conexión')),
       if(saved) TextButton(onPressed:busy?null:()=>run(disconnect),child:const Text('Desvincular')),
       const Divider(height:32),
-      FilledButton.icon(onPressed:busy||!saved?null:()=>run(download),icon:const Icon(Icons.cloud_download_outlined),label:const Text('Recibir / actualizar guías')),
+      FilledButton.icon(onPressed:busy||!saved?null:()=>run(download),icon:const Icon(Icons.cloud_download_outlined),label:const Text('Sincronizar guías, personajes y paisajes')),
       const SizedBox(height:10),
       FilledButton.icon(onPressed:busy||!saved?null:chooseCardsGuide,icon:const Icon(Icons.style_outlined),label:const Text('Crear tarjetas con ChatGPT')),
       const SizedBox(height:20),
-      OutlinedButton.icon(onPressed:busy||!saved?null:()=>run(receiveArt),icon:const Icon(Icons.image_outlined),label:const Text('Recibir arte anime')),
+      OutlinedButton.icon(onPressed:busy||!saved?null:()=>run(receiveArt),icon:const Icon(Icons.image_outlined),label:const Text('Actualizar solo arte de aventuras')),
       const SizedBox(height:12),
       const Text('Solicitar una guía',style:TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
       DropdownButton<String>(value:type,isExpanded:true,onChanged:busy?null:(v){if(v!=null)setState(()=>type=v);},items:const [

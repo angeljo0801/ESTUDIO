@@ -39,6 +39,7 @@ class MemoraArtStore {
     await tmp.writeAsString(encoded,flush:true);
     await tmp.rename(f.path);
     _cached=Future.value(images);
+    AdventureArtStore.invalidateLegacy();
     revision.value++;
     return images.length;
   }
@@ -57,7 +58,7 @@ class NebulaCharacter {
     for(final card in guide.cards){
       try{
         final r=jsonDecode(card.adventureStory);
-        if(r is! Map||r['kind']!='memora_trade_cast_v1'||r['characters'] is! List)continue;
+        if(r is! Map||!const ['memora_trade_cast_v1','memora_cast_v2'].contains(r['kind'])||r['characters'] is! List)continue;
         final result=<NebulaCharacter>[],seen=<String>{};
         for(final item in (r['characters'] as List).take(80)){
           if(item is! Map)continue;
@@ -72,11 +73,12 @@ class NebulaCharacter {
   }
 }
 class AnimePortrait extends StatelessWidget {
-  const AnimePortrait({super.key,required this.id,this.expression='',this.fit=BoxFit.cover,this.transparentBackground=false});
+  const AnimePortrait({super.key,required this.id,this.expression='',this.fit=BoxFit.cover,this.transparentBackground=false,this.guide});
   final String id,expression;
   final BoxFit fit;
   final bool transparentBackground;
-  @override Widget build(BuildContext context)=>ValueListenableBuilder<int>(valueListenable:MemoraArtStore.revision,builder:(context,_,child)=>FutureBuilder<Map<String,Uint8List>>(future:MemoraArtStore.load(),builder:(context,snapshot){
+  final StudyGuide? guide;
+  @override Widget build(BuildContext context)=>ValueListenableBuilder<int>(valueListenable:MemoraArtStore.revision,builder:(context,_,child)=>FutureBuilder<Map<String,Uint8List>>(future:guide==null?MemoraArtStore.load():AdventureArtStore.load(guide!.id),builder:(context,snapshot){
     final all=snapshot.data??const <String,Uint8List>{};
     final data=all[expression.isEmpty?id:id+'_'+expression]??all[id];
     return data==null?ColoredBox(color:transparentBackground?Colors.transparent:const Color(0xff131b2e),child:const Center(child:Icon(Icons.person_outline_rounded,size:48,color:Color(0xff91a4c7)))):Image.memory(data,fit:fit,width:double.infinity,height:double.infinity,gaplessPlayback:true,errorBuilder:(context,error,stack)=>const Center(child:Icon(Icons.image_not_supported_outlined)));
@@ -92,7 +94,7 @@ class _NebulaCastPageState extends State<NebulaCastPage>{
   Future<void> _import()async{
     if(busy)return;
     setState(()=>busy=true);
-    try{final n=await MemoraArtStore.importLocal();if(n!=null&&mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Arte instalado: $n recursos gráficos.')));}
+    try{final n=await AdventureArtStore.importLocal(widget.guide);if(n!=null&&mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Arte instalado: $n recursos gráficos.')));}
     catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}
     finally{if(mounted)setState(()=>busy=false);}
   }
@@ -102,7 +104,7 @@ class _NebulaCastPageState extends State<NebulaCastPage>{
       Padding(padding:const EdgeInsets.all(12),child:OutlinedButton.icon(onPressed:busy?null:_import,icon:const Icon(Icons.image_outlined),label:const Text('Importar personajes y paisajes'))),
       if(busy)const LinearProgressIndicator(),
       Expanded(child:cast.isEmpty?const Center(child:Text('Sincroniza la guía para recibir el reparto.')):GridView.builder(padding:const EdgeInsets.all(12),gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:2,crossAxisSpacing:12,mainAxisSpacing:12,childAspectRatio:.72),itemCount:cast.length,itemBuilder:(context,i){
-        final p=cast[i];return Card(clipBehavior:Clip.antiAlias,child:InkWell(onTap:()=>showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:Text(p.name),content:Column(mainAxisSize:MainAxisSize.min,children:[SizedBox(height:190,width:190,child:AnimePortrait(id:p.id)),const SizedBox(height:12),Text(p.role,style:const TextStyle(fontWeight:FontWeight.bold)),Text(p.bio)]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cerrar'))])),child:Column(children:[Expanded(child:AnimePortrait(id:p.id)),Padding(padding:const EdgeInsets.all(8),child:Column(children:[Text(p.name,style:const TextStyle(fontWeight:FontWeight.bold)),Text(p.role,maxLines:1,overflow:TextOverflow.ellipsis)]) )])));
+        final p=cast[i];return Card(clipBehavior:Clip.antiAlias,child:InkWell(onTap:()=>showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:Text(p.name),content:Column(mainAxisSize:MainAxisSize.min,children:[SizedBox(height:190,width:190,child:AnimePortrait(id:p.id,guide:widget.guide)),const SizedBox(height:12),Text(p.role,style:const TextStyle(fontWeight:FontWeight.bold)),Text(p.bio)]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cerrar'))])),child:Column(children:[Expanded(child:AnimePortrait(id:p.id,guide:widget.guide)),Padding(padding:const EdgeInsets.all(8),child:Column(children:[Text(p.name,style:const TextStyle(fontWeight:FontWeight.bold)),Text(p.role,maxLines:1,overflow:TextOverflow.ellipsis)]) )])));
       })),
     ]));
   }
@@ -151,5 +153,151 @@ class NebulaLandscape extends StatelessWidget {
         return Image.memory(bytes,fit:BoxFit.cover,width:double.infinity,height:double.infinity,gaplessPlayback:true,errorBuilder:(context,error,stack)=>const SizedBox.expand());
       },
     ),
+  );
+}
+
+class AdventureArtStore {
+  static const maxBytes=32*1024*1024;
+  static const maxAssets=512;
+  static final _cache=<String,Future<Map<String,Uint8List>>>{};
+  static bool isNebula(String id)=>id=='nebula-finanzas-rpg'||id.endsWith('_nebula-finanzas-rpg');
+  static bool validId(dynamic id)=>id is String&&RegExp(r'^[a-z0-9_]{1,80}$').hasMatch(id);
+  static void invalidateLegacy()=>_cache.removeWhere((id,_)=>isNebula(id));
+  static Future<File> _file(String guideId)async{
+    final dir=Directory('${(await getApplicationSupportDirectory()).path}/adventure-art-v2');
+    await dir.create(recursive:true);
+    final key=base64Url.encode(utf8.encode(guideId)).replaceAll('=','');
+    if(key.length>220)throw const FormatException('Identificador demasiado largo.');
+    return File('${dir.path}/$key.json');
+  }
+  static Map<String,String> validatePart(dynamic root,{String? expected}){
+    if(root is! Map||root['schema']!=2||root['kind']!='memora_adventure_art_v2'||root['adventure'] is! String||(expected!=null&&root['adventure']!=expected)||root['assets'] is! Map)throw const FormatException('Paquete de arte incompatible.');
+    final entries=root['assets'] as Map;
+    if(entries.isEmpty||entries.length>maxAssets)throw const FormatException('Cantidad de imágenes inválida.');
+    final out=<String,String>{};
+    var total=0;
+    for(final e in entries.entries){
+      final id=e.key,encoded=e.value;
+      if(!validId(id)||encoded is! String||encoded.length>1200000)throw const FormatException('Imagen inválida.');
+      total+=encoded.length;
+      if(total>maxBytes)throw const FormatException('Paquete demasiado grande.');
+      final b=base64Decode(encoded);
+      if(b.length<12||ascii.decode(b.sublist(0,4),allowInvalid:true)!='RIFF'||ascii.decode(b.sublist(8,12),allowInvalid:true)!='WEBP')throw const FormatException('Se requiere WebP.');
+      out[id as String]=encoded;
+    }
+    return out;
+  }
+  static Map<String,String> mergeParts(List<dynamic> parts,String adventure){
+    final all=<String,String>{};
+    var size=0;
+    for(final p in parts){
+      for(final e in validatePart(p,expected:adventure).entries){
+        if(all.containsKey(e.key))throw const FormatException('Imagen duplicada.');
+        size+=e.value.length;
+        if(size>maxBytes||all.length>=maxAssets)throw const FormatException('Paquete demasiado grande.');
+        all[e.key]=e.value;
+      }
+    }
+    if(all.isEmpty)throw const FormatException('Paquete vacío.');
+    return all;
+  }
+  static Future<int> saveParts(String guideId,String adventure,List<dynamic> parts)async{
+    final all=mergeParts(parts,adventure);
+    final encoded=jsonEncode({'schema':2,'kind':'memora_adventure_art_v2','adventure':adventure,'assets':all});
+    if(utf8.encode(encoded).length>maxBytes)throw const FormatException('Paquete demasiado grande.');
+    final f=await _file(guideId),tmp=File(f.path+'.tmp');
+    await tmp.writeAsString(encoded,flush:true);await tmp.rename(f.path);
+    _cache.remove(guideId);MemoraArtStore.revision.value++;
+    return all.length;
+  }
+  static Future<Map<String,Uint8List>> load(String guideId)=>_cache.putIfAbsent(guideId,()=>_load(guideId));
+  static Future<Map<String,Uint8List>> _load(String guideId)async{
+    final legacy=isNebula(guideId)?await MemoraArtStore.load():<String,Uint8List>{};
+    try{
+      final f=await _file(guideId);
+      if(await f.exists()&&await f.length()<=maxBytes){
+        final all=validatePart(jsonDecode(await f.readAsString()));
+        return {...legacy,for(final e in all.entries)e.key:base64Decode(e.value)};
+      }
+    }catch(_){}
+    return legacy;
+  }
+  static Future<int?> importLocal(StudyGuide guide)async{
+    final selected=await FilePicker.pickFile(type:FileType.custom,allowedExtensions:['json'],dialogTitle:'Arte de esta aventura');
+    if(selected==null)return null;
+    final b=await selected.readAsBytes();
+    if(b.length>maxBytes)throw const FormatException('Paquete demasiado grande.');
+    final raw=jsonDecode(utf8.decode(b));
+    if(raw is Map&&raw['schema']==1){
+      if(!isNebula(guide.id))throw const FormatException('Este paquete pertenece a Nébula.');
+      return MemoraArtStore.save(raw);
+    }
+    if(raw is! Map||raw['adventure'] is! String)throw const FormatException('Paquete incompatible.');
+    final id=raw['adventure'] as String;
+    if(guide.id!=id&&!guide.id.endsWith('_$id'))throw const FormatException('El paquete pertenece a otra aventura.');
+    return saveParts(guide.id,id,[raw]);
+  }
+}
+class AdventureActor {
+  const AdventureActor(this.id,{this.expression='',this.label='',this.position=0,this.scale=1});
+  final String id,expression,label;
+  final double position,scale;
+}
+class AdventureVisualSpec {
+  const AdventureVisualSpec({this.background,this.actors=const [],this.height=300});
+  final String? background;
+  final List<AdventureActor> actors;
+  final double height;
+  static AdventureVisualSpec? parse(dynamic raw){
+    if(raw is! Map)return null;
+    final bg=AdventureArtStore.validId(raw['background'])?raw['background'] as String:null;
+    final actors=<AdventureActor>[];
+    final list=raw['actors'];
+    double bound(dynamic n,double fallback,double lo,double hi)=>n is num&&n.isFinite?n.toDouble().clamp(lo,hi).toDouble():fallback;
+    if(list is List){
+      for(final item in list.take(4)){
+        if(item is! Map||!AdventureArtStore.validId(item['id']))continue;
+        final expression=AdventureArtStore.validId(item['expression'])?item['expression'] as String:'';
+        final label=item['label'] is String?item['label'] as String:'';
+        actors.add(AdventureActor(item['id'] as String,expression:expression,label:label.length>80?label.substring(0,80):label,position:bound(item['position'],0,-1,1),scale:bound(item['scale'],1,.35,1.5)));
+      }
+    }
+    if(bg==null&&actors.isEmpty)return null;
+    return AdventureVisualSpec(background:bg,actors:actors,height:bound(raw['height'],300,200,420));
+  }
+}
+class AdventureSceneView extends StatelessWidget {
+  const AdventureSceneView({super.key,required this.guide,required this.visual,this.location=''});
+  final StudyGuide guide;
+  final AdventureVisualSpec visual;
+  final String location;
+  @override Widget build(BuildContext context)=>ClipRRect(
+    borderRadius:BorderRadius.circular(16),
+    child:SizedBox(height:visual.height,child:ValueListenableBuilder<int>(
+      valueListenable:MemoraArtStore.revision,
+      builder:(context,_,child)=>FutureBuilder<Map<String,Uint8List>>(
+        future:AdventureArtStore.load(guide.id),
+        builder:(context,snapshot){
+          final assets=snapshot.data??const <String,Uint8List>{};
+          final bg=assets[visual.background];
+          return LayoutBuilder(builder:(context,box)=>Stack(fit:StackFit.expand,children:[
+            const DecoratedBox(decoration:BoxDecoration(gradient:LinearGradient(colors:[Color(0xff101c31),Color(0xff28474f)]))),
+            if(bg!=null)Image.memory(bg,fit:BoxFit.cover,gaplessPlayback:true,errorBuilder:(context,error,stack)=>const SizedBox.expand()),
+            if(bg==null&&visual.background!=null&&snapshot.connectionState==ConnectionState.done)
+              const Align(alignment:Alignment.topCenter,child:Padding(padding:EdgeInsets.all(8),child:Text('Paisaje pendiente de sincronizar',style:TextStyle(color:Colors.white70,fontSize:12)))),
+            for(final actor in visual.actors)
+              Align(alignment:Alignment(actor.position,1),child:SizedBox(
+                width:box.maxWidth*(visual.actors.length==1 ? .8 : .46),
+                height:(box.maxHeight*.70*actor.scale).clamp(80.0,box.maxHeight).toDouble(),
+                child:Stack(fit:StackFit.expand,children:[
+                  Positioned.fill(bottom:actor.label.isEmpty?0:24,child:AnimePortrait(id:actor.id,expression:actor.expression,guide:guide,fit:BoxFit.contain,transparentBackground:true)),
+                  if(actor.label.isNotEmpty)Positioned(bottom:0,left:0,right:0,child:Container(color:const Color(0xb0101a2b),padding:const EdgeInsets.all(5),child:Text(actor.label,textAlign:TextAlign.center,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.bold)))),
+                ]),
+              )),
+            if(location.isNotEmpty)Positioned(left:10,top:10,right:10,child:Align(alignment:Alignment.topLeft,child:Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:const Color(0xbf101a2b),borderRadius:BorderRadius.circular(10)),child:Text(location,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.bold))))),
+          ]));
+        },
+      ),
+    )),
   );
 }
