@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'adventure_engine.dart';
+import 'adventure_music.dart';
 import 'guide_store.dart';
 import 'models.dart';
 import 'trade_campaign_page.dart';
@@ -471,6 +472,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
       appBar: AppBar(
         title: Text('Episodio ${widget.episode.number}'),
         actions: [
+          AdventureMusicButton(mood: _finished ? 'victory' : _stage == 'feedback' ? (_wasCorrect == true ? 'victory' : 'study') : _stage == 'challenge' && _scene.role != 'boss' ? 'study' : adventureMood(_scene.music, _scene.biome, _scene.role)),
           IconButton(
             tooltip: _voiceOn ? 'Silenciar narración' : 'Activar narración',
             icon: Icon(_voiceOn ? Icons.volume_up_rounded : Icons.volume_off_rounded),
@@ -520,8 +522,8 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
 
 
 class _Scene {
-  const _Scene({this.arc,this.location,this.speaker,this.biome='mercado',this.role='mentor',this.dialogue=const [],this.choices=const [],this.explanation,this.visual});
-  final String? arc,location,speaker,explanation;
+  const _Scene({this.arc,this.location,this.speaker,this.biome='mercado',this.role='mentor',this.dialogue=const [],this.choices=const [],this.explanation,this.visual,this.music});
+  final String? arc,location,speaker,explanation,music;
   final AdventureVisualSpec? visual;
   final String biome,role;
   final List<String> dialogue,choices;
@@ -533,7 +535,7 @@ class _Scene {
       if(v is Map && v['kind']=='memora_scene_v1'){
         String? str(String k)=>v[k] is String?v[k] as String:null;
         List<String> list(String k)=>v[k] is List?(v[k] as List).whereType<String>().where((x)=>x.trim().isNotEmpty).take(8).toList():<String>[];
-        return _Scene(arc:str('arc'),location:str('location'),speaker:str('speaker'),biome:str('biome')??'mercado',role:str('role')??'mentor',dialogue:list('dialogue'),choices:list('choices'),explanation:str('explanation'),visual:AdventureVisualSpec.parse(v['visual']));
+        return _Scene(arc:str('arc'),location:str('location'),speaker:str('speaker'),biome:str('biome')??'mercado',role:str('role')??'mentor',dialogue:list('dialogue'),choices:list('choices'),explanation:str('explanation'),visual:AdventureVisualSpec.parse(v['visual']),music:str('music'));
       }
     }catch(_){}
     return _Scene(dialogue:[raw,card.answer]);

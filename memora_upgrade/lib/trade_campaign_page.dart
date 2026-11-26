@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'nebula_art.dart';
+import 'adventure_music.dart';
 
 class TradeChoice {
   const TradeChoice(this.name,this.note,this.fee,this.rep,this.boost);
@@ -12,11 +13,12 @@ class TradeChoice {
   final int fee,rep,boost;
 }
 class TradeDay {
-  const TradeDay(this.title,this.speaker,this.place,this.biome,this.story,this.cost,this.demand,this.marketPrice,this.rent,this.choices,{this.visual});
+  const TradeDay(this.title,this.speaker,this.place,this.biome,this.story,this.cost,this.demand,this.marketPrice,this.rent,this.choices,{this.visual,this.music});
   final String title,speaker,place,biome,story;
   final int cost,demand,marketPrice,rent;
   final List<TradeChoice> choices;
   final AdventureVisualSpec? visual;
+  final String? music;
 }
 class TradeCampaign {
   const TradeCampaign(this.title,this.subtitle,this.intro,this.product,this.version,this.initialCash,this.initialDebt,this.targetCash,this.targetReputation,this.liquidation,this.loanCash,this.loanDebt,this.days);
@@ -42,7 +44,7 @@ class TradeCampaign {
             if(c is! Map)throw const FormatException('Decisión inválida');
             choices.add(TradeChoice(str(c,'name'),str(c,'note'),num(c,'fee',0,500),num(c,'rep',-40,40),num(c,'boost',-50,60)));
           }
-          days.add(TradeDay(str(d,'title'),str(d,'speaker'),str(d,'place'),str(d,'biome'),str(d,'story'),num(d,'cost',1,100),num(d,'demand',0,100),num(d,'marketPrice',1,100),num(d,'rent',0,300),choices,visual:AdventureVisualSpec.parse(d['visual'])));
+          days.add(TradeDay(str(d,'title'),str(d,'speaker'),str(d,'place'),str(d,'biome'),str(d,'story'),num(d,'cost',1,100),num(d,'demand',0,100),num(d,'marketPrice',1,100),num(d,'rent',0,300),choices,visual:AdventureVisualSpec.parse(d['visual']),music:d['music'] is String ? d['music'] as String : null));
         }
         return TradeCampaign(str(v,'title'),str(v,'subtitle'),str(v,'intro'),str(v,'product'),num(v,'version',1,100000),num(v,'initialCash',1,10000),num(v,'initialDebt',0,10000),num(v,'targetCash',0,100000),num(v,'targetReputation',0,100),num(v,'liquidation',0,100),num(v,'loanCash',0,1000),num(v,'loanDebt',0,2000),days);
       }catch(_){}
@@ -386,7 +388,7 @@ class _TradeCampaignPageState extends State<TradeCampaignPage> {
     final text=state.insolvent?'No pudiste cubrir los gastos de la jornada. El consejo cierra el negocio.':net<0?'La deuda supera tus recursos. Astra rechaza la renovación.':result=='LA CORONA DEL COMERCIO'?'Astra aprueba tu licencia. Mira se une al gremio y los ciudadanos te nombran su representante. Rin pierde el monopolio.':result=='EL MAGNATE SOLITARIO'?'Pagaste la deuda y construiste riqueza, pero el consejo desconfía de tus métodos. Conservas tu taller sin el apoyo del barrio.':result=='EL PACTO DEL BARRIO'?'El barrio confía en ti y consigue una licencia provisional. Debes mejorar el margen y la caja.':'Pagaste la deuda, pero el taller sigue siendo frágil. El consejo te concede un nuevo intento.';
     return _panel([const Icon(Icons.emoji_events_outlined,color:Color(0xfff6ce85),size:70),const SizedBox(height:10),Text(result,textAlign:TextAlign.center,style:const TextStyle(fontSize:26,fontWeight:FontWeight.w900,color:Color(0xfff6ce85))),const SizedBox(height:10),Text(text,style:const TextStyle(height:1.5)),const Divider(),_line('Caja antes del cierre',state.cash),_line('Liquidación de inventario',state.stock*c.liquidation),_line('Deuda exigible',-state.debt),_line('Saldo final simulado',net),Text('Prestigio final: ${state.reputation}/100'),const SizedBox(height:16),FilledButton(onPressed:busy?null:_restart,child:const Text('Jugar otra estrategia'))]);
   }
-  @override Widget build(BuildContext context)=>Theme(data:ThemeData.dark(useMaterial3:true),child:Scaffold(backgroundColor:const Color(0xff101a2b),appBar:AppBar(backgroundColor:const Color(0xff101a2b),title:Text(c.title,style:const TextStyle(fontSize:16)),actions:[IconButton(tooltip:'Personajes',icon:const Icon(Icons.groups_rounded),onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>NebulaCastPage(guide:widget.guide)))),IconButton(tooltip:'Reiniciar partida',onPressed:loading||busy?null:_restart,icon:const Icon(Icons.restart_alt))]),body:loading?const Center(child:CircularProgressIndicator()):SafeArea(child:ListView(padding:const EdgeInsets.all(14),children:[
+  @override Widget build(BuildContext context)=>Theme(data:ThemeData.dark(useMaterial3:true),child:Scaffold(backgroundColor:const Color(0xff101a2b),appBar:AppBar(backgroundColor:const Color(0xff101a2b),title:Text(c.title,style:const TextStyle(fontSize:16)),actions:[AdventureMusicButton(mood:loading?'silent':pendingLesson!=null?'study':done?(state.insolvent?'mystery':'victory'):adventureMood(d.music,d.biome,'')),IconButton(tooltip:'Personajes',icon:const Icon(Icons.groups_rounded),onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>NebulaCastPage(guide:widget.guide)))),IconButton(tooltip:'Reiniciar partida',onPressed:loading||busy?null:_restart,icon:const Icon(Icons.restart_alt))]),body:loading?const Center(child:CircularProgressIndicator()):SafeArea(child:ListView(padding:const EdgeInsets.all(14),children:[
     _header(),const SizedBox(height:14),
     if(pendingLesson!=null)_masteryScreen(pendingLesson!)else if(done)_ending()else _playScreen(),
     if(state.history.isNotEmpty)...[

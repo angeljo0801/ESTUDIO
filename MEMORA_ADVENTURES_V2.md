@@ -21,3 +21,6 @@ La expresión busca id_expression y vuelve a id. Recomendado WebP transparente p
 
 ## Uso
 Biblioteca → Memora-Sync → Sincronizar guías, personajes y paisajes. Hay actualización exclusiva del arte e importación manual por aventura.
+
+## Música ambiental (reproductor v1.55)
+Cada escena o jornada admite el campo opcional `"music":"mystery"`. Valores: `adventure`, `study`, `mystery`, `battle`, `victory`, `silent`. Si falta, el reproductor elige según el bioma, rol y fase. Los cambios de contenido se sincronizan sin reinstalar. Las cinco pistas originales se sintetizan localmente y no necesitan internet; el selector de música guarda el nivel de volumen. No se admiten archivos de audio nuevos en esta revisión.
