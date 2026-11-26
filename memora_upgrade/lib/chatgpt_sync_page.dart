@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'guide_store.dart';
 import 'models.dart';
 import 'study_engine.dart';
+import 'nebula_art.dart';
 
 class ChatgptSyncPage extends StatefulWidget {
   const ChatgptSyncPage({super.key, required this.store});
@@ -132,6 +133,13 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
     }
     return pending.isEmpty ? 'No hay revisiones nuevas.' : 'Guías recibidas: '+pending.length.toString()+'. Ábrelas en Biblioteca.';
   }
+  Future<String> receiveArt() async {
+    final a=await connection();
+    final file=await a.read('memora-art.json');
+    if(file==null)return 'No hay paquete de arte en el repositorio. Puedes importarlo desde Personajes en la aventura.';
+    final count=await MemoraArtStore.save(file.data);
+    return 'Paquete de arte recibido: '+count.toString()+' retratos y expresiones.';
+  }
   Future<String> sendRequest() async {
     final message = str(prompt.text,12000);
     final a = await connection();
@@ -247,6 +255,8 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
       const SizedBox(height:10),
       FilledButton.icon(onPressed:busy||!saved?null:chooseCardsGuide,icon:const Icon(Icons.style_outlined),label:const Text('Crear tarjetas con ChatGPT')),
       const SizedBox(height:20),
+      OutlinedButton.icon(onPressed:busy||!saved?null:()=>run(receiveArt),icon:const Icon(Icons.image_outlined),label:const Text('Recibir arte anime')),
+      const SizedBox(height:12),
       const Text('Solicitar una guía',style:TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
       DropdownButton<String>(value:type,isExpanded:true,onChanged:busy?null:(v){if(v!=null)setState(()=>type=v);},items:const [
         DropdownMenuItem(value:'adventure',child:Text('Aventura educativa')),
