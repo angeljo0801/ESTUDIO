@@ -607,17 +607,27 @@ class _TradeSceneArt extends StatelessWidget {
   final TradeDay day;
   @override Widget build(BuildContext context){
     final id=day.speaker.toLowerCase().trim();
-    return ClipRRect(borderRadius:BorderRadius.circular(16),child:Container(
-      height:235,decoration:BoxDecoration(gradient:LinearGradient(colors:day.biome=='torre'?const [Color(0xff1b1837),Color(0xff51406b)]:day.biome=='forja'?const [Color(0xff281e30),Color(0xff78462d)]:const [Color(0xff101c31),Color(0xff28474f)])),
-      child:Row(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-        Expanded(child:_portrait('hero','TÚ · Heredero')),
-        const SizedBox(width:2),
-        Expanded(child:_portrait(id,day.speaker)),
+    return ClipRRect(borderRadius:BorderRadius.circular(16),child:SizedBox(
+      height:320,
+      child:Stack(fit:StackFit.expand,children:[
+        DecoratedBox(decoration:BoxDecoration(gradient:LinearGradient(colors:day.biome=='torre'?const [Color(0xff1b1837),Color(0xff51406b)]:day.biome=='forja'?const [Color(0xff281e30),Color(0xff78462d)]:const [Color(0xff101c31),Color(0xff28474f)]))),
+        AnimatedSwitcher(duration:const Duration(milliseconds:380),child:NebulaLandscape(key:ValueKey(day.place),place:day.place,biome:day.biome)),
+        const DecoratedBox(decoration:BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Colors.transparent,Colors.transparent,Color(0x990a1020)],stops:[0,.42,1]))),
+        Positioned(top:10,left:10,right:10,child:Align(alignment:Alignment.topLeft,child:Container(
+          padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),
+          decoration:BoxDecoration(color:const Color(0xbf101a2b),borderRadius:BorderRadius.circular(12)),
+          child:Text(day.place,style:const TextStyle(color:Color(0xfff6ce85),fontSize:12,fontWeight:FontWeight.w800)),
+        ))),
+        Positioned(left:0,right:0,bottom:0,height:174,child:Row(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+          Expanded(child:_portrait('hero','TÚ · Heredero')),
+          const SizedBox(width:16),
+          Expanded(child:_portrait(id,day.speaker)),
+        ])),
       ]),
     ));
   }
   Widget _portrait(String id,String label)=>Stack(fit:StackFit.expand,children:[
-    AnimatedSwitcher(duration:const Duration(milliseconds:320),child:AnimePortrait(key:ValueKey(id),id:id)),
+    Positioned.fill(bottom:12,child:AnimatedSwitcher(duration:const Duration(milliseconds:320),child:AnimePortrait(key:ValueKey(id),id:id,fit:BoxFit.contain,transparentBackground:true))),
     Positioned(bottom:0,left:0,right:0,child:Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:10),decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Colors.transparent,Color(0xf5101a2b)])),child:Text(label,textAlign:TextAlign.center,style:const TextStyle(color:Color(0xfff6ce85),fontWeight:FontWeight.w900)))),
   ]);
 }
