@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'adventure_engine.dart';
+import 'dual_world_page.dart';
 import 'adventure_music.dart';
 import 'adventure_path.dart';
 import 'guide_store.dart';
@@ -66,6 +67,8 @@ class _AdventurePageState extends State<AdventurePage> {
 
   @override
   Widget build(BuildContext context) {
+    final dual=DualWorldContent.fromGuide(widget.guide);
+    if(dual!=null)return DualWorldPage(guide:widget.guide,content:dual);
     final campaign = widget.sideStory?null:TradeCampaign.fromGuide(widget.guide);
     if (campaign != null) return TradeCampaignPage(guide: widget.guide, campaign: campaign, sceneBuilder: (day) => _TradeSceneArt(day: day,guide:widget.guide),sideAdventure:widget.guide.cards.any(AdventureEngine.isSideStory)?()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>AdventurePage(store:widget.store,guide:widget.guide,sideStory:true))):null);
     final cs = Theme.of(context).colorScheme;

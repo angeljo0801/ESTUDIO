@@ -1,0 +1,48 @@
+import 'dart:math';
+class DualState {
+  int cash=0,stock=0,inventoryCost=0,day=0,xp=0,strength=4,defense=3,stamina=10,intelligence=5,rankPoints=0,chapter=0;
+  int hp=40,energy=10,mana=5,enemyHp=0,turn=0,enemyIndex=-1;
+  String world='school',place='Dormitorio',workoutDate='';
+  final Set<String> skills={'strike'};
+  final Set<String> appraised={};
+  final Map<String,int> readPages={},grades={},attempts={};
+  final Set<String> wins={};
+  int get level=>1+xp~/100;
+  int get maxHp=>40+(level-1)*5;
+  int get power=>strength+defense+stamina+intelligence+level*2+skills.length*3;
+  int get examAverage=>grades.isEmpty?0:(grades.values.reduce((a,b)=>a+b)/grades.length).round();
+  bool get inBattle=>enemyIndex>=0;
+  bool get privatePlace=>place=='Dormitorio'||place=='Taller privado';
+  bool travel(){if(inBattle||!privatePlace)return false;world=world=='school'?'trade':'school';place=world=='school'?'Dormitorio':'Taller privado';return true;}
+  bool read(String id,int page,int count){final old=readPages[id]??0;if(count<=0||page!=old||page>=count)return false;final before=(old*5)~/count;final after=((old+1)*5)~/count;readPages[id]=old+1;intelligence+=after-before;mana=min(intelligence,mana+after-before);return true;}
+  bool workout(String date){if(date.isEmpty||workoutDate.compareTo(date)>=0)return false;workoutDate=date;strength+=2;defense+=2;stamina+=2;return true;}
+  int rewardExam(String id,bool correct){if(grades.containsKey(id))return grades[id]!;attempts[id]=(attempts[id]??0)+1;if(!correct)return 0;final grade=max(60,100-10*((attempts[id]??1)-1));grades[id]=grade;rankPoints+=grade;cash+=grade;xp+=30;return grade;}
+  bool buySkill(String id,int price){if(!appraised.contains(id)||skills.contains(id)||cash<price||price<=0)return false;cash-=price;skills.add(id);return true;}
+  int commission(){final id='commission_'+day.toString();if(wins.contains(id))return 0;wins.add(id);cash+=30;day++;return 30;}
+  Map<String,int>? trade(int qty,int price,int demand,int cost,int fixed){if(qty<0||qty>100||price<1||price>100||demand<0||cost<=0||fixed<0||cash<qty*cost+fixed||qty+stock<=0)return null;final total=stock+qty,combined=inventoryCost+qty*cost;final sold=min(total,demand);final cogs=(combined*sold/total).round();final revenue=sold*price;cash+=revenue-qty*cost-fixed;stock=total-sold;inventoryCost=combined-cogs;day++;return {'sold':sold,'revenue':revenue,'profit':revenue-cogs-fixed,'cash':cash,'stock':stock};}
+  void rest(){if(inBattle)return;hp=maxHp;mana=intelligence;energy=stamina;}
+  bool startBattle(int i,int health){if(inBattle||health<1||hp<1)return false;enemyIndex=i;enemyHp=health;turn=0;return true;}
+  String action(Map skill,Map enemy){
+    if(!inBattle)return 'No hay combate.';
+    final cost=skill['cost'] as int,magic=skill['magic']==true;
+    if(magic?mana<cost:energy<cost)return 'No tienes energía suficiente para esa habilidad.';
+    if(magic){mana-=cost;}else{energy-=cost;}
+    final kind=skill['type'] as String;final damage=skill['damage'] as int;
+    final guard=kind=='defense'?damage:0,evade=kind=='speed'?damage:0;
+    final dealt=kind=='defense'||kind=='speed'?0:max(1,damage+(magic?intelligence:strength)~/2-(enemy['defense'] as int));
+    enemyHp=max(0,enemyHp-dealt);turn++;
+    if(enemyHp==0){final key=enemy['id'] as String;final first=wins.add('battle_'+key);xp+=first?(enemy['xp'] as int):0;rankPoints+=first?25:0;enemyIndex=-1;return 'Victoria. '+(first?'Experiencia y ranking aumentados.':'Práctica sin recompensa repetida.');}
+    final roll=Random(turn*31+xp*7+enemyHp).nextInt(100);
+    final hit=roll<min(70,10+evade*5)?0:max(1,(enemy['attack'] as int)-defense~/2-guard);
+    hp=max(0,hp-hit);if(hp==0){enemyIndex=-1;return 'Derrota. Regresa al dormitorio para recuperarte.';}
+    return 'Daño causado: '+dealt.toString()+' · daño recibido: '+hit.toString()+(guard>0?' · guardia activa':evade>0?' · evasión activa':'');
+  }
+  Map<String,dynamic> toJson()=>{'cash':cash,'stock':stock,'inventoryCost':inventoryCost,'day':day,'xp':xp,'strength':strength,'defense':defense,'stamina':stamina,'intelligence':intelligence,'rankPoints':rankPoints,'chapter':chapter,'hp':hp,'energy':energy,'mana':mana,'enemyHp':enemyHp,'turn':turn,'enemyIndex':enemyIndex,'world':world,'place':place,'workoutDate':workoutDate,'skills':skills.toList(),'appraised':appraised.toList(),'readPages':readPages,'grades':grades,'attempts':attempts,'wins':wins.toList()};
+  factory DualState.fromJson(Map j){final s=DualState();int n(String k,int fallback)=>j[k] is int?j[k] as int:fallback;
+    s.cash=n('cash',0);s.stock=n('stock',0);s.inventoryCost=n('inventoryCost',0);s.day=n('day',0);s.xp=n('xp',0);s.strength=n('strength',4);s.defense=n('defense',3);s.stamina=n('stamina',10);s.intelligence=n('intelligence',5);s.rankPoints=n('rankPoints',0);s.chapter=n('chapter',0);s.hp=n('hp',40);s.energy=n('energy',10);s.mana=n('mana',5);s.enemyHp=n('enemyHp',0);s.turn=n('turn',0);s.enemyIndex=n('enemyIndex',-1);s.world=j['world']=='trade'?'trade':'school';s.place=j['place'] is String?j['place'] as String:'Dormitorio';s.workoutDate=j['workoutDate'] is String?j['workoutDate'] as String:'';
+    for(final e in [MapEntry('skills',s.skills),MapEntry('appraised',s.appraised),MapEntry('wins',s.wins)]){if(j[e.key] is List)e.value.addAll((j[e.key] as List).whereType<String>());}
+    for(final e in [MapEntry('readPages',s.readPages),MapEntry('grades',s.grades),MapEntry('attempts',s.attempts)]){if(j[e.key] is Map)for(final item in (j[e.key] as Map).entries){if(item.key is String&&item.value is int)e.value[item.key as String]=item.value as int;}}
+    return s;
+  }
+  DualState();
+}
