@@ -190,11 +190,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
     const Text('Apreciación revela las técnicas actuales de un estudiante. Al avanzar los arcos, sus capacidades evolucionan. Vuelve a apreciar a tus compañeros para descubrir técnicas nuevas.'),
     DropdownButton<String>(isExpanded:true,value:raceFilter,items:[const DropdownMenuItem(value:'all',child:Text('Todas las razas')),for(final r in c.races.where((r)=>r['secret']!=true||c.people.any((p)=>p['race']==r['id']&&s.knownRaces.contains(p['id']))))DropdownMenuItem(value:r['id'].toString(),child:Text(r['name'].toString()))],onChanged:busy?null:(value)=>setState(()=>raceFilter=value??'all')),
     TextField(decoration:const InputDecoration(labelText:'Buscar estudiante'),onChanged:(value)=>setState(()=>nameFilter=value.toLowerCase().trim())),
-    for(final person in c.people.where((p)=>!s.deadStudents.contains(p['id'])&&(raceFilter=='all'||publicRace(p)==raceFilter)&&p['name'].toString().toLowerCase().contains(nameFilter)))...[
+    for(final person in c.people.where((p)=>!s.deadStudents.contains(p['id'])&&(s.place=='Sala de profesores'?p['teacher']==true:p['teacher']!=true)&&(raceFilter=='all'||publicRace(p)==raceFilter)&&p['name'].toString().toLowerCase().contains(nameFilter)))...[
       const Divider(),
       personArt(person),
-      Text(person['name'].toString()+' · Año '+person['year'].toString()+' · Nv. '+studentLevel(person).toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+      Text(person['name'].toString()+(person['teacher']==true?' · Profesor':' · Año '+person['year'].toString())+' · Nv. '+studentLevel(person).toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
       Text(person['intro'].toString()),
+      if(person['teacher']==true)Text('Especialidad: '+(person['subject']??'Combate').toString()),
+      if(s.flags.contains('secret_job_'+person['id'].toString()))Text('Identidad exterior descubierta: '+(person['secretOccupation']??'Aventurero').toString()),
       if(person['race']!=null)Text('Raza: '+(c.raceFor(publicRace(person))['name']??publicRace(person)).toString()),
       if(person['appearance'] is String)Text(person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?(person['coverAppearance']??'Apariencia humana.').toString():person['appearance'] as String),
       if(discoverableSkills(person).any((sk)=>s.appraised.contains(sk['id']))&&c.raceFor(publicRace(person))['trait'] is String)Text('Rasgo innato: '+c.raceFor(publicRace(person))['trait'].toString()),
@@ -296,7 +298,10 @@ class _DualWorldPageState extends State<DualWorldPage>{
     for(final person in c.people.where((p)=>s.rescuedStudents.contains(p['id'])))Text('Rescatado: '+person['name'].toString()),
     battle()
   ]);
-  bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;if((enemy['lethal']==true)!=(s.place=='Dungeon'))return false;if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag']))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
+  bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;
+    final location=enemy['location'];
+    if(location is String){if(location!=s.place)return false;}else if((enemy['lethal']==true)!=(s.place=='Dungeon')||!const ['Arena','Dungeon'].contains(s.place))return false;
+    if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag']))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
     const Text('Los combates son por turnos. Las técnicas físicas consumen estamina; las mágicas consumen maná.'),
     for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))btn((s.activeSpirit==sp['id']?'Activo: ':'Vincular para combate: ')+sp['name'].toString(),()=>s.selectSpirit(sp)?'Espíritu seleccionado.':'No disponible.'),
@@ -304,7 +309,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(!combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
       Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(c.enemies[i]['rank']!=null?' · Rango '+c.enemies[i]['rank'].toString():'')+' · '+s.victoryXp(c.enemies[i],!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
-      if(s.level>=(c.enemies[i]['level'] as int)&&combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
+      if((c.enemies[i]['openChallenge']==true||s.level>=(c.enemies[i]['level'] as int))&&combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
   ]);final e=enemyProfile(s.enemyIndex);return section('Combate · '+e['name'].toString(),[
     Row(children:[Expanded(child:art('hero',height:200)),Expanded(child:enemyArt(e))]),
     if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
@@ -337,7 +342,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   @override Widget build(BuildContext context){
     if(loading)return const Scaffold(body:Center(child:CircularProgressIndicator()));
     final school=s.world=='school';final current=s.place;
-    final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo','Dungeon','Iglesia','Palacio']:['Taller privado','Mercado','Gremio','Almacén','Puerto','Armería','Empresas'];
+    final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo','Dungeon','Iglesia','Palacio','Sala de profesores','Gremio de aventureros','Bosque fronterizo','Minas de Valdren','Campamento mercenario','Frente de guerra',...DualWorldContent.list(c.data['locations']).where((l)=>l['world']=='school').map((l)=>l['name'].toString())].toSet().toList():['Taller privado','Mercado','Gremio','Almacén','Puerto','Armería','Empresas',...DualWorldContent.list(c.data['locations']).where((l)=>l['world']=='trade').map((l)=>l['name'].toString())].toSet().toList();
     return Scaffold(appBar:AppBar(title:Text(school?'Academia · Entre dos mundos':'Mundo comercial'),actions:[IconButton(onPressed:busy?null:importArt,icon:const Icon(Icons.image_outlined),tooltip:'Importar arte de Asteria')]),body:ListView(padding:const EdgeInsets.all(14),children:[
       landscape(current),
       if(c.data['player'] is Map)section((c.data['player']['name']??'Valcrest').toString(),[art('hero',height:180),Text((c.data['player']['appearance']??'').toString()),const Text('Becario · Casa de Valcrest')]),
@@ -360,7 +365,16 @@ class _DualWorldPageState extends State<DualWorldPage>{
           for(var i=0;i<c.lessons.length;i++)if(i<=s.grades.length&&(i!=2||s.wins.contains('battle_darian_practice'))&&(i!=4||s.wins.contains('battle_stone_beast'))&&(i!=6||s.wins.contains('battle_seren_duel')))lesson(c.lessons[i])else ListTile(leading:const Icon(Icons.lock),title:Text(c.lessons[i]['title'].toString()),subtitle:Text(i==2?'Supera el duelo de práctica de Darian.':i==4?'Derrota a la bestia de piedra.':i==6?'Supera el torneo de Seren.':'Supera las clases anteriores.'))
         ],
         if(current=='Biblioteca')library(),
-        if(current=='Patio')appraisal(),
+        if(current=='Patio'||current=='Sala de profesores')appraisal(),
+        if(current=='Gremio de aventureros')section('Registro de aventureros',[
+          Text(s.flags.contains('adventurer_member')?'Licencia activa · victorias de caza '+c.enemies.where((e)=>e['requiresFlag']=='adventurer_member').fold<int>(0,(total,e)=>total+(s.battleCounts[e['id']]??0)).toString():'Sin licencia. Habla con el maestro del gremio.'),
+          const Text('El gremio es independiente de la academia y del ejército. Las cacerías exteriores son voluntarias y letales.'),
+        ]),
+        if(current=='Campamento mercenario')section('Compañía mercenaria',[
+          Text(s.flags.contains('mercenary_member')?'Contrato activo · servicio voluntario':'Sin contrato'),
+          const Text('La guerra de la frontera enfrenta a Asterion y Dravenn. La academia permanece neutral; no necesitas servir a la Corona ni a sus facciones.'),
+        ]),
+        if(const ['Bosque fronterizo','Minas de Valdren','Frente de guerra'].contains(current)||c.enemies.any((e)=>e['location']==current))battle(),
         if(current=='Arena')battle(),
         if(current=='Dungeon')dungeon(),
         if(current=='Patio'&&s.flags.any((x)=>x.startsWith('fallback_')))section('Noticias de expediciones',[for(final person in c.people.where((p)=>s.flags.contains('fallback_'+p['id'].toString())))Text(person['name'].toString()+' regresó gracias al equipo de rescate.')]),
