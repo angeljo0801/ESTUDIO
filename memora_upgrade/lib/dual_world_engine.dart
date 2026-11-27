@@ -24,6 +24,14 @@ class DualState {
   String applyState(Map sk,Map<String,int> target,Random rng,bool match,{int resistance=0}){final state=sk['status']?.toString()??elementStates[sk['element']];if(state==null||rng.nextInt(100)>=max(0,statusChance(sk,match)-resistance))return '';target[state]=max(target[state]??0,max(1,numOf(sk,'stateTurns',2)));return ' · '+state;}
   int tickStates(Map<String,int> states,int maximum){int damage=0;for(final k in states.keys.toList()){if(const ['quemadura','veneno','hemorragia','maldición'].contains(k))damage+=max(1,maximum~/20);states[k]=states[k]!-1;if(states[k]!<=0)states.remove(k);}return damage;}
   bool blocked(Map<String,int> states,Random rng)=>states.containsKey('sueño')||states.containsKey('congelación')||states.containsKey('aturdimiento')||(states.containsKey('parálisis')&&rng.nextInt(100)<25);
+  static const specializations=<String,List<Object>>{
+    'Guerrero':[10,0,''],'Caballero':[25,0,'Guerrero'],'Maestro de armas':[50,0,'Caballero'],
+    'Mago':[0,15,''],'Hechicero':[0,35,'Mago'],'Archimago':[0,80,'Hechicero'],
+    'Explorador':[8,5,''],'Espadachín mágico':[30,30,'Guerrero'],'Invocador':[0,25,'Mago']
+  };
+  bool hasClass(String name)=>flags.contains('class:'+name);
+  bool canLearnClass(String name){final req=specializations[name];return req!=null&&!inBattle&&world=='school'&&place=='Dormitorio'&&!hasClass(name)&&strength>=(req[0] as int)&&intelligence>=(req[1] as int)&&(req[2]==''||hasClass(req[2] as String))&&(name!='Espadachín mágico'||hasClass('Mago'));}
+  bool learnClass(String name){if(!canLearnClass(name))return false;flags.add('class:'+name);return true;}
   int get charismaFee=>100+charisma*25;
   int get luckFee=>100+luck*25;
   bool improveSocial(String stat){if(inBattle||world!='school'||place!='Dormitorio'||!const ['charisma','luck'].contains(stat))return false;final fee=stat=='charisma'?charismaFee:luckFee;if(cash<fee)return false;cash-=fee;if(stat=='charisma'){charisma++;}else{luck++;}return true;}
@@ -175,7 +183,7 @@ class DualState {
   bool buyWeapon(Map w){if(inBattle||world!='trade'||place!='Armería'||weapons.contains(w['id'])||grades.length<((w['minClasses'] as int?)??0)||w['requiresWin'] is String&&!wins.contains('battle_'+w['requiresWin'].toString()))return false;final price=w['price'] as int;if(price<=0||cash<price)return false;cash-=price;weapons.add(w['id'] as String);return true;}
   bool equipWeapon(Map w){if(inBattle||world!='school'||place!='Dormitorio'||!weapons.contains(w['id'])||strength<(w['minStrength'] as int)||intelligence<(w['minIntelligence'] as int))return false;equippedWeapon=w['id'] as String;weaponElement=w['element']?.toString()??'neutral';weaponStrength=w['strengthBonus'] as int;weaponMagic=w['magicBonus'] as int;weaponDefense=w['defenseBonus'] as int;return true;}
   void unequipWeapon(){if(inBattle)return;equippedWeapon='';weaponElement='neutral';weaponStrength=0;weaponMagic=0;weaponDefense=0;}
-  int spiritChance(Map spirit,int affinity){if(!canCapture(spirit)||affinity<((spirit['minAffinity'] as int?)??25))return 0;return (20+affinity~/2+(intelligence-(spirit['intelligence'] as int))*2).clamp(5,100).toInt();}
+  int spiritChance(Map spirit,int affinity){if(!canCapture(spirit)||affinity<((spirit['minAffinity'] as int?)??25))return 0;return (20+affinity~/2+(intelligence-(spirit['intelligence'] as int))*2+min(10,luck~/5)).clamp(5,100).toInt();}
   bool freshSpiritAttempt(Map spirit){final encounter=spirit['requiresWin']?.toString()??'';final count=battleCounts[encounter]??(wins.contains('battle_'+encounter)?1:0);return count>(spiritAttempts[spirit['id']]??0);}
   String trySpirit(Map spirit,int affinity){final chance=spiritChance(spirit,affinity);if(chance==0||!freshSpiritAttempt(spirit))return 'Necesitas afinidad, inteligencia o superar de nuevo su encuentro.';final encounter=spirit['requiresWin']?.toString()??'',id=spirit['id'] as String;spiritAttempts[id]=battleCounts[encounter]??1;if(Random().nextInt(100)>=chance)return 'El espíritu no acepta el vínculo. Supera de nuevo el encuentro para intentar otra vez.';spirits.add(id);return 'Espíritu vinculado.';}
   int victoryXp(Map enemy,bool first){if(enemy['repeatable']==true){final l=(enemy['level'] as int?)??1;return 20+15*l*l+((enemy['hp'] as int?)??0)~/10;}return first?((enemy['xp'] as int?)??0):0;}
@@ -230,7 +238,7 @@ class DualState {
     String stateNote=interrupted?' · Acción interrumpida':'';
     if(dealt>0){final resistance=enemy['resistances'] is Map?numOf(enemy['resistances'] as Map,el,0).clamp(0,80).toInt():0;
       dealt=max(1,dealt*(matching?110:100)*(100-resistance)~/10000);
-      if(spiritMode=='fusion')dealt=max(1,dealt*115~/100);
+      if(spiritMode=='fusion')dealt=max(1,dealt*115~/100);if(magic&&hasClass('Mago')||!magic&&hasClass('Guerrero'))dealt=max(1,dealt*105~/100);
       if(critical){dealt=max(1,dealt*numOf(skill,'criticalDamage',150)~/100);stateNote+=' · ¡Crítico!';}
       stateNote+=applyState({...skill,'element':el},enemyStates,rng,matching,resistance:resistance~/2);
       if(el!='neutral')lastElement=el;
