@@ -25,6 +25,10 @@ class AdventurePath {
     int n(String k,int fallback)=>v[k] is int?bound(v[k] as int):fallback;
     return AdventurePath(trust:n('trust',5),resources:n('resources',5),evidence:n('evidence',0),flags:v['flags'] is List?(v['flags'] as List).whereType<String>().take(300).toList():const []);
   }
+  // Scale the finale to a nine-mission campaign. Decisions remain meaningful
+  // even if the player answers every educational question correctly.
+  String get finaleTitle=>trust>=19&&evidence>=20&&resources>=4?'El aliado legendario':evidence>=20?'La verdad sin aplausos':trust>=19?'El protector de Nébula':resources>=12?'El estratega de la reconstrucción':'El gremio en recuperación';
+  String get finaleText=>trust>=19&&evidence>=20&&resources>=4?'El consejo acepta las pruebas, los héroes conservan sus aliados y el gremio dispone de reservas para reconstruirse. Mira revela que fuiste tú quien mantuvo al equipo unido.':evidence>=20?'Los documentos desmontan el fraude, pero las relaciones o las reservas del grupo son demasiado frágiles para una recuperación inmediata.':trust>=19?'La comunidad protege a los héroes y obtiene una nueva audiencia, aunque todavía faltan documentos concluyentes.':resources>=12?'Has salvado las reservas del gremio; los héroes deberán reunir más pruebas y apoyo antes de recuperar su nombre.':'El equipo conserva una oportunidad para reconstruirse. Revisa tus decisiones y vuelve a jugar con otra estrategia.';
   String get endingTitle=>trust>=7&&evidence>=4?'Victoria con aliados':evidence>=4?'La verdad sale a la luz':resources==0||trust<3?'Retirada estratégica':'Misión incompleta: el camino continúa';
   String get endingText=>trust>=7&&evidence>=4?'El equipo conserva la confianza en ti y tiene pruebas para avanzar.':evidence>=4?'Conseguiste información valiosa, pero tus relaciones necesitan recuperarse.':resources==0||trust<3?'El equipo debe reagruparse y reconstruir sus recursos.':'Has avanzado, pero aún quedan pruebas por descubrir. Tus decisiones se conservan para el próximo capítulo.';
 }

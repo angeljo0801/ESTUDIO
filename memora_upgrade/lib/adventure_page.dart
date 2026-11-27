@@ -89,7 +89,7 @@ class _AdventurePageState extends State<AdventurePage> {
                       const SizedBox(height: 10),
                       Text(widget.sideStory?'Nébula: La sombra del héroe':widget.guide.title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 9),
-                      const Text('Historias animadas, voz, preguntas y puntos. Todo basado en las tarjetas de tu guía.'),
+                      Text(widget.sideStory?'Eres un aliado de los héroes. Investiga, protege al grupo y aprende a tomar decisiones financieras.':'Explora, aprende y toma decisiones que cambian el rumbo de las misiones.'),
                       const SizedBox(height: 15),
                       Wrap(spacing: 9, runSpacing: 8, children: [
                         Chip(avatar: const Icon(Icons.stars_rounded, size: 18), label: Text('$_xp XP')),
@@ -121,7 +121,7 @@ class _AdventurePageState extends State<AdventurePage> {
                           child: Text(episode.number > _unlocked ? '🔒' : episode.icon,
                               style: const TextStyle(fontSize: 24)),
                         ),
-                        title: Text('Episodio ${episode.number}',
+                        title: Text('Capítulo ${episode.number}',
                             style: const TextStyle(fontWeight: FontWeight.w800)),
                         subtitle: Text(_Scene.from(episode.cards.first).arc ?? episode.title,
                             maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -137,7 +137,7 @@ class _AdventurePageState extends State<AdventurePage> {
                   ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Cada episodio contiene hasta tres desafíos. Las respuestas se guardan en el repaso de Memora; lo que falles aparecerá antes para volver a practicar.',
+                  'Tus decisiones se guardan al terminar cada episodio. Repite un capítulo para explorar otras estrategias; las respuestas alimentan el repaso de Memora.',
                   style: TextStyle(height: 1.4),
                 ),
               ],
@@ -483,13 +483,15 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
         ],
       );
 
+  bool get _sideFinale=>AdventureEngine.isSideStory(_card)&&widget.episode.number==AdventureEngine.episodesFor(widget.guide,sideStory:true).length;
+
   Widget _ending() => Center(
         child: SingleChildScrollView(child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('🏆', style: TextStyle(fontSize: 90)),
             const SizedBox(height: 12),
-            Text(_path.endingTitle, textAlign: TextAlign.center,
+            Text(_sideFinale?_path.finaleTitle:_path.endingTitle, textAlign: TextAlign.center,
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24)),
             const SizedBox(height: 12),
             Text('Conseguiste $_earned XP en esta partida',
@@ -497,7 +499,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
             const SizedBox(height:12),
             Text('$_correctCount/${widget.episode.cards.length} misiones superadas · ${_correctCount == widget.episode.cards.length ? 'Rango S' : _correctCount > 0 ? 'Rango A' : 'En entrenamiento'}',textAlign:TextAlign.center,style:const TextStyle(fontWeight:FontWeight.w800)),
             const SizedBox(height: 15),
-            Text(_path.endingText,textAlign:TextAlign.center),
+            Text(_sideFinale?_path.finaleText:_path.endingText,textAlign:TextAlign.center),
             const SizedBox(height:10),_pathStatus(),
             const SizedBox(height:10),const Text('Tus resultados se añadieron al repaso espaciado de Memora.',
                 textAlign: TextAlign.center),

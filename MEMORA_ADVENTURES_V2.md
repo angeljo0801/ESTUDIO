@@ -24,3 +24,6 @@ Biblioteca → Memora-Sync → Sincronizar guías, personajes y paisajes. Hay ac
 
 ## Música ambiental (reproductor v1.55)
 Cada escena o jornada admite el campo opcional `"music":"mystery"`. Valores: `adventure`, `study`, `mystery`, `battle`, `victory`, `silent`. Si falta, el reproductor elige según el bioma, rol y fase. Los cambios de contenido se sincronizan sin reinstalar. Las cinco pistas originales se sintetizan localmente y no necesitan internet; el selector de música guarda el nivel de volumen. No se admiten archivos de audio nuevos en esta revisión.
+
+## Motor narrativo (v1.56)
+Las escenas memora_scene_v1 admiten sideStory:true (aventura paralela con progreso independiente de la campaña comercial) y path: {prompt,teach,success,failure,decisions:[{label,outcome,trust,resources,evidence,flag}],reactions:{flag:text}}. Dos a cuatro opciones, al menos una sin costo. Los efectos enteros se limitan a ±5. Las banderas activan diálogos posteriores. Al cerrar un capítulo se guardan confianza, recursos, pruebas y banderas. El siguiente capítulo parte de ese estado. Los cambios de contenido no requieren reinstalar tras instalar el reproductor v1.56. El orden de los desafíos educativos se conserva; no es aún un grafo arbitrario de escenas. La aventura paralela de Nébula incluye nueve escenas y cinco finales condicionados al estado.
