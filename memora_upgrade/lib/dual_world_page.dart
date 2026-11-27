@@ -82,7 +82,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   ]);
   Widget appraisal()=>section('Apreciación y adquisición',[
     const Text('Apreciación descubre capacidades. El robo copia una habilidad; el personaje original la conserva. Cada habilidad tiene un precio según su potencia.'),
-    for(final person in c.people)...[const Divider(),Text(person['name'].toString()+' · Año '+person['year'].toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(person['intro'].toString()),Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
+    for(final person in c.people)...[const Divider(),Text(person['name'].toString()+' · Año '+person['year'].toString()+' · Nv. '+(person['level']??'?').toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(person['intro'].toString()),Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
       for(final sk in c.skills.where((x)=>x['owner']==person['id']))...[
         if(!s.appraised.contains(sk['id']))btn('Apreciar habilidad',(){s.appraised.add(sk['id'] as String);return 'Habilidad descubierta.';})else...[Text(sk['name'].toString()+' · '+sk['type'].toString()+' · costo: '+sk['price'].toString()+' monedas · energía: '+sk['cost'].toString()),if(!s.skills.contains(sk['id']))const Text('Disponible para adquirir en tu dormitorio.')else const Text('Aprendida')]]
     ]
@@ -90,8 +90,9 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Widget skillRoom()=>section('Poderes secretos · Apreciación y Robo',[
     const Text('Solo puedes adquirir las habilidades descubiertas en la academia cuando estás a solas en tu dormitorio. No tienes ninguna técnica de combate al empezar.'),
     if(s.skills.isEmpty)const Text('Habilidades de combate: ninguna.'),
-    for(final sk in c.skills.where((x)=>s.appraised.contains(x['id'])))...[Text(sk['name'].toString()+' · '+sk['price'].toString()+' monedas'),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>s.buySkill(sk['id'] as String,sk['price'] as int)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
+    for(final sk in c.skills.where((x)=>s.appraised.contains(x['id'])))...[Text(sk['name'].toString()+' · '+sk['price'].toString()+' monedas · potencia '+sk['damage'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>s.buySkill(sk['id'] as String,sk['price'] as int)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
   ]);
+  String get arcTitle{final arcs=DualWorldContent.list(c.data['arcs']);String name='Arco I';for(final a in arcs){if(s.grades.length>=((a['afterClasses'] as int?)??0))name=a['title'].toString();}return name;}
   Widget storyEvents()=>Column(children:[for(final e in c.events.where(s.eligible))section(e['title'].toString(),[
     Text(e['scene'].toString()),const SizedBox(height:12),
     for(final choice in DualWorldContent.list(e['choices']))FilledButton(onPressed:busy||s.cash<((choice['cost'] as int?)??0)?null:()=>act(()=>s.chooseEvent(e,choice)?s.lastEvent:'No puedes elegir esta opción.'),child:Text(choice['label'].toString())),
@@ -127,7 +128,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
       Text('Nivel '+s.level.toString()+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
       Text('Fuerza '+s.strength.toString()+' · defensa/resistencia '+s.defense.toString()+' · estamina '+s.stamina.toString()+' · inteligencia '+s.intelligence.toString()),
       Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100 · reputación '+s.reputation.toString()),
-      Text('Arco '+(1+s.grades.length~/4).toString()+' · '+s.decisions.length.toString()+' acontecimientos resueltos'),
+      Text('Habilidades de combate: '+s.skills.length.toString()+' · poderes innatos: Apreciación y Robo'),
+      Text(arcTitle+' · '+s.decisions.length.toString()+' acontecimientos resueltos'),
       if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
       if(s.inBattle)battle()else...[
         Wrap(spacing:6,children:[for(final l in locations)ChoiceChip(label:Text(l),selected:l==current,onSelected:busy?null:(_)=>act((){s.place=l;answer.clear();return 'Llegaste a '+l+'.';}))]),
