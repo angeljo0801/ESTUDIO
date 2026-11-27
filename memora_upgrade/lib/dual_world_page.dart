@@ -126,8 +126,9 @@ class _DualWorldPageState extends State<DualWorldPage>{
     final owned=c.skills.where((sk)=>s.skills.contains(sk['id'])).toList();
     final racial=owned.where((sk)=>sk['innate']==true&&c.people.any((p)=>p['id']==sk['owner']&&p['race']==a)).length;
     final elemental=owned.where((sk)=>sk['element']==element).length;
-    final base=a=='human'||a=='neutral'?80:racial>0?55:element=='neutral'?50:25;
-    return min(100,base+racial*10+elemental*10);
+    final base=element=='neutral'?70:25;
+    final racialBonus=(a=='human'||a=='neutral')?10:racial>0?20:0;
+    return min(100,base+racialBonus+min(25,racial*5)+elemental*15);
   }
   int npcIntelligence(Map person)=>((person['spiritIntelligence'] as int?)??((person['level'] as int? ?? 1)*3+5))+s.grades.length*2;
   int npcAffinity(Map person,Map sp)=>DualState.elementalAffinity(person,sp);
@@ -160,7 +161,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(person['race']!=null)Text('Raza: '+(c.raceFor(publicRace(person))['name']??publicRace(person)).toString()),
       if(person['appearance'] is String)Text(person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?(person['coverAppearance']??'Apariencia humana.').toString():person['appearance'] as String),
       if(discoverableSkills(person).any((sk)=>s.appraised.contains(sk['id']))&&c.raceFor(publicRace(person))['trait'] is String)Text('Rasgo innato: '+c.raceFor(publicRace(person))['trait'].toString()),
-      Text('Afinidad espiritual: '+((person['hiddenRace']==true&&!s.knownRaces.contains(person['id']))?(person['publicAffinity']??35):(person['spiritualAffinity']??35)).toString()+'/100'),
+      Text('Afinidad espiritual: '+(publicTalent(person)['spiritualAffinity']??35).toString()+'/100'),
       Text('Clase: '+className(publicTalent(person))+' · Elementos: '+elementsOf(publicTalent(person)).map(elementName).join(', ')),
       Text('Rango espiritual: '+DualState.spiritualRank((publicTalent(person)['spiritualAffinity'] as int?)??35,npcIntelligence(publicTalent(person)))+' · Capacidad: '+npcSlots(publicTalent(person)).toString()),
       Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
@@ -192,6 +193,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Widget dungeon()=>section('Dungeons · expediciones y espíritus',[
     const Text('Los combates aquí pueden terminar en muerte real. El Retorno reinicia ambos mundos. Los duelos de academia son protegidos.'),
     Text('Tus vínculos espirituales: '+s.spirits.length.toString()+' · Sin límite fijo'),
+    Text('Elementos adquiridos: '+({for(final sk in c.skills.where((sk)=>s.skills.contains(sk['id']))) (sk['element']??'neutral').toString()}.map(elementName).join(', '))),
     const Text('Las clases y los elementos determinan la afinidad. Adquiere técnicas elementales para mejorar la compatibilidad.'),
     for(final sp in c.spirits.where((sp)=>s.grades.length>=((sp['minClasses'] as int?)??0)))...[Text(sp['name'].toString()+' · '+(sp['rarity']??'Común').toString()+' · INT '+sp['intelligence'].toString()+' · elemento '+elementName(sp['element']??'neutral')+' · afinidad '+sp['affinity'].toString()),
     if(sp['form'] is String)Text(sp['form'] as String),Text(s.spirits.contains(sp['id'])?'Vinculado':'Afinidad: '+affinityFor(sp).toString()+'/100 · probabilidad: '+s.spiritChance(sp,affinityFor(sp)).toString()+'%'),if(spiritReady(sp))btn('Intentar vínculo',()=>s.trySpirit(sp,affinityFor(sp)))else if(!s.spirits.contains(sp['id']))const Text('Necesitas cumplir los requisitos o vencer nuevamente en su encuentro.')],
