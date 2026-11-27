@@ -8,9 +8,9 @@ import 'models.dart';
 import 'dual_world_engine.dart';
 
 class DualWorldContent {
-  const DualWorldContent(this.data,this.lessons,this.books,this.events,this.extraSkills,this.extraPeople,this.extraEnemies,this.spirits);
+  const DualWorldContent(this.data,this.lessons,this.books,this.events,this.extraSkills,this.extraPeople,this.extraEnemies,this.spirits,this.catalog);
   final Map<String,dynamic> data;
-  final List<Map<String,dynamic>> lessons,books,events,extraSkills,extraPeople,extraEnemies,spirits;
+  final List<Map<String,dynamic>> lessons,books,events,extraSkills,extraPeople,extraEnemies,spirits,catalog;
   List<Map<String,dynamic>> get people=>{for(final person in [...list(data['people']),...extraPeople]) person['id']:person}.values.toList();
   List<Map<String,dynamic>> get races=>list(data['races']);
   Map<String,dynamic> raceFor(dynamic id)=>races.firstWhere((r)=>r['id']==id,orElse:()=> <String,dynamic>{});
@@ -18,7 +18,7 @@ class DualWorldContent {
   List<Map<String,dynamic>> get enemies=>{for(final enemy in [...list(data['enemies']),...extraEnemies]) enemy['id']:enemy}.values.toList();
   static List<Map<String,dynamic>> list(dynamic raw)=>raw is List?raw.whereType<Map>().map((x)=>Map<String,dynamic>.from(x)).toList():[];
   static DualWorldContent? fromGuide(StudyGuide g){
-    Map<String,dynamic>? root;final lessons=<Map<String,dynamic>>[],books=<Map<String,dynamic>>[],events=<Map<String,dynamic>>[],extraSkills=<Map<String,dynamic>>[],extraPeople=<Map<String,dynamic>>[],extraEnemies=<Map<String,dynamic>>[],spirits=<Map<String,dynamic>>[];
+    Map<String,dynamic>? root;final lessons=<Map<String,dynamic>>[],books=<Map<String,dynamic>>[],events=<Map<String,dynamic>>[],extraSkills=<Map<String,dynamic>>[],extraPeople=<Map<String,dynamic>>[],extraEnemies=<Map<String,dynamic>>[],spirits=<Map<String,dynamic>>[],catalog=<Map<String,dynamic>>[];
     for(final c in g.cards){try{final v=jsonDecode(c.adventureStory);if(v is! Map)continue;
       if(v['kind']=='memora_dual_world_v1')root=Map<String,dynamic>.from(v);
       if(v['kind']=='memora_dual_lesson_v1')lessons.add(Map<String,dynamic>.from(v));
@@ -28,9 +28,10 @@ class DualWorldContent {
       if(v['kind']=='memora_dual_people_v1')extraPeople.addAll(list(v['people']));
       if(v['kind']=='memora_dual_enemies_v1')extraEnemies.addAll(list(v['enemies']));
       if(v['kind']=='memora_dual_spirits_v1')spirits.addAll(list(v['spirits']));
+      if(v['kind']=='memora_dual_library_v1')catalog.addAll(list(v['titles']));
     }catch(_){}}
     if(root==null||lessons.isEmpty||list(root['skills']).isEmpty||list(root['enemies']).isEmpty)return null;
-    return DualWorldContent(root,lessons,books,events,extraSkills,extraPeople,extraEnemies,spirits);
+    return DualWorldContent(root,lessons,books,events,extraSkills,extraPeople,extraEnemies,spirits,catalog);
   }
 }
 class DualWorldPage extends StatefulWidget{
@@ -85,33 +86,42 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(grade==null)...[TextField(controller:answer,keyboardType:const TextInputType.numberWithOptions(decimal:true,signed:true),decoration:const InputDecoration(labelText:'Resultado numérico')),btn('Entregar examen',(){final n=double.tryParse(answer.text.trim().replaceAll(',','.'));if(n==null||!n.isFinite)return 'Introduce una cifra válida.';final ok=(n-(l['answer'] as num)).abs()<=0.011;final g=s.rewardExam(id,ok);answer.clear();if(ok){s.chapter=s.grades.length;return 'Nota: '+g.toString()+'/100. Desbloqueaste una revelación. Cobra tu encargo financiero en el gremio de Lumen.';}return 'Repasa el ejemplo e inténtalo otra vez.';})]else...[Text('Nota: '+grade.toString()+'/100'),const Divider(),Text(l['explanation'].toString()),const SizedBox(height:8),Text(l['reveal'].toString(),style:const TextStyle(fontWeight:FontWeight.w600))],
     ]);
   }
-  bool isFinanceBook(Map book)=>book['category']=='Finanzas'||book['category']=='Economía'||book['category']=='Inversiones'||book['category']=='Negocios';
-  Future<void> readBook(Map book)async{
+  bool isFinanceBook(Map book)=>const ['Finanzas','Economía','Inversiones','Negocios'].contains(book['category']);
+  Future<void> addBook([Map? suggested])async{
     if(busy)return;
-    final id=book['id'] as String,pages=book['pages'] as List;
-    final index=s.readPages[id]??0;if(index>=pages.length)return;
-    final gain=s.pageReward(index,pages.length);
-    final marked=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
-      title:Text(book['title'].toString()+' · '+(index+1).toString()+'/'+pages.length.toString()),
-      content:SingleChildScrollView(child:Text(pages[index].toString(),style:const TextStyle(fontSize:17,height:1.55))),
-      actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cerrar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:Text('Marcar leída · +'+gain.toString()+' INT'))]));
-    if(marked==true&&mounted)await act(()=>s.read(id,index,pages.length)?'Página registrada. +'+gain.toString()+' inteligencia.':'Página ya registrada.');
+    final title=TextEditingController(text:suggested?['title']?.toString()??''),author=TextEditingController(text:suggested?['author']?.toString()??''),pages=TextEditingController();
+    final result=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Registrar libro'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Lee el libro fuera de Memora. Introduce las páginas de tu edición, sin incluir anexos que no planees leer.'),TextField(controller:title,decoration:const InputDecoration(labelText:'Título')),TextField(controller:author,decoration:const InputDecoration(labelText:'Autor')),TextField(controller:pages,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Total de páginas'))])),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancelar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Empezar lectura'))]));
+    final a=title.text,b=author.text,n=int.tryParse(pages.text)??0;title.dispose();author.dispose();pages.dispose();
+    if(result==true&&mounted)await act(()=>s.addReadingBook(a,b,n,suggested?['category']?.toString()??'Personal')?'Libro registrado.':'Datos inválidos o libro ya registrado.');
+  }
+  Future<void> markReading(String key,Map book)async{
+    if(busy)return;final ctrl=TextEditingController(text:book['page'].toString());
+    final result=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:Text(book['title'].toString()),content:Column(mainAxisSize:MainAxisSize.min,children:[Text('Página registrada: '+book['page'].toString()+' de '+book['total'].toString()),TextField(controller:ctrl,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'He leído hasta la página…')),TextButton(onPressed:(){ctrl.text=book['total'].toString();},child:const Text('Libro terminado'))]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancelar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Guardar progreso'))]));
+    final n=int.tryParse(ctrl.text);ctrl.dispose();if(result==true&&mounted&&n!=null)await act((){final gain=s.logReading(key,n);return gain==null?'Sin páginas nuevas o número fuera de rango.':'Progreso guardado. +'+(gain/1000).toStringAsFixed(3)+' INT acumulada.';});
   }
   Widget library(){
-    final filtered=c.books.where((book)=>(bookFilter=='all'||bookFilter=='unread'&&(s.readPages[book['id']]??0)<(book['pages'] as List).length||bookFilter=='finance'&&isFinanceBook(book)||bookFilter=='literature'&&!isFinanceBook(book))&&book['title'].toString().toLowerCase().contains(bookSearch)).toList();
-    return section('Biblioteca · inteligencia',[
-      Text('Inteligencia: '+s.intelligence.toString()+' · '+c.books.length.toString()+' libros disponibles'),
-      const Text('Cada libro completo da +5 inteligencia en total. No hay límite diario. Solo cuentan páginas nuevas marcadas como leídas; puedes continuar después de Retorno.'),
-      DropdownButton<String>(isExpanded:true,value:bookFilter,items:const [DropdownMenuItem(value:'all',child:Text('Todos los libros')),DropdownMenuItem(value:'unread',child:Text('Pendientes')),DropdownMenuItem(value:'finance',child:Text('Finanzas, negocios e inversiones')),DropdownMenuItem(value:'literature',child:Text('Literatura y mitología'))],onChanged:busy?null:(v)=>setState(()=>bookFilter=v??'all')),
-      TextField(decoration:const InputDecoration(labelText:'Buscar libro'),onChanged:(v)=>setState(()=>bookSearch=v.toLowerCase().trim())),
-      for(final book in filtered)...[const Divider(),Text(book['title'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text((book['category']??'Literatura').toString()),Text('Páginas: '+(s.readPages[book['id']]??0).toString()+'/'+(book['pages'] as List).length.toString()),LinearProgressIndicator(value:((s.readPages[book['id']]??0)/(book['pages'] as List).length).clamp(0.0,1.0).toDouble()),FilledButton(onPressed:busy||(s.readPages[book['id']]??0)>=(book['pages'] as List).length?null:()=>readBook(book),child:Text((s.readPages[book['id']]??0)>=(book['pages'] as List).length?'Libro completado · +5 INT':'Leer siguiente página'))]
+    bool matches(Map book)=>(bookFilter=='all'||bookFilter=='unread'||bookFilter=='finance'&&isFinanceBook(book)||bookFilter=='literature'&&!isFinanceBook(book))&&((book['title']??'').toString()+' '+(book['author']??'').toString()).toLowerCase().contains(bookSearch);
+    final tracked=s.readingLog.entries.where((x)=>matches(x.value)&&(bookFilter!='unread'||x.value['page']!=x.value['total'])).toList();
+    final suggested=c.catalog.where((b)=>matches(b)&&!s.readingLog.containsKey(DualState.bookKey(b['title'].toString(),b['author'].toString()))).toList();
+    return section('Biblioteca · registro personal',[
+      Text('Inteligencia: '+(s.intelligence+s.readingRemainder/1000).toStringAsFixed(3)+' · '+s.readingLog.length.toString()+' libros registrados'),
+      const Text('Lee libros por tu cuenta. Guarda la última página leída y recibe una fracción de +5 INT por libro. No hay límite diario. Los puntos y registros se conservan al retornar. Los puntos enteros se usan en combate.'),
+      FilledButton.icon(onPressed:busy?null:()=>addBook(),icon:const Icon(Icons.add),label:const Text('Añadir mi propio libro')),
+      DropdownButton<String>(isExpanded:true,value:bookFilter,items:const [DropdownMenuItem(value:'all',child:Text('Todos los libros')),DropdownMenuItem(value:'unread',child:Text('Pendientes')),DropdownMenuItem(value:'finance',child:Text('Finanzas, negocios e inversiones')),DropdownMenuItem(value:'literature',child:Text('Literatura y otros'))],onChanged:busy?null:(v)=>setState(()=>bookFilter=v??'all')),
+      TextField(decoration:const InputDecoration(labelText:'Buscar título o autor'),onChanged:(v)=>setState(()=>bookSearch=v.toLowerCase().trim())),
+      const Divider(),const Text('Mi lectura',style:TextStyle(fontWeight:FontWeight.bold)),
+      for(final row in tracked)...[Text(row.value['title'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(row.value['author'].toString()+' · '+row.value['page'].toString()+'/'+row.value['total'].toString()+' páginas'),LinearProgressIndicator(value:(row.value['page'] as int)/(row.value['total'] as int)),FilledButton(onPressed:busy||row.value['page']==row.value['total']?null:()=>markReading(row.key,row.value),child:Text(row.value['page']==row.value['total']?'Leído · +5 INT':'Actualizar página'))],
+      const Divider(),const Text('Catálogo recomendado',style:TextStyle(fontWeight:FontWeight.bold)),
+      for(final book in suggested)ListTile(title:Text(book['title'].toString()),subtitle:Text(book['author'].toString()+' · '+book['category'].toString()),trailing:TextButton(onPressed:busy?null:()=>addBook(book),child:const Text('Leer')))
     ]);
   }
   String publicRace(Map person)=>person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?'human':(person['race']??'human').toString();
   List<Map<String,dynamic>> visibleSkills(Map person)=>c.skills.where((sk)=>sk['owner']==person['id']&&s.skillAvailable(sk)).toList();
   List<Map<String,dynamic>> discoverableSkills(Map person)=>visibleSkills(person).where((sk)=>(sk['secret']!=true||sk['revealFlag'] is String&&s.flags.contains(sk['revealFlag']))&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id'])||sk['innate']!=true&&sk['concealed']!=true)).toList();
-  bool spiritAffinity(Map sp){final affinity=sp['affinity'];if(affinity=='human'||affinity=='neutral')return true;return c.skills.any((sk)=>s.skills.contains(sk['id'])&&sk['innate']==true&&c.people.any((p)=>p['id']==sk['owner']&&p['race']==affinity));}
-  bool spiritReady(Map sp)=>s.canCapture(sp)&&spiritAffinity(sp);
+  int affinityFor(Map sp){final a=sp['affinity'];if(a=='human'||a=='neutral')return 80;final owned=c.skills.where((sk)=>s.skills.contains(sk['id'])&&sk['innate']==true&&c.people.any((p)=>p['id']==sk['owner']&&p['race']==a)).length;return owned==0?15:min(100,45+owned*10);}
+  int npcAffinity(Map person,Map sp){final a=sp['affinity'];final base=(person['spiritualAffinity'] as int?)??35;return a=='neutral'||a==person['race']?base:((person['elementAffinity'] is Map?(person['elementAffinity'] as Map)[a]:null) as int?)??base~/3;}
+  int npcSlots(Map person){final affinity=(person['spiritualAffinity'] as int?)??35;final intelligence=((person['spiritIntelligence'] as int?)??((person['level'] as int? ?? 1)*3+5))+s.grades.length*2;if(person['boss']==true||person['spiritualist']==true||person['race']=='elf')return min(5,1+affinity~/40+intelligence~/60);return 1;}
+  bool spiritReady(Map sp)=>s.spiritChance(sp,affinityFor(sp))>0&&s.freshSpiritAttempt(sp);
   List<Map<String,dynamic>> get combatSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage']}];
   Map<String,dynamic> enemyProfile(int index){
     final e=Map<String,dynamic>.from(c.enemies[index]);
@@ -121,7 +131,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     e['raceName']=shown['name'];
     e['racialTrait']=shown['trait'];
     for(final k in ['attack','defense','evasion','regen','spellPower','hypnosis','lifesteal']){if(race[k] is int)e[k]=((e[k] as int?)??0)+(race[k] as int);}
-    if(person.isNotEmpty){final techniques=<Map<String,dynamic>>[...discoverableSkills(person)];final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final compatible=c.spirits.where((sp)=>sp['affinity']==person['race']&&((person['spiritIntelligence'] as int?)??((person['level'] as int? ?? 1)*3+5))>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).take(person['boss']==true?3:1);for(final sp in compatible)techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true});}e['techniques']=techniques;}
+    if(person.isNotEmpty){final techniques=<Map<String,dynamic>>[...discoverableSkills(person)];final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final compatible=c.spirits.where((sp)=>npcAffinity(person,sp)>=((sp['minAffinity'] as int?)??25)&&((person['spiritIntelligence'] as int?)??((person['level'] as int? ?? 1)*3+5))+s.grades.length*2>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).toList()..sort((a,b)=>(b['intelligence'] as int).compareTo(a['intelligence'] as int));for(final sp in compatible.take(npcSlots(person)))techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true});}e['techniques']=techniques;}
     if(e['lethal']==true||person.isEmpty||person['hiddenRace']!=true||s.knownRaces.contains(person['id'])){}else{for(final k in ['lifesteal','regen','spellPower','evasion','hypnosis'])e.remove(k);e['attack']=c.enemies[index]['attack'];e['defense']=c.enemies[index]['defense'];}
     return e;
   }
@@ -137,6 +147,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(person['race']!=null)Text('Raza: '+(c.raceFor(publicRace(person))['name']??publicRace(person)).toString()),
       if(person['appearance'] is String)Text(person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?(person['coverAppearance']??'Apariencia humana.').toString():person['appearance'] as String),
       if(discoverableSkills(person).any((sk)=>s.appraised.contains(sk['id']))&&c.raceFor(publicRace(person))['trait'] is String)Text('Rasgo innato: '+c.raceFor(publicRace(person))['trait'].toString()),
+      Text('Afinidad espiritual: '+((person['hiddenRace']==true&&!s.knownRaces.contains(person['id']))?(person['publicAffinity']??35):(person['spiritualAffinity']??35)).toString()+'/100'),
+      if(person['hiddenRace']!=true||s.knownRaces.contains(person['id']))Text('Capacidad espiritual: '+npcSlots(person).toString()),
       Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
       if(s.intelligence>=15&&s.relationship(person['id'] as String)>=7&&!s.knownRaces.contains(person['id']))btn('Apreciación profunda',(){s.knownRaces.add(person['id'] as String);return 'La apreciación profunda permite examinar el repertorio real.';}),
       if(discoverableSkills(person).any((sk)=>!s.appraised.contains(sk['id'])))btn('Apreciar '+person['name'].toString(),(){
@@ -166,7 +178,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Widget dungeon()=>section('Dungeons · expediciones y espíritus',[
     const Text('Los combates aquí pueden terminar en muerte real. El Retorno reinicia ambos mundos. Los duelos de academia son protegidos.'),
     for(final sp in c.spirits.where((sp)=>s.grades.length>=((sp['minClasses'] as int?)??0)))...[Text(sp['name'].toString()+' · '+(sp['rarity']??'Común').toString()+' · INT '+sp['intelligence'].toString()+' · afinidad '+sp['affinity'].toString()),
-    if(sp['form'] is String)Text(sp['form'] as String),Text(s.spirits.contains(sp['id'])?'Vinculado':(spiritReady(sp)?'Puedes intentar vincularlo.':'Necesitas inteligencia superior, afinidad y superar su encuentro.')),if(spiritReady(sp))btn('Vincular espíritu',()=>s.capture(sp)?'Espíritu vinculado. Puedes invocarlo en combate.':'No cumples las condiciones.')],
+    if(sp['form'] is String)Text(sp['form'] as String),Text(s.spirits.contains(sp['id'])?'Vinculado':'Afinidad: '+affinityFor(sp).toString()+'/100 · probabilidad: '+s.spiritChance(sp,affinityFor(sp)).toString()+'%'),if(spiritReady(sp))btn('Intentar vínculo',()=>s.trySpirit(sp,affinityFor(sp)))else if(!s.spirits.contains(sp['id']))const Text('Necesitas cumplir los requisitos o vencer nuevamente en su encuentro.')],
     if(s.rescueMissions.isNotEmpty)const Text('Hay una expedición de rescate pendiente. Completa el combate antes de que termine el plazo.'),
     for(final person in c.people.where((p)=>s.rescuedStudents.contains(p['id'])))Text('Rescatado: '+person['name'].toString()),
     battle()
@@ -177,7 +189,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),
     if(!combatSkills.any((sk)=>const ['attack','drain','bleed'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
-      Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
+      Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+' · '+s.victoryXp(c.enemies[i],!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
       if(s.level>=(c.enemies[i]['level'] as int)&&combatSkills.any((sk)=>const ['attack','drain','bleed'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
   ]);final e=enemyProfile(s.enemyIndex);return section('Combate · '+e['name'].toString(),[
     if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
@@ -199,7 +211,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   @override Widget build(BuildContext context){
     if(loading)return const Scaffold(body:Center(child:CircularProgressIndicator()));
     final school=s.world=='school';final current=s.place;
-    final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo','Dungeon']:['Taller privado','Mercado','Gremio','Almacén','Puerto'];
+    final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo','Dungeon','Iglesia','Palacio']:['Taller privado','Mercado','Gremio','Almacén','Puerto'];
     return Scaffold(appBar:AppBar(title:Text(school?'Academia · Entre dos mundos':'Mundo comercial')),body:ListView(padding:const EdgeInsets.all(14),children:[
       if(c.data['player'] is Map)section((c.data['player']['name']??'Valcrest').toString(),[Text((c.data['player']['appearance']??'').toString()),const Text('Becario · Casa de Valcrest')]),
       Text('Nivel '+s.level.toString()+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
@@ -213,6 +225,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
         if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida, maná y estamina recuperados.';})]),
         if(current=='Dormitorio')skillRoom(),
         storyEvents(),
+        if(current=='Iglesia'||current=='Palacio'||current=='Consejo')section('Instituciones y relaciones políticas',[for(final faction in DualWorldContent.list(c.data['factions']))...[Text(faction['name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(faction['description'].toString()),Text('Relación: '+(s.factionStanding[faction['id']]??0).toString())]]),
         if(current=='Gremio')section('Gremio · encargos financieros',[const Text('Los encargos se pagan aquí, una sola vez por examen superado.'),for(final l in c.lessons.where((x)=>s.grades.containsKey(x['id'])&&!s.wins.contains('guild_'+x['id'].toString())))btn('Cobrar '+l['title'].toString(),(){final n=s.claimGuild(l['id'] as String);return 'Recibiste '+n.toString()+' monedas por tu informe.';})]),
         if(current=='Clases')...[
           for(var i=0;i<c.lessons.length;i++)if(i<=s.grades.length&&(i!=2||s.wins.contains('battle_darian_practice'))&&(i!=4||s.wins.contains('battle_stone_beast'))&&(i!=6||s.wins.contains('battle_seren_duel')))lesson(c.lessons[i])else ListTile(leading:const Icon(Icons.lock),title:Text(c.lessons[i]['title'].toString()),subtitle:Text(i==2?'Supera el duelo de práctica de Darian.':i==4?'Derrota a la bestia de piedra.':i==6?'Supera el torneo de Seren.':'Supera las clases anteriores.'))
