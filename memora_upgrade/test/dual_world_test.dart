@@ -48,7 +48,7 @@ void main(){
    saved.enemyIndex=-1;expect(saved.startRaid(0,boss,withTeam:false),true);expect(saved.raidAllies,isEmpty);
  });
  test('war progresses without volunteering, mobilizes academy and destroys the world on defeat',(){
-   final s=DualState();
+   final s=DualState();s.warSeed=5;
    for(var i=0;i<11;i++){expect(s.advanceWarWeek(),true);}
    expect(s.academyMobilized,false);expect(s.canFightWar,false);
    s.advanceWarWeek();expect(s.academyMobilized,true);expect(s.canFightWar,true);expect(s.flags.contains('mercenary_member'),false);
@@ -73,5 +73,12 @@ void main(){
    s.warWeek=9;expect(s.warEnemyProfile(monster)['hp'],115);expect(s.warEnemyAvailable(god),false);
    s.warWeek=10;expect(s.warEnemyAvailable(god),true);
    s.warWeek=18;expect(s.warEnemyProfile(monster)['hp'],160);expect(monster['hp'],100);
+ });
+ test('allied forces can win without player joining or gaining XP',(){
+   final s=DualState();s.warSeed=0;
+   for(var i=0;i<18;i++){s.advanceWarWeek();}
+   expect(s.alliedContribution,greaterThanOrEqualTo(15));expect(s.warWon,true);
+   expect(s.warContribution,0);expect(s.xp,0);expect(s.flags.contains('mercenary_member'),false);
+   final copy=DualState.fromJson(s.toJson());expect(copy.alliedReports,s.alliedReports);expect(copy.warSeed,0);
  });
 }
