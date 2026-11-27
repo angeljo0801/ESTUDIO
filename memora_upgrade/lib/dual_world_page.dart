@@ -310,11 +310,21 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(!combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
       Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(c.enemies[i]['rank']!=null?' · Rango '+c.enemies[i]['rank'].toString():'')+' · '+s.victoryXp(c.enemies[i],!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
-      if((c.enemies[i]['openChallenge']==true||s.level>=(c.enemies[i]['level'] as int))&&combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
+      if(c.enemies[i]['raid']==true)...[
+        Text('Amenaza colosal · '+(c.enemies[i]['description']??'Entidad invasora').toString()),
+        if(combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))...[
+          if(s.level>=DualState.numOf(c.enemies[i],'teamMinLevel',1))btn('Asalto con escuadrón',()=>s.startRaid(i,enemyProfile(i),withTeam:true)?'Tu escuadrón entra en combate.':'No puedes iniciar el asalto.')else Text('Escuadrón disponible desde nivel '+DualState.numOf(c.enemies[i],'teamMinLevel',1).toString()),
+          btn('Desafiar en solitario · peligro extremo',()=>s.startRaid(i,enemyProfile(i),withTeam:false)?'Entras solo al combate.':'No puedes iniciar el asalto.'),
+        ]else const Text('Necesitas una técnica de ataque.')
+      ]else if((c.enemies[i]['openChallenge']==true||s.level>=(c.enemies[i]['level'] as int))&&combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
   ]);final e=enemyProfile(s.enemyIndex);return section('Combate · '+e['name'].toString(),[
     Row(children:[Expanded(child:art('hero',height:200)),Expanded(child:enemyArt(e))]),
     if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
-    Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()),
+    Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()+'/'+e['hp'].toString()),
+    if(e['raid']==true)...[
+      Text(s.raidAllies.isEmpty?'Asalto en solitario':'Escuadrón de mercenarios'),
+      for(final a in s.raidAllies)Text(a['role'].toString()+' · Vida '+a['hp'].toString()+'/'+a['maxHp'].toString()+' · Estamina '+a['energy'].toString()+' · Maná '+a['mana'].toString()+(a['hp']==0?' · Fuera de combate':'')),
+    ],
     Text('Estamina: '+s.energy.toString()+'/'+s.stamina.toString()+' · Maná: '+s.mana.toString()+'/'+s.intelligence.toString()),
     if(s.enemyEnergy>=0)Text('Rival: estamina '+s.enemyEnergy.toString()+'/'+s.enemyMaxEnergy.toString()+' · maná '+s.enemyMana.toString()+'/'+s.enemyMaxMana.toString()),
     Text('Tus estados: '+(s.playerStates.isEmpty?'ninguno':s.playerStates.entries.map((e)=>e.key+' ('+e.value.toString()+')').join(', '))),
@@ -374,7 +384,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
         ]),
         if(current=='Campamento mercenario')section('Compañía mercenaria',[
           Text(s.flags.contains('mercenary_member')?'Contrato activo · servicio voluntario':'Sin contrato'),
-          const Text('La guerra de la frontera enfrenta a Asterion y Dravenn. La academia permanece neutral; no necesitas servir a la Corona ni a sus facciones.'),
+          const Text('La Guerra de la Ruptura lleva décadas activa. Las entidades de Dravenn y sus colosos invaden el mundo desde las grietas. La academia permanece neutral frente a los bandos políticos; el servicio exterior es voluntario.'),
         ]),
         if(const ['Bosque fronterizo','Minas de Valdren','Frente de guerra'].contains(current)||c.enemies.any((e)=>e['location']==current))battle(),
         if(current=='Arena')battle(),
