@@ -92,7 +92,7 @@ class DualState {
     final fees=[25,100,250,700,1800,5000,15000,50000];
     return {...Map<String,dynamic>.from(sk),'rank':powerRanks[base+growth],'damage':damage==0?0:damage+growth*max(1,damage~/5),'cost':((sk['cost'] as int?)??1)+growth,'effectTurns':((sk['effectTurns'] as int?)??2)+growth~/2,'price':growth==0||price==0?price:max(price,fees[base+growth]+growth*50)};
   }
-  static bool npcTechniqueAvailable(Map sk,Map person,int completed){final start=(sk['minClasses'] as int?)??0;return completed>=start;}
+  static bool npcTechniqueAvailable(Map sk,Map person,int completed){final start=(sk['minClasses'] as int?)??0;if(start==0||sk['copyable']==false)return completed>=start;final room=max(0,rankIndex(person['potentialRank'])-rankIndex(person['initialRank']));final delay=room<=1?min(2,9-start).clamp(0,2).toInt():room==2?1:0;return completed>=start+delay;}
   static int elementMastery(Map person,dynamic element){if(element==null||element=='neutral')return 100;if(element=='void'||element=='divine'){return person['elements'] is List&&(person['elements'] as List).contains(element)?100:0;}if(person['spiritClass']=='elementalist'&&commonElements.contains(element))return 100;final els=person['elements'] is List?person['elements'] as List:const [];if(els.contains(element))return els.indexOf(element)==0?100:65;return commonElements.contains(element)?25:0;}
   static int elementalAffinity(Map person,Map spirit){
     final base=((person['spiritualAffinity'] as int?)??35).clamp(0,100).toInt();
@@ -121,7 +121,7 @@ class DualState {
   int techniqueTier(Map sk)=>max(rankIndex(sk['rank']),skillUpgrades[sk['id']]??0).clamp(0,7).toInt();
   int upgradeFee(Map sk)=>appraisalFees[min(7,techniqueTier(sk)+1)]~/2;
   bool upgradeTechnique(Map sk){final id=sk['id'] as String,rank=techniqueTier(sk);if(inBattle||world!='school'||place!='Dormitorio'||!skills.contains(id)||rank>=7||cash<upgradeFee(sk)||intelligence<appraisalThresholds[rank+1]~/2)return false;cash-=upgradeFee(sk);skillUpgrades[id]=rank+1;return true;}
-  Map<String,dynamic> effectiveTechnique(Map sk){final delta=techniqueTier(sk)-rankIndex(sk['rank']);final uses=skillUses[sk['id']]??0;return {...Map<String,dynamic>.from(sk),'rank':powerRanks[techniqueTier(sk)],'damage':((sk['damage'] as int?)??0)+delta*max(3,((sk['damage'] as int?)??0)~/2)+min(5,uses~/10),'cost':((sk['cost'] as int?)??1)+delta,'effectTurns':2+delta~/2};}
+  Map<String,dynamic> effectiveTechnique(Map sk){final delta=techniqueTier(sk)-rankIndex(sk['rank']);final uses=skillUses[sk['id']]??0;return {...Map<String,dynamic>.from(sk),'rank':powerRanks[techniqueTier(sk)],'damage':((sk['damage'] as int?)??0)+delta*max(3,((sk['damage'] as int?)??0)~/2)+min(5,uses~/10),'cost':((sk['cost'] as int?)??1)+delta,'effectTurns':((sk['effectTurns'] as int?)??2)+delta~/2};}
   String fusionKey(Map a,Map b){final ids=[a['id'].toString(),b['id'].toString()]..sort();return 'fusion_'+ids.join('__');}
   bool compatibleFusion(Map a,Map b)=>a['id']!=b['id']&&a['type']==b['type']&&a['magic']==b['magic']&&(a['element']==null||b['element']==null||a['element']==b['element'])&&a['copyable']!=false&&b['copyable']!=false&&!a['id'].toString().startsWith('fusion_')&&!b['id'].toString().startsWith('fusion_');
   static const fusionIntelligence=[0,30,60,100,150,220,320,450];

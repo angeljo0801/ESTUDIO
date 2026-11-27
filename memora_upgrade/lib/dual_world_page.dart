@@ -156,7 +156,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(e['lethal']==true||person.isEmpty||person['hiddenRace']!=true||s.knownRaces.contains(person['id'])){}else{for(final k in ['lifesteal','regen','spellPower','evasion','hypnosis'])e.remove(k);e['attack']=c.enemies[index]['attack'];e['defense']=c.enemies[index]['defense'];}
     return e;
   }
-  int studentLevel(Map person)=>((person['level'] as int?)??1)+s.grades.length~/3;
+  int studentLevel(Map person)=>((person['level'] as int?)??1)+DualState.rankIndex(DualState.combatRank(publicTalent(person),s.grades.length))-DualState.rankIndex(DualState.combatRank(publicTalent(person),0));
   Widget appraisal()=>section('Apreciación y adquisición',[
     const Text('Apreciación revela las técnicas actuales de un estudiante. Al avanzar los arcos, sus capacidades evolucionan. Vuelve a apreciar a tus compañeros para descubrir técnicas nuevas.'),
     DropdownButton<String>(isExpanded:true,value:raceFilter,items:[const DropdownMenuItem(value:'all',child:Text('Todas las razas')),for(final r in c.races.where((r)=>r['secret']!=true||c.people.any((p)=>p['race']==r['id']&&s.knownRaces.contains(p['id']))))DropdownMenuItem(value:r['id'].toString(),child:Text(r['name'].toString()))],onChanged:busy?null:(value)=>setState(()=>raceFilter=value??'all')),
