@@ -235,6 +235,11 @@ class AdventureArtStore {
     if(raw is! Map||raw['adventure'] is! String)throw const FormatException('Paquete incompatible.');
     final id=raw['adventure'] as String;
     if(guide.id!=id&&!guide.id.endsWith('_$id'))throw const FormatException('El paquete pertenece a otra aventura.');
+    if(id=='entre-dos-mundos-academia'){
+      final additions=validatePart(raw,expected:id);
+      final current=await load(guide.id);
+      return saveParts(guide.id,id,[{'schema':2,'kind':'memora_adventure_art_v2','adventure':id,'assets':{for(final e in current.entries)e.key:base64Encode(e.value),...additions}}]);
+    }
     return saveParts(guide.id,id,[raw]);
   }
 }
