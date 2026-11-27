@@ -141,7 +141,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Map publicTalent(Map person)=>talentRevealed(person)?person:{...person,'race':publicRace(person),'spiritClass':person['coverSpiritClass']??'ordinary','combatClass':person['coverClass']??person['combatClass'],'elements':person['coverElements']??['neutral'],'initialRank':person['coverRank']??person['initialRank'],'potentialRank':person['coverPotential']??person['initialRank'],'spiritualAffinity':person['publicAffinity']??35,'spiritIntelligence':person['coverIntelligence']??15};
   bool spiritReady(Map sp)=>s.spiritChance(sp,affinityFor(sp))>0&&s.freshSpiritAttempt(sp);
   List<Map<String,dynamic>> get learnedSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])).map((sk)=>s.copiedSkills[sk['id']]??sk),...s.fusedSkills.values];
-  List<Map<String,dynamic>> get combatSkills=>[...learnedSkills.where((sk)=>sk['element']!='divine'||s.flags.contains('divine_devotion')).map(s.effectiveTechnique),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage'],'element':sp['element']}];
+  List<Map<String,dynamic>> get combatSkills=>[...learnedSkills.where((sk)=>sk['element']!='divine'||s.flags.contains('divine_devotion')).map(s.effectiveTechnique),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage'],'element':sp['element'],'minIntelligence':sp['intelligence'],'status':sp['status'],'statusChance':sp['statusChance']}];
   Map<String,dynamic> enemyProfile(int index){
     final e=Map<String,dynamic>.from(c.enemies[index]);
     if(e['training']==true)return e;
@@ -153,8 +153,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
     for(final k in ['attack','defense','evasion','regen','spellPower','hypnosis','lifesteal']){if(race[k] is int)e[k]=((e[k] as int?)??0)+(race[k] as int);}
     if(person.isNotEmpty){final talent=publicTalent(person);final techniques=<Map<String,dynamic>>[for(final sk in discoverableSkills(person)) {...sk,'mastery':DualState.elementMastery(talent,sk['element'])}];
       // Basic elemental spells do not grant a permanent learned technique to the player.
-      for(final element in DualState.commonElements){techniques.add({'name':'Pulso de '+elementName(element),'type':'attack','magic':true,'damage':4+(person['level'] as int? ?? 1)*2,'mastery':DualState.elementMastery(talent,element)});}
-      final growth=DualState.powerRanks.indexOf(DualState.combatRank(talent,s.grades.length))-DualState.powerRanks.indexOf(DualState.combatRank(talent,0));if(growth>0){e['attack']=(e['attack'] as int)+growth*2;e['defense']=(e['defense'] as int)+growth;e['hp']=(e['hp'] as int)+growth*8;}final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final compatible=c.spirits.where((sp)=>npcAffinity(talent,sp)>=((sp['minAffinity'] as int?)??25)&&npcIntelligence(talent)>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).toList()..sort((a,b)=>(b['intelligence'] as int).compareTo(a['intelligence'] as int));for(final sp in compatible.take(npcSlots(talent)))techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true});}e['techniques']=techniques;}
+      for(final element in DualState.commonElements){techniques.add({'name':'Pulso de '+elementName(element),'type':'attack','magic':true,'element':element,'damage':4+(person['level'] as int? ?? 1)*2,'mastery':DualState.elementMastery(talent,element)});}
+      final growth=DualState.powerRanks.indexOf(DualState.combatRank(talent,s.grades.length))-DualState.powerRanks.indexOf(DualState.combatRank(talent,0));if(growth>0){e['attack']=(e['attack'] as int)+growth*2;e['defense']=(e['defense'] as int)+growth;e['hp']=(e['hp'] as int)+growth*8;}final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final compatible=c.spirits.where((sp)=>npcAffinity(talent,sp)>=((sp['minAffinity'] as int?)??25)&&npcIntelligence(talent)>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).toList()..sort((a,b)=>(b['intelligence'] as int).compareTo(a['intelligence'] as int));for(final sp in compatible.take(npcSlots(talent)))techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true,'element':sp['element'],'spiritElement':sp['element'],'cost':sp['cost']});}e['techniques']=techniques;}
     if(e['lethal']==true||person.isEmpty||person['hiddenRace']!=true||s.knownRaces.contains(person['id'])){}else{for(final k in ['lifesteal','regen','spellPower','evasion','hypnosis'])e.remove(k);e['attack']=c.enemies[index]['attack'];e['defense']=c.enemies[index]['defense'];}
     return e;
   }
@@ -185,7 +185,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
         return 'Técnicas descubiertas: '+discovered.length.toString()+'.';
       }),
       for(final sk in discoverableSkills(person).where((x)=>s.canAppraise(x)&&s.appraised.contains(x['id'])&&!needsAppraisal(x)))...[
-        Text(sk['name'].toString()+' · Rango '+(sk['rank']??'E').toString()+' · '+sk['type'].toString()+(sk['element']==null?'':' · '+elementName(sk['element']))+' · potencia '+sk['damage'].toString()+' · '+sk['price'].toString()+' monedas · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),
+        Text(sk['name'].toString()+' · Rango '+(sk['rank']??'E').toString()+' · '+sk['type'].toString()+(sk['element']==null?'':' · '+elementName(sk['element']))+' · potencia '+sk['damage'].toString()+' · '+sk['price'].toString()+' monedas · '+sk['cost'].toString()+' estamina'),
         if(sk['singular']==true)const Text('Talento singular · afinidad excepcional'),
         if(sk['innate']==true&&sk['copyable']!=false)const Text('Técnica racial · copiable mediante Robo'),
         if(sk['description'] is String)Text(sk['description'] as String),
@@ -200,7 +200,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(s.appraisalTier<7)btn('Refinar Apreciación · '+DualState.appraisalFees[s.appraisalTier+1].toString()+' monedas',()=>s.refineAppraisal()?'Apreciación mejorada.':'Necesitas inteligencia y monedas suficientes.'),
     if(s.skills.isEmpty)const Text('Habilidades de combate: ninguna.'),
     const Text('Retorno: una muerte real reinicia ambos mundos. Solo conservas inteligencia.'),
-    for(final sk in purchasableSkills)...[Text(sk['name'].toString()+' · Rango '+(sk['rank']??'E').toString()+' · '+sk['price'].toString()+' monedas · potencia '+sk['damage'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>sk['element']=='divine'&&!s.flags.contains('divine_devotion')?'Necesitas profesar la fe de la Llama del Alba.':s.acquireRankedSkill(sk)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
+    for(final sk in purchasableSkills)...[Text(sk['name'].toString()+' · Rango '+(sk['rank']??'E').toString()+' · '+sk['price'].toString()+' monedas · potencia '+sk['damage'].toString()+' · '+sk['cost'].toString()+' estamina'),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>sk['element']=='divine'&&!s.flags.contains('divine_devotion')?'Necesitas profesar la fe de la Llama del Alba.':s.acquireRankedSkill(sk)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
   ]);
   Future<void> chooseFusion(Map a)async{
     final options=learnedSkills.where((b)=>s.compatibleFusion(a,b)&&!s.fusedSkills.containsKey(s.fusionKey(a,b))).toList();
@@ -225,6 +225,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
     const Text('La afinidad espiritual es innata y fija. La inteligencia aumenta tus posibilidades de vínculo, no tu rango espiritual.'),
     for(final sp in c.spirits.where((sp)=>s.grades.length>=((sp['minClasses'] as int?)??0)))...[Text(sp['name'].toString()+' · '+(sp['rarity']??'Común').toString()+' · INT '+sp['intelligence'].toString()+' · elemento '+elementName(sp['element']??'neutral')+' · afinidad '+sp['affinity'].toString()),
     if(sp['form'] is String)Text(sp['form'] as String),Text(s.spirits.contains(sp['id'])?'Vinculado':'Afinidad: '+affinityFor(sp).toString()+'/100 · probabilidad: '+s.spiritChance(sp,affinityFor(sp)).toString()+'%'),if(spiritReady(sp))btn('Intentar vínculo',()=>s.trySpirit(sp,affinityFor(sp)))else if(!s.spirits.contains(sp['id']))const Text('Necesitas cumplir los requisitos o vencer nuevamente en su encuentro.')],
+    for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))...[Text(sp['name'].toString()+(s.activeSpirit==sp['id']?' · Activo: '+s.spiritMode:'')),for(final mode in const {'loan':'Préstamo','manifest':'Manifestación','fusion':'Fusión espiritual','enchant':'Encantar arma'}.entries)btn(mode.value,()=>s.bindCombatSpirit(sp,mode.key)?'Vínculo activo.':'No puedes activar este vínculo.')],
+    if(s.activeSpirit.isNotEmpty)btn('Desactivar espíritu',(){s.clearCombatSpirit();return 'Vínculo desactivado.';}),
     if(s.rescueMissions.isNotEmpty)const Text('Hay una expedición de rescate pendiente. Completa el combate antes de que termine el plazo.'),
     for(final person in c.people.where((p)=>s.rescuedStudents.contains(p['id'])))Text('Rescatado: '+person['name'].toString()),
     battle()
@@ -240,10 +242,12 @@ class _DualWorldPageState extends State<DualWorldPage>{
   ]);final e=enemyProfile(s.enemyIndex);return section('Combate · '+e['name'].toString(),[
     if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
     Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()),
-    Text('Estamina: '+s.energy.toString()+' · maná: '+s.mana.toString()),
+    Text('Estamina: '+s.energy.toString()+'/'+s.stamina.toString()+' · rival: '+(s.enemyEnergy<0?DualState.enemyMaxEnergy(e):s.enemyEnergy).toString()+'/'+DualState.enemyMaxEnergy(e).toString()),
+    if(s.activeSpirit.isNotEmpty)Text('Espíritu: '+s.spiritMode+' · '+elementName(s.spiritElement)+' · reserva '+s.spiritReserve.toString()+'/'+s.spiritMax.toString()),
+    Text('Tus estados: '+s.playerStates.toString()+' · rival: '+s.enemyStates.toString()),
     Text('Guardia: '+s.guardTurns.toString()+' turnos · evasión: '+s.speedTurns.toString()+' turnos · sello: '+s.enemyWeakTurns.toString()+' · hemorragia: '+s.enemyBleedTurns.toString()),
     if((s.turn+1)%3==0)const Text('El rival prepara un ataque fuerte. Considera defenderte o esquivar.'),
-    for(final sk in combatSkills)btn(sk['name'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina'),()=>s.action(sk,e)),
+    for(final sk in combatSkills)if(s.usable(sk))btn(sk['name'].toString()+' · '+DualState.skillCost(sk).toString()+' EP · crítico '+DualState.criticalChance(sk).toString()+'%',()=>s.action(sk,e,available:combatSkills))else Text(sk['name'].toString()+' · no disponible · '+DualState.skillCost(sk).toString()+' EP / INT '+DualState.intelligenceRequired(sk).toString()),
     btn('Retirarte',(){s.enemyIndex=-1;s.lethalBattle=false;return 'Retirada sin recompensa. Un rescate pendiente sigue sujeto a su plazo.';})
   ]);}
   Widget armory({required bool store})=>section(store?'Armería de Lumen':'Inventario y equipamiento',[
@@ -275,7 +279,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
       if(s.inBattle)battle()else...[
         Wrap(spacing:6,children:[for(final l in locations)ChoiceChip(label:Text(l),selected:l==current,onSelected:busy?null:(_)=>act((){s.place=l;answer.clear();return 'Llegaste a '+l+'.';}))]),
-        if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida, maná y estamina recuperados.';})]),
+        if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida y estamina recuperadas.';})]),
         if(current=='Dormitorio')...[skillRoom(),workshop(),armory(store:false)],
         if(current=='Armería')armory(store:true),
         storyEvents(),
