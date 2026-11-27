@@ -78,9 +78,9 @@ void main(){
    final s=DualState();s.warSeed=0;
    final powers=DualState.alliedChampions.map((a)=>a['power']).toList();
    for(var i=0;i<4;i++){s.advanceWarWeek();}
-   expect(s.alliedContribution,greaterThan(0));expect(s.activeAlliedChampions.length,8);
+   expect(s.alliedContribution,greaterThan(0));expect(s.activeAlliedChampions.length,19);
    for(var i=4;i<12;i++){s.advanceWarWeek();}
-   expect(s.academyMobilized,true);expect(s.activeAlliedChampions.length,lessThan(8));
+   expect(s.academyMobilized,true);expect(s.activeAlliedChampions.length,lessThan(19));
    expect(DualState.alliedChampions.map((a)=>a['power']).toList(),powers);
    final copy=DualState.fromJson(s.toJson());expect(copy.activeAlliedChampions.length,s.activeAlliedChampions.length);
    for(var i=12;i<18;i++){copy.advanceWarWeek();}
@@ -93,5 +93,15 @@ void main(){
    expect(s.raidSupport(god),0);
    s.raidIntercept(2000,god);
    expect(s.raidAllies.every((a)=>(a['hp'] as int)<(a['maxHp'] as int)),true);
+ });
+ test('allied ranks cap at one legendary hero and exactly two S heroes',(){
+   final allies=DualState.alliedChampions;
+   expect(allies.where((a)=>a['rank']=='L').length,1);
+   expect(allies.where((a)=>a['rank']=='S').length,2);
+   for(final rank in ['A','B+','B','C']){expect(allies.where((a)=>a['rank']==rank).length,4);}
+   expect(allies.every((a)=>DualState.combatRankIndex(a['rank'])<=DualState.combatRankIndex('L')),true);
+   expect(DualState.combatRankIndex('Divino+'),greaterThan(DualState.combatRankIndex('Divino')));
+   expect(DualState.combatRankIndex('SS'),lessThan(DualState.combatRankIndex('L')));
+   expect(DualState.combatRankIndex('SSS'),DualState.combatRankIndex('L'));
  });
 }
