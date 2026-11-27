@@ -46,6 +46,8 @@ class DualState {
   int warWeek=0,warContribution=0,alliedContribution=0,warSeed=Random().nextInt(1000000);
   final List<String> alliedReports=[];
   static const alliedChampions=<Map<String,dynamic>>[
+    {'id':'ally_cassian','name':'Cassian Valther','role':'Elementalista','rank':'SSS','level':87,'power':410,'week':4,'ability':'Corona de la tormenta'},
+    {'id':'ally_elowen','name':'Elowen Veyra','role':'Sanador','rank':'SS','level':75,'power':325,'week':0,'ability':'Velo de las mil estrellas'},
     {'id':'ally_orion','name':'Orion del Alba','role':'Vanguardia','rank':'L','level':95,'power':450,'week':6,'ability':'Espada del firmamento'},
     {'id':'ally_draeven','name':'Draeven Aster','role':'Vanguardia','rank':'SS','level':78,'power':340,'week':0,'ability':'Corte dimensional'},
     {'id':'ally_iria','name':'Iria Celest','role':'Elementalista','rank':'SS','level':76,'power':330,'week':0,'ability':'Sello de causalidad'},
