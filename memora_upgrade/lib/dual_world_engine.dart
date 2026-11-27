@@ -47,8 +47,8 @@ class DualState {
   final List<String> alliedReports=[];
   static const alliedChampions=<Map<String,dynamic>>[
     {'id':'ally_orion','name':'Orion del Alba','role':'Vanguardia','rank':'L','level':95,'power':450,'week':0,'ability':'Espada del firmamento'},
-    {'id':'ally_draeven','name':'Draeven Aster','role':'Vanguardia','rank':'S','level':60,'power':210,'week':0,'ability':'Corte dimensional'},
-    {'id':'ally_iria','name':'Iria Celest','role':'Elementalista','rank':'S','level':58,'power':200,'week':0,'ability':'Sello de causalidad'},
+    {'id':'ally_draeven','name':'Draeven Aster','role':'Vanguardia','rank':'SS','level':78,'power':340,'week':0,'ability':'Corte dimensional'},
+    {'id':'ally_iria','name':'Iria Celest','role':'Elementalista','rank':'SS','level':76,'power':330,'week':0,'ability':'Sello de causalidad'},
     {'id':'ally_kaelen','name':'Kaelen Voss','role':'Vanguardia','rank':'A','level':38,'power':105,'week':0,'ability':'Espada del amanecer'},
     {'id':'ally_mirath','name':'Mirath Solenne','role':'Sanador','rank':'A','level':39,'power':110,'week':0,'ability':'Restauración del alma'},
     {'id':'ally_therak','name':'Therak Forjaestelar','role':'Vanguardia','rank':'A','level':40,'power':115,'week':0,'ability':'Armadura de estrella'},
@@ -65,11 +65,83 @@ class DualState {
     {'id':'ally_c_2','name':'Eris Moon','role':'Elementalista','rank':'C','level':15,'power':28,'week':0,'ability':'Pulso ígneo'},
     {'id':'ally_c_3','name':'Dorin Flint','role':'Vanguardia','rank':'C','level':13,'power':24,'week':0,'ability':'Guardia firme'},
     {'id':'ally_c_4','name':'Nalia Dawn','role':'Sanador','rank':'C','level':14,'power':25,'week':0,'ability':'Luz reparadora'},
+    {'id':'ally_s_1','name':'Seren Ashford','role':'Vanguardia','rank':'S','level':58,'power':205,'week':0,'ability':'Lanza del trueno'},
+    {'id':'ally_s_2','name':'Velena Frost','role':'Elementalista','rank':'S','level':55,'power':190,'week':0,'ability':'Tormenta glacial'},
+    {'id':'ally_s_3','name':'Aurel Thorne','role':'Vanguardia','rank':'S','level':57,'power':200,'week':0,'ability':'Escudo solar'},
+    {'id':'ally_s_4','name':'Lysandra Vale','role':'Sanador','rank':'S','level':54,'power':185,'week':0,'ability':'Luz del renacer'},
+    {'id':'ally_a_1','name':'Ronan Blackwood','role':'Vanguardia','rank':'A','level':41,'power':118,'week':0,'ability':'Filo de obsidiana'},
+    {'id':'ally_a_2','name':'Selene Ardent','role':'Elementalista','rank':'A','level':40,'power':115,'week':0,'ability':'Llama azul'},
+    {'id':'ally_a_3','name':'Darius Holt','role':'Vanguardia','rank':'A','level':39,'power':110,'week':0,'ability':'Martillo rúnico'},
+    {'id':'ally_a_4','name':'Evelia Rain','role':'Sanador','rank':'A','level':38,'power':105,'week':0,'ability':'Velo vital'},
+    {'id':'ally_a_5','name':'Kieran Storm','role':'Elementalista','rank':'A','level':42,'power':120,'week':0,'ability':'Arco eléctrico'},
+    {'id':'ally_a_6','name':'Maren Sol','role':'Vanguardia','rank':'A','level':37,'power':104,'week':0,'ability':'Guardia de cristal'},
+    {'id':'ally_bplus_5','name':'Arlen Ember','role':'Vanguardia','rank':'B+','level':26,'power':68,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_bplus_6','name':'Brenna Ember','role':'Elementalista','rank':'B+','level':27,'power':69,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_bplus_7','name':'Corvin Ember','role':'Sanador','rank':'B+','level':28,'power':70,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_bplus_8','name':'Della Ember','role':'Vanguardia','rank':'B+','level':29,'power':71,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_bplus_9','name':'Edric Ember','role':'Elementalista','rank':'B+','level':30,'power':72,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_bplus_10','name':'Fenna Ember','role':'Sanador','rank':'B+','level':26,'power':73,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_bplus_11','name':'Galen Ember','role':'Vanguardia','rank':'B+','level':27,'power':74,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_bplus_12','name':'Hestia Ember','role':'Elementalista','rank':'B+','level':28,'power':68,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_b_5','name':'Arlen River','role':'Vanguardia','rank':'B','level':20,'power':45,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_b_6','name':'Brenna River','role':'Elementalista','rank':'B','level':21,'power':46,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_b_7','name':'Corvin River','role':'Sanador','rank':'B','level':22,'power':47,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_b_8','name':'Della River','role':'Vanguardia','rank':'B','level':23,'power':48,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_b_9','name':'Edric River','role':'Elementalista','rank':'B','level':24,'power':49,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_b_10','name':'Fenna River','role':'Sanador','rank':'B','level':20,'power':50,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_b_11','name':'Galen River','role':'Vanguardia','rank':'B','level':21,'power':51,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_b_12','name':'Hestia River','role':'Elementalista','rank':'B','level':22,'power':45,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_b_13','name':'Ivar River','role':'Sanador','rank':'B','level':23,'power':46,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_b_14','name':'Jora River','role':'Vanguardia','rank':'B','level':24,'power':47,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_b_15','name':'Kellan River','role':'Elementalista','rank':'B','level':20,'power':48,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_b_16','name':'Liora River','role':'Sanador','rank':'B','level':21,'power':49,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_b_17','name':'Merek River','role':'Vanguardia','rank':'B','level':22,'power':50,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_b_18','name':'Nessa River','role':'Elementalista','rank':'B','level':23,'power':51,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_b_19','name':'Osric River','role':'Sanador','rank':'B','level':24,'power':45,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_b_20','name':'Petra River','role':'Vanguardia','rank':'B','level':20,'power':46,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_b_21','name':'Quin River','role':'Elementalista','rank':'B','level':21,'power':47,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_b_22','name':'Rhea River','role':'Sanador','rank':'B','level':22,'power':48,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_b_23','name':'Soren River','role':'Vanguardia','rank':'B','level':23,'power':49,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_b_24','name':'Talia River','role':'Elementalista','rank':'B','level':24,'power':50,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_5','name':'Arlen Stone','role':'Vanguardia','rank':'C','level':13,'power':24,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_6','name':'Brenna Stone','role':'Elementalista','rank':'C','level':14,'power':25,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_7','name':'Corvin Stone','role':'Sanador','rank':'C','level':15,'power':26,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_8','name':'Della Stone','role':'Vanguardia','rank':'C','level':16,'power':27,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_9','name':'Edric Stone','role':'Elementalista','rank':'C','level':17,'power':28,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_10','name':'Fenna Stone','role':'Sanador','rank':'C','level':13,'power':29,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_11','name':'Galen Stone','role':'Vanguardia','rank':'C','level':14,'power':30,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_12','name':'Hestia Stone','role':'Elementalista','rank':'C','level':15,'power':24,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_13','name':'Ivar Stone','role':'Sanador','rank':'C','level':16,'power':25,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_14','name':'Jora Stone','role':'Vanguardia','rank':'C','level':17,'power':26,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_15','name':'Kellan Stone','role':'Elementalista','rank':'C','level':13,'power':27,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_16','name':'Liora Stone','role':'Sanador','rank':'C','level':14,'power':28,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_17','name':'Merek Stone','role':'Vanguardia','rank':'C','level':15,'power':29,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_18','name':'Nessa Stone','role':'Elementalista','rank':'C','level':16,'power':30,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_19','name':'Osric Stone','role':'Sanador','rank':'C','level':17,'power':24,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_20','name':'Petra Stone','role':'Vanguardia','rank':'C','level':13,'power':25,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_21','name':'Quin Stone','role':'Elementalista','rank':'C','level':14,'power':26,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_22','name':'Rhea Stone','role':'Sanador','rank':'C','level':15,'power':27,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_23','name':'Soren Stone','role':'Vanguardia','rank':'C','level':16,'power':28,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_24','name':'Talia Stone','role':'Elementalista','rank':'C','level':17,'power':29,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_25','name':'Ulric Stone','role':'Sanador','rank':'C','level':13,'power':30,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_26','name':'Vera Stone','role':'Vanguardia','rank':'C','level':14,'power':24,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_27','name':'Wren Stone','role':'Elementalista','rank':'C','level':15,'power':25,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_28','name':'Xara Stone','role':'Sanador','rank':'C','level':16,'power':26,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_29','name':'Yorin Stone','role':'Vanguardia','rank':'C','level':17,'power':27,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_30','name':'Zella Stone','role':'Elementalista','rank':'C','level':13,'power':28,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_31','name':'Aven Stone','role':'Sanador','rank':'C','level':14,'power':29,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_32','name':'Brisa Stone','role':'Vanguardia','rank':'C','level':15,'power':30,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_33','name':'Cyran Stone','role':'Elementalista','rank':'C','level':16,'power':24,'week':0,'ability':'Pulso elemental'},
+    {'id':'ally_c_34','name':'Davin Stone','role':'Sanador','rank':'C','level':17,'power':25,'week':0,'ability':'Luz protectora'},
+    {'id':'ally_c_35','name':'Elara Stone','role':'Vanguardia','rank':'C','level':13,'power':26,'week':0,'ability':'Guardia de acero'},
+    {'id':'ally_c_36','name':'Faron Stone','role':'Elementalista','rank':'C','level':14,'power':27,'week':0,'ability':'Pulso elemental'},
   ];
   bool alliedDefeated(Map ally)=>flags.contains('ally_defeated_'+ally['id'].toString());
   List<Map<String,dynamic>> get activeAlliedChampions=>alliedChampions.where((a)=>!alliedDefeated(a)).toList();
   int get defenseTotal=>warContribution+alliedContribution;
   // Threat rises with the invasion, not with player or allied levels.
+  static int invadingHordeSize(int week)=>week<2?180:week<4?420:week<6?850:week<8?1300:week<10?1800:week<12?2400:week<14?3200:week<16?4200:5200;
+  int get remainingHorde=>max(0,invadingHordeSize(warWeek)-battleCounts.entries.where((e)=>e.key.startsWith('rupture_')||e.key.startsWith('war_')).fold<int>(0,(sum,e)=>sum+e.value));
   static int alliedFrontThreat(int week)=>week<4?80:week<6?180:week<8?310:week<10?470:week<12?850:week<14?1500:week<16?2400:4000;
   void simulateAlliedFront(){
     if(warWeek==0||warWeek%2!=0||warWon||worldDestroyed)return;
@@ -77,17 +149,17 @@ class DualState {
     if(active.isEmpty){alliedContribution=max(0,alliedContribution-2);alliedReports.add('Semana $warWeek · Las fuerzas aliadas ya no tienen campeones disponibles.');return;}
     final champion=active.first;
     final elite=active.take(3).toList();final strength=elite.fold<int>(0,(sum,a)=>sum+numOf(a,'power',0))~/max(1,elite.length);
-    final threat=alliedFrontThreat(warWeek);
+    final threat=alliedFrontThreat(warWeek)+remainingHorde~/12;
     final helped=warContribution>=warPressure(warWeek)&&warContribution>0;
     final effectiveThreat=helped?threat*65~/100:threat;
     final divine=warWeek>=10;
     final roll=(warSeed+warWeek*17+warWeek*warWeek*7)%10;
     if(!divine&&strength>=effectiveThreat){
       alliedContribution+=roll<5?2:1;
-      alliedReports.add('Semana $warWeek · '+champion['name'].toString()+': los héroes contienen a los invasores y recuperan terreno.');
+      alliedReports.add('Semana $warWeek · '+champion['name'].toString()+': los héroes contienen a las numerosas criaturas y recuperan terreno.');
     }else if(!divine&&numOf(champion,'power',0)*2>=effectiveThreat){
       alliedContribution=max(0,alliedContribution-1);
-      alliedReports.add('Semana $warWeek · '+champion['name'].toString()+': resiste a los monstruos legendarios con grandes pérdidas.');
+      alliedReports.add('Semana $warWeek · '+champion['name'].toString()+': resiste las hordas y los monstruos colosales con grandes pérdidas.');
     }else{
       alliedContribution=max(0,alliedContribution-2);
       if(!helped||roll<3){flags.add('ally_defeated_'+champion['id'].toString());}
@@ -275,8 +347,8 @@ class DualState {
   }
   static const powerRanks=['E','D','C','B','A','S','SS','SSS'];
   // Combat ranks are separate from existing technique/appraisal tiers.
-  static const combatRanks=['E','D','C','B','B+','A','S','SS','L','Divino','Divino+'];
-  static int combatRankIndex(dynamic value)=>max(0,combatRanks.indexOf(value=='SSS'?'L':value?.toString()??'E'));
+  static const combatRanks=['E','D','C','B','B+','A','S','SS','SSS','L','Divino','Divino+'];
+  static int combatRankIndex(dynamic value)=>max(0,combatRanks.indexOf(value?.toString()??'E'));
   static int combatAppraisalTier(String rank)=>rank=='B+'?3:rank=='L'||rank=='Divino'||rank=='Divino+'?7:rankIndex(rank);
   static const commonElements=['fire','water','earth','wind','lightning','ice','light','dark','nature','blood','metal','astral'];
   static String combatRank(Map person,int completed){final start=combatRankIndex(person['initialRank']),end=max(start,combatRankIndex(person['potentialRank']));return combatRanks[min(end,start+max(0,completed)~/3)];}
@@ -339,7 +411,7 @@ class DualState {
   DualState returnToBeginning(){final next=DualState();next.intelligence=intelligence;next.mana=intelligence;next.readPages.addAll(readPages);next.readingLog.addAll(readingLog.map((k,v)=>MapEntry(k,Map<String,dynamic>.from(v))));next.readingRemainder=readingRemainder;next.workoutDate=workoutDate;next.returned=false;return next;}
   int get level=>1+xp~/100;
   int get maxHp=>40+(level-1)*5;
-  String get playerCombatRank{final score=strength+defense+stamina+(level-1)*8+skills.length*3+spirits.length*5;return score>=120000?'Divino+':score>=25000?'Divino':score>=1000?'L':score>=650?'SS':score>=400?'S':score>=250?'A':score>=190?'B+':score>=140?'B':score>=75?'C':score>=35?'D':'E';}
+  String get playerCombatRank{final score=strength+defense+stamina+(level-1)*8+skills.length*3+spirits.length*5;return score>=120000?'Divino+':score>=25000?'Divino':score>=1800?'L':score>=1000?'SSS':score>=650?'SS':score>=400?'S':score>=250?'A':score>=190?'B+':score>=140?'B':score>=75?'C':score>=35?'D':'E';}
   int get power=>strength+defense+stamina+intelligence+level*2+skills.length*3;
   int get examAverage=>grades.isEmpty?0:(grades.values.reduce((a,b)=>a+b)/grades.length).round();
   bool get inBattle=>enemyIndex>=0;
