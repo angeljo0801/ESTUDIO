@@ -51,7 +51,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Future<void> load()async{final p=await SharedPreferences.getInstance();try{final raw=p.getString(key);if(raw!=null)s=DualState.fromJson(jsonDecode(raw) as Map);}catch(_){}if(mounted)setState(()=>loading=false);}
   Future<void> act(String Function() fn)async{
     if(busy)return;setState(()=>busy=true);
-    try{var next=fn();if(s.returned&&s.hp==0){s=s.returnToBeginning();next='RETORNO · Despiertas en tu dormitorio, el día de ingreso. Solo conservas inteligencia. '+next;raceFilter='all';nameFilter='';answer.clear();}s.resolveFates(c.events);final p=await SharedPreferences.getInstance();if(!await p.setString(key,jsonEncode(s.toJson())))throw StateError('No se pudo guardar');if(mounted)setState(()=>message=next);}
+    try{var next=fn();if(s.returned&&s.lethalBattle&&s.hp==0){s=s.returnToBeginning();next='RETORNO · Despiertas en tu dormitorio, el día de ingreso. Solo conservas inteligencia. '+next;raceFilter='all';nameFilter='';answer.clear();}s.resolveFates(c.events);final p=await SharedPreferences.getInstance();if(!await p.setString(key,jsonEncode(s.toJson())))throw StateError('No se pudo guardar');if(mounted)setState(()=>message=next);}
     catch(e){if(mounted)setState(()=>message=e.toString());}finally{if(mounted)setState(()=>busy=false);}
   }
   Widget btn(String label,String Function() fn)=>FilledButton(onPressed:busy?null:()=>act(fn),child:Text(label));
@@ -86,11 +86,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
   }
   Widget library()=>section('Biblioteca · inteligencia',[
     const Text('Cada libro completo otorga exactamente +5 inteligencia. Las páginas leídas quedan guardadas; releer no duplica la recompensa.'),
-    for(final book in c.books)...[const Divider(),Text(book['title'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text('Páginas: '+(s.readPages[book['id']]??0).toString()+'/'+(book['pages'] as List).length.toString()),btn('Leer libro',(){final id=book['id'] as String;final i=s.readPages[id]??0;final pages=book['pages'] as List;if(i>=pages.length)return 'Libro completado.';showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:Text(book['title'].toString()+' · '+(i+1).toString()),content:SingleChildScrollView(child:Text(pages[i].toString())),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cerrar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Página leída'))])).then((v){if(v==true&&mounted)act(()=>s.read(id,i,pages.length)?'Página registrada.':'Sin recompensa duplicada.');});return 'Lee la página y confirma al terminar.';})]
+    for(final book in c.books)...[const Divider(),Text(book['title'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text('Páginas: '+(s.readPages[book['id']]??0).toString()+'/'+(book['pages'] as List).length.toString()),btn('Leer libro',(){final id=book['id'] as String;final i=s.readPages[id]??0;final pages=book['pages'] as List;if(i>=pages.length)return 'Libro completado.';showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:Text(book['title'].toString()+' · '+(i+1).toString()),content:SingleChildScrollView(child:Text(pages[i].toString())),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cerrar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Página leída'))])).then((v){if(v==true&&mounted)act(()=>s.read(id,i,pages.length)?'Página registrada.':'Sin recompensa duplicada.');});return 'Lee la página y confirma al terminar.';})]
   ]);
   String publicRace(Map person)=>person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?'human':(person['race']??'human').toString();
   List<Map<String,dynamic>> visibleSkills(Map person)=>c.skills.where((sk)=>sk['owner']==person['id']&&s.skillAvailable(sk)).toList();
-  List<Map<String,dynamic>> discoverableSkills(Map person)=>visibleSkills(person).where((sk)=>sk['secret']!=true&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id'])||sk['innate']!=true&&sk['concealed']!=true)).toList();
+  List<Map<String,dynamic>> discoverableSkills(Map person)=>visibleSkills(person).where((sk)=>(sk['secret']!=true||sk['revealFlag'] is String&&s.flags.contains(sk['revealFlag']))&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id'])||sk['innate']!=true&&sk['concealed']!=true)).toList();
+  bool spiritAffinity(Map sp){final affinity=sp['affinity'];if(affinity=='human'||affinity=='neutral')return true;return c.skills.any((sk)=>s.skills.contains(sk['id'])&&sk['innate']==true&&c.people.any((p)=>p['id']==sk['owner']&&p['race']==affinity));}
+  bool spiritReady(Map sp)=>s.canCapture(sp)&&spiritAffinity(sp);
   List<Map<String,dynamic>> get combatSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage']}];
   Map<String,dynamic> enemyProfile(int index){
     final e=Map<String,dynamic>.from(c.enemies[index]);
@@ -100,7 +102,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     e['raceName']=shown['name'];
     e['racialTrait']=shown['trait'];
     for(final k in ['attack','defense','evasion','regen','spellPower','hypnosis','lifesteal']){if(race[k] is int)e[k]=((e[k] as int?)??0)+(race[k] as int);}
-    if(person.isNotEmpty){e['techniques']=discoverableSkills(person);}
+    if(person.isNotEmpty){final techniques=<Map<String,dynamic>>[...discoverableSkills(person)];final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final compatible=c.spirits.where((sp)=>sp['affinity']==person['race']&&((person['spiritIntelligence'] as int?)??((person['level'] as int? ?? 1)*3+5))>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).take(person['boss']==true?3:1);for(final sp in compatible)techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true});}e['techniques']=techniques;}
     if(e['lethal']==true||person.isEmpty||person['hiddenRace']!=true||s.knownRaces.contains(person['id'])){}else{for(final k in ['lifesteal','regen','spellPower','evasion','hypnosis'])e.remove(k);e['attack']=c.enemies[index]['attack'];e['defense']=c.enemies[index]['defense'];}
     return e;
   }
@@ -143,11 +145,12 @@ class _DualWorldPageState extends State<DualWorldPage>{
   ])]);
   Widget dungeon()=>section('Dungeons · expediciones y espíritus',[
     const Text('Los combates aquí pueden terminar en muerte real. El Retorno reinicia ambos mundos. Los duelos de academia son protegidos.'),
-    for(final sp in c.spirits.where((sp)=>s.grades.length>=((sp['minClasses'] as int?)??0)))...[Text(sp['name'].toString()+' · inteligencia '+sp['intelligence'].toString()+' · afinidad '+sp['affinity'].toString()),Text(s.spirits.contains(sp['id'])?'Vinculado':(s.canCapture(sp)?'Puedes intentar vincularlo.':'Necesitas mayor inteligencia y superar su encuentro.')),if(s.canCapture(sp))btn('Vincular espíritu',()=>s.capture(sp)?'Espíritu vinculado. Puedes invocarlo en combate.':'No cumples las condiciones.')],
+    for(final sp in c.spirits.where((sp)=>s.grades.length>=((sp['minClasses'] as int?)??0)))...[Text(sp['name'].toString()+' · inteligencia '+sp['intelligence'].toString()+' · afinidad '+sp['affinity'].toString()),Text(s.spirits.contains(sp['id'])?'Vinculado':(spiritReady(sp)?'Puedes intentar vincularlo.':'Necesitas inteligencia superior, afinidad y superar su encuentro.')),if(spiritReady(sp))btn('Vincular espíritu',()=>s.capture(sp)?'Espíritu vinculado. Puedes invocarlo en combate.':'No cumples las condiciones.')],
     if(s.rescueMissions.isNotEmpty)const Text('Hay una expedición de rescate pendiente. Completa el combate antes de que termine el plazo.'),
+    for(final person in c.people.where((p)=>s.rescuedStudents.contains(p['id'])))Text('Rescatado: '+person['name'].toString()),
     battle()
   ]);
-  bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;if((enemy['lethal']==true)!=(s.place=='Dungeon'))return false;if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
+  bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;if((enemy['lethal']==true)!=(s.place=='Dungeon'))return false;if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag']))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
     const Text('Los combates son por turnos. Las victorias iniciales otorgan XP, reputación y clasificación.'),
     if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),

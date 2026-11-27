@@ -27,6 +27,7 @@ class DualState {
     if(decisions.containsKey(e['id'])||e['world']!=world||e['place']!=place)return false;
     if(grades.length<((e['minClasses'] as int?)??0)||reputation<((e['minRep'] as int?)??-100))return false;
     if(e['requiresFlag'] is String&&!flags.contains(e['requiresFlag']))return false;
+    if(e['excludesFlag'] is String&&flags.contains(e['excludesFlag']))return false;
     if(e['requiresWin'] is String&&!wins.contains('battle_'+(e['requiresWin'] as String)))return false;
     if(e['requiresTrust'] is int&&relationship(e['person'] as String)<(e['requiresTrust'] as int))return false;
     if(e['requiresSkill'] is String&&!skills.contains(e['requiresSkill']))return false;
@@ -45,6 +46,7 @@ class DualState {
     if(choice['rescue'] is String&&person.isNotEmpty)rescueMissions[person]=choice['rescue'] as String;
     if(choice['abandon']==true&&person.isNotEmpty){deadStudents.add(person);rumors.add(person);rescueMissions.remove(person);}
     if(choice['revealRace']==true&&person.isNotEmpty)knownRaces.add(person);
+    if(choice['fatal']==true){hp=0;lethalBattle=true;returned=true;}
     lastEvent=choice['outcome'] as String? ?? '';return true;
   }
   bool skillAvailable(Map sk)=>grades.length>=((sk['minClasses'] as int?)??0);
@@ -52,12 +54,14 @@ class DualState {
     for(final e in events){if(e['deadline'] is! int||e['person'] is! String)continue;
       final id=e['person'] as String;
       if(rescuedStudents.contains(id)||deadStudents.contains(id))continue;
+      if(e['requiresFlag'] is String&&!flags.contains(e['requiresFlag']))continue;
+      if(e['excludesFlag'] is String&&flags.contains(e['excludesFlag']))continue;
       if(grades.length>=(e['deadline'] as int)){deadStudents.add(id);rumors.add(id);rescueMissions.remove(id);}
     }
   }
   bool canCapture(Map spirit){final id=spirit['id'];return !inBattle&&place=='Dungeon'&&world=='school'&&!spirits.contains(id)&&intelligence>(spirit['intelligence'] as int)&&grades.length>=((spirit['minClasses'] as int?)??0)&&(spirit['requiresWin']==null||wins.contains('battle_'+spirit['requiresWin'].toString()));}
   bool capture(Map spirit){if(!canCapture(spirit))return false;spirits.add(spirit['id'] as String);return true;}
-  DualState returnToBeginning(){final next=DualState();next.intelligence=intelligence;next.mana=intelligence;next.readPages.addAll(readPages);next.workoutDate=workoutDate;next.returned=true;return next;}
+  DualState returnToBeginning(){final next=DualState();next.intelligence=intelligence;next.mana=intelligence;next.readPages.addAll(readPages);next.workoutDate=workoutDate;next.returned=false;return next;}
   int get level=>1+xp~/100;
   int get maxHp=>40+(level-1)*5;
   int get power=>strength+defense+stamina+intelligence+level*2+skills.length*3;
