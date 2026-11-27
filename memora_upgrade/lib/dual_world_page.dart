@@ -314,7 +314,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(c.enemies[i]['raid']==true)...[
         Text((c.enemies[i]['form']=='humanoid'?'Entidad divina humanoide · ':'Amenaza legendaria · ')+(c.enemies[i]['description']??'Entidad invasora').toString()),
         if(combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))...[
-          if(s.level>=DualState.numOf(c.enemies[i],'teamMinLevel',1))btn('Asalto con escuadrón',()=>s.startRaid(i,enemyProfile(i),withTeam:true)?'Tu escuadrón entra en combate.':'No puedes iniciar el asalto.')else Text('Escuadrón disponible desde nivel '+DualState.numOf(c.enemies[i],'teamMinLevel',1).toString()),
+          if(s.activeAlliedChampions.isNotEmpty&&s.level>=DualState.numOf(c.enemies[i],'teamMinLevel',1))btn('Asalto con escuadrón',()=>s.startRaid(i,enemyProfile(i),withTeam:true)?'Tu escuadrón entra en combate.':'No puedes iniciar el asalto.')else Text(s.activeAlliedChampions.isEmpty?'No quedan campeones disponibles.':'Escuadrón disponible desde nivel '+DualState.numOf(c.enemies[i],'teamMinLevel',1).toString()),
+          if(c.enemies[i]['form']=='humanoid')const Text('Los héroes pueden ayudarte a resistir y curarte, pero sus ataques no dañan a una deidad.'),
           btn('Desafiar en solitario · peligro extremo',()=>s.startRaid(i,enemyProfile(i),withTeam:false)?'Entras solo al combate.':'No puedes iniciar el asalto.'),
         ]else const Text('Necesitas una técnica de ataque.')
       ]else if((c.enemies[i]['openChallenge']==true||s.level>=(c.enemies[i]['level'] as int))&&combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
@@ -395,11 +396,11 @@ class _DualWorldPageState extends State<DualWorldPage>{
           if(s.flags.contains('adventurer_member'))Text('Rango del gremio: '+(c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=12?'A':c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=6?'C':c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=3?'D':'E')),
         ]),
         if(current=='Campamento mercenario'||current=='Frente de guerra')section('Campeones de las fuerzas aliadas',[
-          const Text('Los campeones tienen poder propio, no dependen de tu nivel y combaten incluso sin tu participación.'),
+          const Text('Los campeones tienen un poder fijo: pueden resistir a monstruos legendarios, pero no vencer a entidades divinas. Los derrotados dejan de participar en la guerra.'),
           for(final ally in DualState.alliedChampions.where((a)=>DualState.numOf(a,'week',0)<=s.warWeek))...[
             art(ally['id'].toString(),height:140),
             Text(ally['name'].toString()+' · Rango '+ally['rank'].toString()+' · Nv. '+ally['level'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
-            Text(ally['role'].toString()+' · '+ally['ability'].toString()),
+            Text(ally['role'].toString()+' · '+ally['ability'].toString()+' · '+(s.alliedDefeated(ally)?'Derrotado · fuera del frente':'Activo')),
           ],
         ]),
         if(current=='Campamento mercenario')section('Compañía mercenaria',[
