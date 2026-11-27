@@ -1,7 +1,7 @@
 name: memora
 description: Memora - turn your guides into reviews, cards, exams, and learning plans with AI.
 publish_to: 'none'
-version: 1.70.0+83
+version: 1.71.0+84
 
 environment:
   sdk: '>=3.13.0 <4.0.0'

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'dual_world_engine.dart';
+import 'lumen_business_panel.dart';
 
 class DualWorldContent {
   const DualWorldContent(this.data,this.lessons,this.books,this.events,this.extraSkills,this.extraPeople,this.extraEnemies,this.spirits,this.catalog,this.weapons);
@@ -261,7 +262,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   @override Widget build(BuildContext context){
     if(loading)return const Scaffold(body:Center(child:CircularProgressIndicator()));
     final school=s.world=='school';final current=s.place;
-    final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo','Dungeon','Iglesia','Palacio']:['Taller privado','Mercado','Gremio','Almacén','Puerto','Armería'];
+    final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo','Dungeon','Iglesia','Palacio']:['Taller privado','Mercado','Gremio','Almacén','Puerto','Armería','Empresas'];
     return Scaffold(appBar:AppBar(title:Text(school?'Academia · Entre dos mundos':'Mundo comercial')),body:ListView(padding:const EdgeInsets.all(14),children:[
       if(c.data['player'] is Map)section((c.data['player']['name']??'Valcrest').toString(),[Text((c.data['player']['appearance']??'').toString()),const Text('Becario · Casa de Valcrest')]),
       Text('Nivel '+s.level.toString()+' · Rango '+s.playerCombatRank+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
@@ -289,6 +290,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
         if(current=='Patio'&&c.events.any((e)=>e['deadline'] is int&&s.grades.length>=((e['minClasses'] as int?)??0)&&s.grades.length<(e['deadline'] as int)&&!s.rescuedStudents.contains(e['person'])))section('Avisos de expedición',[const Text('Hay búsquedas pendientes en el Dungeon. Consulta los avisos antes de avanzar las clases.')]),
         if(current=='Patio'&&s.rumors.isNotEmpty)section('Rumores de la academia',[for(final person in c.people.where((p)=>s.rumors.contains(p['id'])))Text(person['name'].toString()+' ya no asiste a clases. Se comenta que no sobrevivió a un incidente; nadie explica bien qué ocurrió.')]),
         if(current=='Mercado')market(),
+        if(current=='Empresas')LumenBusinessPanel(state:s,act:act,busy:busy),
         if(current=='Gimnasio')section('Entrenamiento real · FitRoutine',[const Text('Una recompensa por día local como máximo, solo por una sesión completa registrada en FitRoutine. No hace falta entrenar más para obtener más puntos.'),FilledButton(onPressed:busy||s.workoutDate.compareTo(today())>=0?null:workout,child:Text(s.workoutDate==today()?'Recompensa de hoy obtenida':'Verificar rutina completada'))]),
         if(current=='Ranking')section('Clasificación de la academia',[
           Text('Tus puntos: '+s.rankPoints.toString()+' · poder '+s.power.toString()),
