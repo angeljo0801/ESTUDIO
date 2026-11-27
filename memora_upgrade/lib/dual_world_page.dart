@@ -171,7 +171,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     for(final mode in ['manifest','fusion','enchant']) <String,dynamic>{'id':'spirit_'+sp['id'].toString()+'_'+mode,'spirit':sp['id'],'spiritMode':mode,'name':({'manifest':'Manifestar','fusion':'Fusionar con','enchant':'Encantar arma con'}[mode]??mode)+' '+sp['name'].toString(),'type':'support','magic':true,'cost':DualState.numOf(sp,'cost',3)+2,'damage':0,'element':sp['element'],'minIntelligence':sp['intelligence'],'spiritStamina':DualState.numOf(sp,'stamina',10)}
   ]];
   Map<String,dynamic> enemyProfile(int index){
-    final e=Map<String,dynamic>.from(c.enemies[index]);
+    final e=s.warEnemyProfile(c.enemies[index]);
     if(e['training']==true)return e;
     final person=c.people.firstWhere((p)=>p['id']==e['person'],orElse:()=> <String,dynamic>{});
     final race=c.raceFor(person['race']??e['race']);
@@ -302,14 +302,15 @@ class _DualWorldPageState extends State<DualWorldPage>{
   bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;
     final location=enemy['location'];
     if(location is String){if(location!=s.place)return false;if(enemy['repeatable']!=true&&s.wins.contains('battle_'+enemy['id'].toString()))return false;}else if((enemy['lethal']==true)!=(s.place=='Dungeon')||!const ['Arena','Dungeon'].contains(s.place))return false;
-    if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag'])&&!(enemy['requiresFlag']=='mercenary_member'&&s.canFightWar))return false;if(location=='Frente de guerra'&&s.warWon)return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
+    if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag'])&&!(enemy['requiresFlag']=='mercenary_member'&&s.canFightWar))return false;if(!s.warEnemyAvailable(enemy))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
     const Text('Los combates son por turnos. Las técnicas físicas consumen estamina; las mágicas consumen maná.'),
     for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))btn((s.activeSpirit==sp['id']?'Activo: ':'Vincular para combate: ')+sp['name'].toString(),()=>s.selectSpirit(sp)?'Espíritu seleccionado.':'No disponible.'),
     if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),
     if(!combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
-      Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(c.enemies[i]['rank']!=null?' · Rango '+c.enemies[i]['rank'].toString():'')+' · '+s.victoryXp(c.enemies[i],!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
+      Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(c.enemies[i]['rank']!=null?' · Rango '+c.enemies[i]['rank'].toString():'')+' · '+s.victoryXp(enemyProfile(i),!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
+      if(DualState.numOf(enemyProfile(i),'warEvolution',0)>0)Text('Evolución de la Ruptura · fase '+DualState.numOf(enemyProfile(i),'warEvolution',0).toString()),
       if(c.enemies[i]['raid']==true)...[
         Text((c.enemies[i]['form']=='humanoid'?'Entidad divina humanoide · ':'Amenaza legendaria · ')+(c.enemies[i]['description']??'Entidad invasora').toString()),
         if(combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))...[
