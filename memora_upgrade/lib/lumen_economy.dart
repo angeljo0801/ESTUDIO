@@ -64,10 +64,10 @@ class LumenEconomy {
   final Map<String,int> contractedUnits={};
   Map<String,int>? contractQuote(String sector){
     final b=companies[sector];if(b==null||contracts.contains('$month:$sector'))return null;
-    final units=max(1,number(sector,'capacity')*min(b.branches,b.staff)~/2);
+    final units=max(1,number(sector,'capacity')*min(b.branches,b.staff)~/2).toInt();
     final revenue=units*(number(sector,'price')*88~/100);
     final cost=units*number(sector,'unit');
-    final profit=revenue-cost-max(0,(revenue-cost)~/10);
+    final profit=(revenue-cost-max(0,(revenue-cost)~/10)).toInt();
     return {'units':units,'revenue':revenue,'cost':cost,'profit':profit};
   }
   int? fulfill(String sector,int cash){final q=contractQuote(sector);if(q==null||cash<q['cost']!)return null;contracts.add('$month:$sector');contractedUnits['$month:$sector']=q['units']!;totalRevenue+=q['revenue']!;totalProfit+=q['profit']!;return cash+q['profit']!;}
