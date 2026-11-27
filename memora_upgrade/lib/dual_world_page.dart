@@ -11,6 +11,7 @@ import 'nebula_art.dart';
 
 String dualWorldLandscapeKey(String place)=>const <String,String>{
   'Dormitorio':'scene_dormitorio','Clases':'scene_clases','Biblioteca':'scene_biblioteca','Patio':'scene_patio','Arena':'scene_arena','Gimnasio':'scene_gimnasio','Ranking':'scene_ranking','Jardín':'scene_jardin','Consejo':'scene_consejo','Pasillo antiguo':'scene_pasillo','Dungeon':'scene_dungeon','Iglesia':'scene_iglesia','Palacio':'scene_palacio','Taller privado':'scene_taller','Mercado':'scene_mercado','Gremio':'scene_gremio','Almacén':'scene_almacen','Puerto':'scene_puerto','Armería':'scene_armeria','Empresas':'scene_empresas',
+  'Sala de profesores':'scene_profesores','Gremio de aventureros':'scene_aventureros','Bosque fronterizo':'scene_bosque_frontera','Minas de Valdren':'scene_minas_valdren','Campamento mercenario':'scene_campamento','Frente de guerra':'scene_frente',
 }[place]??'scene_asteria';
 
 class DualWorldContent {
@@ -300,7 +301,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   ]);
   bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;
     final location=enemy['location'];
-    if(location is String){if(location!=s.place)return false;}else if((enemy['lethal']==true)!=(s.place=='Dungeon')||!const ['Arena','Dungeon'].contains(s.place))return false;
+    if(location is String){if(location!=s.place)return false;if(enemy['repeatable']!=true&&s.wins.contains('battle_'+enemy['id'].toString()))return false;}else if((enemy['lethal']==true)!=(s.place=='Dungeon')||!const ['Arena','Dungeon'].contains(s.place))return false;
     if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag']))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
     const Text('Los combates son por turnos. Las técnicas físicas consumen estamina; las mágicas consumen maná.'),
@@ -369,6 +370,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
         if(current=='Gremio de aventureros')section('Registro de aventureros',[
           Text(s.flags.contains('adventurer_member')?'Licencia activa · victorias de caza '+c.enemies.where((e)=>e['requiresFlag']=='adventurer_member').fold<int>(0,(total,e)=>total+(s.battleCounts[e['id']]??0)).toString():'Sin licencia. Habla con el maestro del gremio.'),
           const Text('El gremio es independiente de la academia y del ejército. Las cacerías exteriores son voluntarias y letales.'),
+          if(s.flags.contains('adventurer_member'))Text('Rango del gremio: '+(c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=12?'A':c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=6?'C':c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=3?'D':'E')),
         ]),
         if(current=='Campamento mercenario')section('Compañía mercenaria',[
           Text(s.flags.contains('mercenary_member')?'Contrato activo · servicio voluntario':'Sin contrato'),
