@@ -77,13 +77,18 @@ class DualState {
     if(cap==1)return 1;
     return min(cap,1+affinity~/20+max(0,intelligence)~/15);
   }
+  static const powerRanks=['E','D','C','B','A','S','SS','SSS'];
+  static const commonElements=['fire','water','earth','wind','lightning','ice','light','dark','nature','blood','metal','astral'];
+  static String combatRank(Map person,int completed){final initial=powerRanks.indexOf(person['initialRank']?.toString()??'E'),potential=powerRanks.indexOf(person['potentialRank']?.toString()??'E');final start=max(0,initial),end=max(start,potential);return powerRanks[min(end,start+max(0,completed)~/3)];}
+  static int elementMastery(Map person,dynamic element){if(element==null||element=='neutral')return 100;if(element=='void'||element=='divine'){return person['elements'] is List&&(person['elements'] as List).contains(element)?100:0;}if(person['spiritClass']=='elementalist'&&commonElements.contains(element))return 100;final els=person['elements'] is List?person['elements'] as List:const [];if(els.contains(element))return els.indexOf(element)==0?100:65;return commonElements.contains(element)?25:0;}
   static int elementalAffinity(Map person,Map spirit){
     final base=((person['spiritualAffinity'] as int?)??35).clamp(0,100).toInt();
     final elements=person['elements'] is List?(person['elements'] as List):const [];
     final element=spirit['element']??'neutral';
-    final matching=element=='neutral'||elements.contains(element);
+    final matching=element=='neutral'||elementMastery(person,element)>=65;
     final racial=spirit['affinity']=='neutral'||spirit['affinity']==person['race'];
     final role=person['spiritClass']?.toString()??'ordinary';
+    if((element=='void'||element=='divine')&&elementMastery(person,element)==0)return 0;
     if(role=='elementalist')return matching?min(100,base+15):base~/4;
     if(role=='specialist'||role=='chosen')return min(100,base+(matching?10:racial?0:-15));
     return matching?min(100,base+(racial?10:0)):racial?base~/2:base~/3;
@@ -120,16 +125,17 @@ class DualState {
     final cost=skill['cost'] as int,magic=skill['magic']==true;
     if(magic?mana<cost:energy<cost)return 'No tienes energía suficiente para esa habilidad.';
     if(magic){mana-=cost;}else{energy-=cost;}
-    final kind=skill['type'] as String,damage=skill['damage'] as int;
+    final kind=skill['type'] as String;final damage=skill['damage'] as int;
     if(kind=='defense'){guardPower=damage;guardTurns=3;}
     if(kind=='speed'){speedPower=damage;speedTurns=3;}
     if(kind=='heal'){hp=min(maxHp,hp+damage);}
     if(kind=='hypnosis'||kind=='seal'){enemyWeakTurns=max(enemyWeakTurns,2);}
+    if(kind=='void'){enemyGuard=0;enemyEvade=0;enemyWeakTurns=max(enemyWeakTurns,2);}
     final guard=guardTurns>0?guardPower:0,evade=speedTurns>0?speedPower:0;
     final rng=Random((turn+1)*31+xp*7+enemyHp);
-    final offensive=const ['attack','drain','bleed'].contains(kind);
+    final offensive=const ['attack','drain','bleed','void'].contains(kind);
     final missed=offensive&&rng.nextInt(100)<min(35,((enemy['evasion'] as int?)??0)+enemyEvade);
-    final dealt=offensive&&!missed?max(1,damage+(magic?intelligence:strength)~/2-(enemy['defense'] as int)-enemyGuard):0;
+    final dealt=offensive&&!missed?max(1,damage+(magic?intelligence:strength)~/2-(kind=='void'?0:(enemy['defense'] as int))-enemyGuard):0;
     enemyGuard=0;enemyEvade=0;
     enemyHp=max(0,enemyHp-dealt);
     if(kind=='drain'&&dealt>0)hp=min(maxHp,hp+max(1,dealt~/3));
@@ -139,13 +145,14 @@ class DualState {
     if(enemyHp==0){final key=enemy['id'] as String;final first=wins.add('battle_'+key);final earned=victoryXp(enemy,first);xp+=earned;battleCounts[key]=(battleCounts[key]??(first?0:1))+1;rankPoints+=first?25:0;if(first)reputation=min(100,reputation+8);if(pendingDuel==key)pendingDuel='';for(final id in rescueMissions.keys.where((id)=>rescueMissions[id]==key).toList()){if(!deadStudents.contains(id)){rescuedStudents.add(id);trust[id]=(relationship(id)+15).clamp(-100,100).toInt();}rescueMissions.remove(id);}enemyIndex=-1;lethalBattle=false;return 'Victoria. +'+earned.toString()+' XP. '+(first?'Reputación y ranking aumentados.':earned>0?'Experiencia de monstruo.':'Práctica sin recompensa repetida.');}
     final choices=(enemy['techniques'] is List?(enemy['techniques'] as List).whereType<Map>().toList():<Map>[]);
     Map? move;if(choices.isNotEmpty&&turn%2==0)move=choices[(turn~/2-1)%choices.length];
-    final enemyType=move?['type'];final enemyPower=(move?['damage'] as int?)??0;
+    final enemyType=move?['type'];final enemyPower=((move?['damage'] as int?)??0)*((move?['mastery'] as int?)??100)~/100;
     int enemyAttack=(enemy['attack'] as int)+(turn%3==0?4:0);
     String note='';
     if(move!=null){note=' · Rival: '+move['name'].toString();
       if(enemyType=='defense'){enemyGuard=min(12,enemyPower~/2);enemyAttack=0;}
       else if(enemyType=='speed'){enemyEvade=min(20,enemyPower);enemyAttack=0;}
       else if(enemyType=='heal'){enemyHp=min(enemy['hp'] as int,enemyHp+min(8,enemyPower~/2));enemyAttack=0;}
+      else if(enemyType=='void'){guardPower=0;guardTurns=0;speedPower=0;speedTurns=0;enemyAttack+=min(12,enemyPower~/4);note+=' · tu guardia se disipa';}
       else if(enemyType=='hypnosis'||enemyType=='seal'){final loss=min(mana,2);mana-=loss;enemyAttack=max(1,enemyAttack~/2);note+=' · pierdes '+loss.toString()+' maná';}
       else {enemyAttack+=min(7,enemyPower~/5)+(move['magic']==true?((enemy['spellPower'] as int?)??0):0);}
     }

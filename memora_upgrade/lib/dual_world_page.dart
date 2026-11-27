@@ -118,11 +118,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
   String publicRace(Map person)=>person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?'human':(person['race']??'human').toString();
   List<Map<String,dynamic>> visibleSkills(Map person)=>c.skills.where((sk)=>sk['owner']==person['id']&&s.skillAvailable(sk)).toList();
   List<Map<String,dynamic>> discoverableSkills(Map person)=>visibleSkills(person).where((sk)=>(sk['secret']!=true||sk['revealFlag'] is String&&s.flags.contains(sk['revealFlag']))&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id'])||sk['innate']!=true&&sk['concealed']!=true)).toList();
-  String elementName(dynamic id)=>const {'fire':'Fuego','water':'Agua','earth':'Tierra','wind':'Viento','lightning':'Rayo','ice':'Hielo','light':'Luz','dark':'Oscuridad','nature':'Naturaleza','blood':'Sangre','metal':'Metal','astral':'Astral','neutral':'Neutro'}[id]??id.toString();
+  String elementName(dynamic id)=>const {'fire':'Fuego','water':'Agua','earth':'Tierra','wind':'Viento','lightning':'Rayo','ice':'Hielo','light':'Luz','dark':'Oscuridad','nature':'Naturaleza','blood':'Sangre','metal':'Metal','astral':'Astral','void':'Vacío','divine':'Divino','neutral':'Neutro'}[id]??id.toString();
   List<String> elementsOf(Map person)=>person['elements'] is List?(person['elements'] as List).map((x)=>x.toString()).toList():['neutral'];
   String className(Map person)=>person['combatClass']?.toString()??'Guerrero';
   int affinityFor(Map sp){
     final a=sp['affinity'],element=sp['element']??'neutral';
+    if(element=='void')return 0;
+    if(element=='divine'&&!s.flags.contains('divine_devotion'))return 0;
     final owned=c.skills.where((sk)=>s.skills.contains(sk['id'])).toList();
     final racial=owned.where((sk)=>sk['innate']==true&&c.people.any((p)=>p['id']==sk['owner']&&p['race']==a)).length;
     final elemental=owned.where((sk)=>sk['element']==element).length;
@@ -134,9 +136,9 @@ class _DualWorldPageState extends State<DualWorldPage>{
   int npcAffinity(Map person,Map sp)=>DualState.elementalAffinity(person,sp);
   int npcSlots(Map person)=>DualState.spiritualCapacity(person,npcIntelligence(person));
   bool talentRevealed(Map person)=>(person['talentRevealFlag']==null||s.flags.contains(person['talentRevealFlag']))&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id']));
-  Map publicTalent(Map person)=>talentRevealed(person)?person:{...person,'race':publicRace(person),'spiritClass':person['coverSpiritClass']??'ordinary','combatClass':person['coverClass']??person['combatClass'],'elements':person['coverElements']??['neutral'],'spiritualAffinity':person['publicAffinity']??35,'spiritIntelligence':person['coverIntelligence']??15};
+  Map publicTalent(Map person)=>talentRevealed(person)?person:{...person,'race':publicRace(person),'spiritClass':person['coverSpiritClass']??'ordinary','combatClass':person['coverClass']??person['combatClass'],'elements':person['coverElements']??['neutral'],'initialRank':person['coverRank']??person['initialRank'],'potentialRank':person['coverPotential']??person['initialRank'],'spiritualAffinity':person['publicAffinity']??35,'spiritIntelligence':person['coverIntelligence']??15};
   bool spiritReady(Map sp)=>s.spiritChance(sp,affinityFor(sp))>0&&s.freshSpiritAttempt(sp);
-  List<Map<String,dynamic>> get combatSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage']}];
+  List<Map<String,dynamic>> get combatSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])&&(sk['element']!='divine'||s.flags.contains('divine_devotion'))),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage']}];
   Map<String,dynamic> enemyProfile(int index){
     final e=Map<String,dynamic>.from(c.enemies[index]);
     final person=c.people.firstWhere((p)=>p['id']==e['person'],orElse:()=> <String,dynamic>{});
@@ -145,7 +147,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
     e['raceName']=shown['name'];
     e['racialTrait']=shown['trait'];
     for(final k in ['attack','defense','evasion','regen','spellPower','hypnosis','lifesteal']){if(race[k] is int)e[k]=((e[k] as int?)??0)+(race[k] as int);}
-    if(person.isNotEmpty){final techniques=<Map<String,dynamic>>[...discoverableSkills(person)];final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final talent=publicTalent(person);final compatible=c.spirits.where((sp)=>npcAffinity(talent,sp)>=((sp['minAffinity'] as int?)??25)&&npcIntelligence(talent)>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).toList()..sort((a,b)=>(b['intelligence'] as int).compareTo(a['intelligence'] as int));for(final sp in compatible.take(npcSlots(talent)))techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true});}e['techniques']=techniques;}
+    if(person.isNotEmpty){final talent=publicTalent(person);final techniques=<Map<String,dynamic>>[for(final sk in discoverableSkills(person)) {...sk,'mastery':DualState.elementMastery(talent,sk['element'])}];
+      final growth=DualState.powerRanks.indexOf(DualState.combatRank(talent,s.grades.length))-DualState.powerRanks.indexOf(DualState.combatRank(talent,0));if(growth>0){e['attack']=(e['attack'] as int)+growth*2;e['defense']=(e['defense'] as int)+growth;e['hp']=(e['hp'] as int)+growth*8;}final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final compatible=c.spirits.where((sp)=>npcAffinity(talent,sp)>=((sp['minAffinity'] as int?)??25)&&npcIntelligence(talent)>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).toList()..sort((a,b)=>(b['intelligence'] as int).compareTo(a['intelligence'] as int));for(final sp in compatible.take(npcSlots(talent)))techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true});}e['techniques']=techniques;}
     if(e['lethal']==true||person.isEmpty||person['hiddenRace']!=true||s.knownRaces.contains(person['id'])){}else{for(final k in ['lifesteal','regen','spellPower','evasion','hypnosis'])e.remove(k);e['attack']=c.enemies[index]['attack'];e['defense']=c.enemies[index]['defense'];}
     return e;
   }
@@ -163,6 +166,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(discoverableSkills(person).any((sk)=>s.appraised.contains(sk['id']))&&c.raceFor(publicRace(person))['trait'] is String)Text('Rasgo innato: '+c.raceFor(publicRace(person))['trait'].toString()),
       Text('Afinidad espiritual: '+(publicTalent(person)['spiritualAffinity']??35).toString()+'/100'),
       Text('Clase: '+className(publicTalent(person))+' · Elementos: '+elementsOf(publicTalent(person)).map(elementName).join(', ')),
+      Text('Rango de combate: '+DualState.combatRank(publicTalent(person),s.grades.length)+' · Potencial: '+(publicTalent(person)['potentialRank']??'Desconocido').toString()),
       Text('Rango espiritual: '+DualState.spiritualRank((publicTalent(person)['spiritualAffinity'] as int?)??35,npcIntelligence(publicTalent(person)))+' · Capacidad: '+npcSlots(publicTalent(person)).toString()),
       Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
       if(s.intelligence>=15&&s.relationship(person['id'] as String)>=7&&!s.knownRaces.contains(person['id']))btn('Apreciación profunda',(){s.knownRaces.add(person['id'] as String);return 'La apreciación profunda permite examinar el repertorio real.';}),
@@ -172,7 +176,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
         return 'Técnicas descubiertas: '+discovered.length.toString()+'.';
       }),
       for(final sk in discoverableSkills(person).where((x)=>s.appraised.contains(x['id'])))...[
-        Text(sk['name'].toString()+' · '+sk['type'].toString()+' · '+elementName(sk['element']??'neutral')+' · potencia '+sk['damage'].toString()+' · '+sk['price'].toString()+' monedas · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),
+        Text(sk['name'].toString()+' · '+sk['type'].toString()+(sk['element']==null?'':' · '+elementName(sk['element']))+' · potencia '+sk['damage'].toString()+' · '+sk['price'].toString()+' monedas · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),
         if(sk['innate']==true)const Text('Técnica racial · copiable mediante Robo'),
         if(sk['description'] is String)Text(sk['description'] as String),
         Text(sk['copyable']==false?'Poder exclusivo · no se puede copiar':s.skills.contains(sk['id'])?'Aprendida':'Disponible para adquirir en tu dormitorio.')
@@ -183,7 +187,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     const Text('Solo puedes adquirir las habilidades descubiertas en la academia cuando estás a solas en tu dormitorio. No tienes ninguna técnica de combate al empezar.'),
     if(s.skills.isEmpty)const Text('Habilidades de combate: ninguna.'),
     const Text('Retorno: una muerte real reinicia ambos mundos. Solo conservas inteligencia.'),
-    for(final sk in c.skills.where((x)=>s.appraised.contains(x['id'])&&x['copyable']!=false))...[Text(sk['name'].toString()+' · '+sk['price'].toString()+' monedas · potencia '+sk['damage'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>s.buySkill(sk['id'] as String,sk['price'] as int)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
+    for(final sk in c.skills.where((x)=>s.appraised.contains(x['id'])&&x['copyable']!=false))...[Text(sk['name'].toString()+' · '+sk['price'].toString()+' monedas · potencia '+sk['damage'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>sk['element']=='divine'&&!s.flags.contains('divine_devotion')?'Necesitas profesar la fe de la Llama del Alba.':s.buySkill(sk['id'] as String,sk['price'] as int)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
   ]);
   String get arcTitle{final arcs=DualWorldContent.list(c.data['arcs']);String name='Arco I';for(final a in arcs){if(s.grades.length>=((a['afterClasses'] as int?)??0))name=a['title'].toString();}return name;}
   Widget storyEvents()=>Column(children:[for(final e in c.events.where(s.eligible))section(e['title'].toString(),[
@@ -205,10 +209,10 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
     const Text('Los combates son por turnos. Las victorias iniciales otorgan XP, reputación y clasificación.'),
     if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),
-    if(!combatSkills.any((sk)=>const ['attack','drain','bleed'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
+    if(!combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
       Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+' · '+s.victoryXp(c.enemies[i],!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
-      if(s.level>=(c.enemies[i]['level'] as int)&&combatSkills.any((sk)=>const ['attack','drain','bleed'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
+      if(s.level>=(c.enemies[i]['level'] as int)&&combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
   ]);final e=enemyProfile(s.enemyIndex);return section('Combate · '+e['name'].toString(),[
     if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
     Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()),
