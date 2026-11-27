@@ -36,4 +36,15 @@ void main(){
    final hunt={'id':'hunt_test','level':2,'hp':20,'repeatable':true,'goldReward':20};
    s.battleVictory(hunt);s.battleVictory(hunt);expect(s.cash,120);expect(s.battleCounts['hunt_test'],2);
  });
+ test('colossal raids support solo and finite squad resources and preserve save state',(){
+   final s=DualState();s.place='Frente de guerra';s.flags.add('mercenary_member');
+   final boss={'id':'colossus_test','raid':true,'level':20,'teamMinLevel':5,'hp':1000,'defense':10,'attack':80,'xp':14000};
+   expect(s.startRaid(0,boss,withTeam:true),false);
+   s.xp=500;expect(s.startRaid(0,boss,withTeam:true),true);expect(s.raidAllies.length,3);
+   final energy=s.raidAllies.first['energy'] as int;expect(s.raidSupport(boss),greaterThan(0));expect(s.raidAllies.first['energy'],energy-3);
+   expect(s.raidIntercept(80,boss),20);
+   final saved=DualState.fromJson(s.toJson());expect(saved.raidAllies.length,3);expect(saved.raidAllies.first['energy'],energy-3);
+   expect(saved.victoryXp(boss,true),14000);
+   saved.enemyIndex=-1;expect(saved.startRaid(0,boss,withTeam:false),true);expect(saved.raidAllies,isEmpty);
+ });
 }
