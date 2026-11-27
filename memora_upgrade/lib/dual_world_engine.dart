@@ -46,24 +46,42 @@ class DualState {
   int warWeek=0,warContribution=0,alliedContribution=0,warSeed=Random().nextInt(1000000);
   final List<String> alliedReports=[];
   static const alliedChampions=<Map<String,dynamic>>[
-    {'id':'ally_kaelen','name':'Kaelen Voss','role':'Vanguardia','rank':'A','level':35,'power':65,'week':0,'ability':'Espada del amanecer'},
-    {'id':'ally_mirath','name':'Mirath Solenne','role':'Sanador','rank':'S','level':65,'power':180,'week':0,'ability':'Restauración del alma'},
-    {'id':'ally_therak','name':'Therak Forjaestelar','role':'Vanguardia','rank':'SS','level':95,'power':380,'week':0,'ability':'Armadura de estrella'},
-    {'id':'ally_ashara','name':'Ashara Veyl','role':'Elementalista','rank':'SSS','level':130,'power':720,'week':0,'ability':'Fuego solar'},
-    {'id':'ally_elysian','name':'Elysian Ardent','role':'Sanador','rank':'SSS','level':160,'power':950,'week':6,'ability':'Santuario de vida'},
-    {'id':'ally_draeven','name':'Draeven Aster','role':'Vanguardia','rank':'SSS','level':190,'power':1500,'week':8,'ability':'Corte dimensional'},
-    {'id':'ally_iria','name':'Iria Celest','role':'Elementalista','rank':'SSS','level':220,'power':2300,'week':10,'ability':'Dominio de la causalidad'},
-    {'id':'ally_orion','name':'Orion del Alba','role':'Vanguardia','rank':'SSS','level':240,'power':3000,'week':14,'ability':'Autoridad del firmamento'},
+    {'id':'ally_kaelen','name':'Kaelen Voss','role':'Vanguardia','rank':'A','level':28,'power':65,'week':0,'ability':'Espada del amanecer'},
+    {'id':'ally_mirath','name':'Mirath Solenne','role':'Sanador','rank':'S','level':45,'power':130,'week':0,'ability':'Restauración del alma'},
+    {'id':'ally_therak','name':'Therak Forjaestelar','role':'Vanguardia','rank':'SS','level':60,'power':220,'week':0,'ability':'Armadura de estrella'},
+    {'id':'ally_ashara','name':'Ashara Veyl','role':'Elementalista','rank':'SS','level':65,'power':260,'week':0,'ability':'Fuego solar'},
+    {'id':'ally_elysian','name':'Elysian Ardent','role':'Sanador','rank':'SS','level':70,'power':290,'week':0,'ability':'Santuario de vida'},
+    {'id':'ally_draeven','name':'Draeven Aster','role':'Vanguardia','rank':'SSS','level':85,'power':390,'week':0,'ability':'Corte dimensional'},
+    {'id':'ally_iria','name':'Iria Celest','role':'Elementalista','rank':'SSS','level':90,'power':420,'week':0,'ability':'Sello de causalidad'},
+    {'id':'ally_orion','name':'Orion del Alba','role':'Vanguardia','rank':'SSS','level':95,'power':450,'week':0,'ability':'Espada del firmamento'},
   ];
+  bool alliedDefeated(Map ally)=>flags.contains('ally_defeated_'+ally['id'].toString());
+  List<Map<String,dynamic>> get activeAlliedChampions=>alliedChampions.where((a)=>!alliedDefeated(a)).toList();
   int get defenseTotal=>warContribution+alliedContribution;
+  // Threat rises with the invasion, not with player or allied levels.
+  static int alliedFrontThreat(int week)=>week<4?80:week<6?180:week<8?310:week<10?470:week<12?850:week<14?1500:week<16?2400:4000;
   void simulateAlliedFront(){
     if(warWeek==0||warWeek%2!=0||warWon||worldDestroyed)return;
-    final active=alliedChampions.where((a)=>numOf(a,'week',0)<=warWeek).toList();
-    final champion=active[(warWeek~/2-1)%active.length];
+    final active=activeAlliedChampions..sort((a,b)=>numOf(b,'power',0).compareTo(numOf(a,'power',0)));
+    if(active.isEmpty){alliedContribution=max(0,alliedContribution-2);alliedReports.add('Semana $warWeek · Las fuerzas aliadas ya no tienen campeones disponibles.');return;}
+    final champion=active.first;
+    final strength=active.fold<int>(0,(sum,a)=>sum+numOf(a,'power',0))~/max(1,active.length);
+    final threat=alliedFrontThreat(warWeek);
+    final helped=warContribution>=warPressure(warWeek)&&warContribution>0;
+    final effectiveThreat=helped?threat*65~/100:threat;
+    final divine=warWeek>=10;
     final roll=(warSeed+warWeek*17+warWeek*warWeek*7)%10;
-    final gain=roll<3?(warWeek>=10?3:2):roll<7?1:0;
-    alliedContribution+=gain;
-    alliedReports.add('Semana '+warWeek.toString()+' · '+champion['name'].toString()+': '+(gain>=2?'victoria importante; los aliados recuperan terreno.':gain==1?'contiene la ofensiva y protege la retirada.':'la defensa pierde terreno a pesar de su resistencia.'));
+    if(!divine&&strength>=effectiveThreat){
+      alliedContribution+=roll<5?2:1;
+      alliedReports.add('Semana $warWeek · '+champion['name'].toString()+': los héroes contienen a los invasores y recuperan terreno.');
+    }else if(!divine&&numOf(champion,'power',0)*2>=effectiveThreat){
+      alliedContribution=max(0,alliedContribution-1);
+      alliedReports.add('Semana $warWeek · '+champion['name'].toString()+': resiste a los monstruos legendarios con grandes pérdidas.');
+    }else{
+      alliedContribution=max(0,alliedContribution-2);
+      if(!helped||roll<3){flags.add('ally_defeated_'+champion['id'].toString());}
+      alliedReports.add('Semana $warWeek · '+champion['name'].toString()+(alliedDefeated(champion)?' ha sido derrotado y queda fuera del frente.':' logra retirarse, pero no puede vencer al invasor.')+' Las defensas retroceden.');
+    }
   }
 
   bool get warWon=>flags.contains('rupture_repulsed');
@@ -102,7 +120,7 @@ class DualState {
     if(warWon||worldDestroyed)return;
     if(warWeek>=12&&defenseTotal<9){flags.add('academy_mobilized');}
     if(warWeek>=18){
-      if(defenseTotal>=15){flags.add('rupture_repulsed');return;}
+      if(warContribution>=15){flags.add('rupture_repulsed');return;}
       flags.add('rupture_world_destroyed');enemyIndex=-1;hp=0;lethalBattle=true;returned=true;
     }
   }
@@ -110,7 +128,7 @@ class DualState {
   void recordWarVictory(Map enemy,bool first){
     if(enemy['location']!='Frente de guerra'||!first)return;
     warContribution+=max(0,numOf(enemy,'warContribution',1));
-    if(enemy['warFinal']==true||defenseTotal>=15){flags.add('rupture_repulsed');}
+    if(enemy['warFinal']==true||warContribution>=15){flags.add('rupture_repulsed');}
     resolveWar();
   }
 
@@ -122,7 +140,7 @@ class DualState {
     if(withTeam){
       final target=numOf(enemy,'level',1);
       for(final role in ['Vanguardia','Elementalista','Sanador']){
-        final candidates=alliedChampions.where((a)=>a['role']==role&&numOf(a,'week',0)<=warWeek).toList()
+        final candidates=activeAlliedChampions.where((a)=>a['role']==role).toList()
           ..sort((a,b)=>(numOf(a,'level',1)-target).abs().compareTo((numOf(b,'level',1)-target).abs()));
         if(candidates.isEmpty)continue;
         final member=candidates.first,power=numOf(member,'power',1);
@@ -142,7 +160,7 @@ class DualState {
       final resource=role=='Vanguardia'?'energy':'mana';
       if(numOf(ally,resource,0)<3)continue;
       ally[resource]=numOf(ally,resource,0)-3;
-      damage+=max(1,power*2-numOf(enemy,'defense',0)~/2);
+      if(enemy['form']!='humanoid')damage+=max(0,power*2-numOf(enemy,'defense',0)~/2);
     }
     return damage;
   }
@@ -152,8 +170,9 @@ class DualState {
     if(living.isEmpty)return incoming;
     final share=max(1,incoming~/(living.length+1));
     for(final ally in living){
-      final damage=turn%3==0?max(share,numOf(enemy,'attack',1)~/3):share;
+      final damage=enemy['form']=='humanoid'?max(share,numOf(enemy,'attack',1)):turn%3==0?max(share,numOf(enemy,'attack',1)~/3):share;
       ally['hp']=max(0,numOf(ally,'hp',0)-damage);
+      if(ally['hp']==0&&ally['id'] is String)flags.add('ally_defeated_'+ally['id'].toString());
     }
     return share;
   }
