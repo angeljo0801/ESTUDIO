@@ -28,4 +28,12 @@ void main(){
    final saved=DualState.fromJson(s.toJson());expect(saved.royalAlignment,'evelyne');expect(saved.royalChoiceMade,true);
    final n=DualState();n.place='Palacio';expect(n.chooseRoyalFaction('neutral'),true);expect(n.royalEventAvailable('evelyne'),true);expect(n.royalEventAvailable('aldren'),true);expect(n.royalStanding('evelyne'),0);expect(n.royalStanding('aldren'),0);
  });
+ test('frontier contracts award gold once for unique targets and repeatedly for hunts',(){
+   final s=DualState();
+   final unique={'id':'war_test','level':4,'hp':40,'xp':150,'goldReward':80};
+   s.battleVictory(unique);expect(s.cash,80);expect(s.xp,150);
+   s.battleVictory(unique);expect(s.cash,80);expect(s.xp,150);
+   final hunt={'id':'hunt_test','level':2,'hp':20,'repeatable':true,'goldReward':20};
+   s.battleVictory(hunt);s.battleVictory(hunt);expect(s.cash,120);expect(s.battleCounts['hunt_test'],2);
+ });
 }
