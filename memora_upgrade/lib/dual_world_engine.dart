@@ -95,7 +95,7 @@ class DualState {
     return {...Map<String,dynamic>.from(sk),'rank':powerRanks[base+growth],'damage':damage==0?0:damage+growth*max(1,damage~/5),'cost':((sk['cost'] as int?)??1)+growth,'effectTurns':((sk['effectTurns'] as int?)??2)+growth~/2,'price':growth==0||price==0?price:max(price,fees[base+growth]+growth*50)};
   }
   static bool npcTechniqueAvailable(Map sk,Map person,int completed){final start=(sk['minClasses'] as int?)??0;if(start==0||sk['copyable']==false)return completed>=start;final room=max(0,rankIndex(person['potentialRank'])-rankIndex(person['initialRank']));final delay=room<=1?min(2,9-start).clamp(0,2).toInt():room==2?1:0;return completed>=start+delay;}
-  static int elementMastery(Map person,dynamic element){if(element==null||element=='neutral')return 100;if(element=='void'||element=='divine'){return person['elements'] is List&&(person['elements'] as List).contains(element)?100:0;}if(person['spiritClass']=='elementalist'&&commonElements.contains(element))return 100;final els=person['elements'] is List?person['elements'] as List:const [];if(els.contains(element))return els.indexOf(element)==0?100:65;return commonElements.contains(element)?25:0;}
+  static int elementMastery(Map person,dynamic element){if(element==null||element=='neutral')return 100;if(person['singularElement']==element)return 100;if(element=='void'||element=='divine'){return person['elements'] is List&&(person['elements'] as List).contains(element)?100:0;}if(person['spiritClass']=='elementalist'&&commonElements.contains(element))return 100;final els=person['elements'] is List?person['elements'] as List:const [];if(els.contains(element))return els.indexOf(element)==0?100:65;return commonElements.contains(element)?25:0;}
   static int elementalAffinity(Map person,Map spirit){
     final base=((person['spiritualAffinity'] as int?)??35).clamp(0,100).toInt();
     final elements=person['elements'] is List?(person['elements'] as List):const [];
@@ -103,7 +103,7 @@ class DualState {
     final matching=element=='neutral'||elementMastery(person,element)>=65;
     final racial=spirit['affinity']=='neutral'||spirit['affinity']==person['race'];
     final role=person['spiritClass']?.toString()??'ordinary';
-    if((element=='void'||element=='divine')&&elementMastery(person,element)==0)return 0;
+    if(element!='neutral'&&!commonElements.contains(element)&&elementMastery(person,element)==0)return 0;
     if(role=='elementalist')return matching?min(100,base+15):base~/4;
     if(role=='specialist'||role=='chosen')return min(100,base+(matching?10:racial?0:-15));
     return matching?min(100,base+(racial?10:0)):racial?base~/2:base~/3;
@@ -125,13 +125,13 @@ class DualState {
   bool upgradeTechnique(Map sk){final id=sk['id'] as String,rank=techniqueTier(sk);if(inBattle||world!='school'||place!='Dormitorio'||!skills.contains(id)||rank>=7||cash<upgradeFee(sk)||intelligence<appraisalThresholds[rank+1]~/2)return false;cash-=upgradeFee(sk);skillUpgrades[id]=rank+1;return true;}
   Map<String,dynamic> effectiveTechnique(Map sk){final delta=techniqueTier(sk)-rankIndex(sk['rank']);final uses=skillUses[sk['id']]??0;return {...Map<String,dynamic>.from(sk),'rank':powerRanks[techniqueTier(sk)],'damage':((sk['damage'] as int?)??0)+delta*max(3,((sk['damage'] as int?)??0)~/2)+min(5,uses~/10),'cost':((sk['cost'] as int?)??1)+delta,'effectTurns':((sk['effectTurns'] as int?)??2)+delta~/2};}
   String fusionKey(Map a,Map b){final ids=[a['id'].toString(),b['id'].toString()]..sort();return 'fusion_'+ids.join('__');}
-  bool compatibleFusion(Map a,Map b)=>a['id']!=b['id']&&a['type']==b['type']&&a['magic']==b['magic']&&(a['element']==null||b['element']==null||a['element']==b['element'])&&a['copyable']!=false&&b['copyable']!=false&&!a['id'].toString().startsWith('fusion_')&&!b['id'].toString().startsWith('fusion_');
+  bool compatibleFusion(Map a,Map b)=>a['id']!=b['id']&&a['type']==b['type']&&a['magic']==b['magic']&&(a['element']==null||b['element']==null||a['element']==b['element'])&&a['copyable']!=false&&b['copyable']!=false&&(a['specialEffect']==null||b['specialEffect']==null||a['specialEffect']==b['specialEffect'])&&!a['id'].toString().startsWith('fusion_')&&!b['id'].toString().startsWith('fusion_');
   static const fusionIntelligence=[0,30,60,100,150,220,320,450];
   int fusionTier(Map a,Map b)=>min(7,max(techniqueTier(a),techniqueTier(b))+1);
   int fusionMinimum(Map a,Map b)=>fusionIntelligence[fusionTier(a,b)];
   int fusionChance(Map a,Map b){final minimum=fusionMinimum(a,b);if(intelligence<minimum||!compatibleFusion(a,b))return 0;return min(100,25+(intelligence-minimum)*75~/max(30,minimum));}
   int fusionFee(Map a,Map b)=>max(500,appraisalFees[min(7,max(techniqueTier(a),techniqueTier(b))+1)]);
-  bool fuse(Map a,Map b,{Random? random}){final id=fusionKey(a,b),tier=min(7,max(techniqueTier(a),techniqueTier(b))+1);if(inBattle||world!='school'||place!='Dormitorio'||!skills.contains(a['id'])||!skills.contains(b['id'])||!compatibleFusion(a,b)||fusedSkills.containsKey(id)||cash<fusionFee(a,b)||fusionChance(a,b)==0)return false;final x=effectiveTechnique(a),y=effectiveTechnique(b);cash-=fusionFee(a,b);fusionAttempts[id]=(fusionAttempts[id]??0)+1;if((random??Random()).nextInt(100)>=fusionChance(a,b))return false;fusedSkills[id]={'id':id,'name':a['name'].toString()+' × '+b['name'].toString(),'rank':powerRanks[tier],'type':a['type'],'magic':a['magic'],'element':a['element']??b['element'],'damage':((x['damage'] as int)+(y['damage'] as int))*3~/4,'cost':max(x['cost'] as int,y['cost'] as int)+1};skills.add(id);return true;}
+  bool fuse(Map a,Map b,{Random? random}){final id=fusionKey(a,b),tier=min(7,max(techniqueTier(a),techniqueTier(b))+1);if(inBattle||world!='school'||place!='Dormitorio'||!skills.contains(a['id'])||!skills.contains(b['id'])||!compatibleFusion(a,b)||fusedSkills.containsKey(id)||cash<fusionFee(a,b)||fusionChance(a,b)==0)return false;final x=effectiveTechnique(a),y=effectiveTechnique(b);cash-=fusionFee(a,b);fusionAttempts[id]=(fusionAttempts[id]??0)+1;if((random??Random()).nextInt(100)>=fusionChance(a,b))return false;fusedSkills[id]={'id':id,'name':a['name'].toString()+' × '+b['name'].toString(),'rank':powerRanks[tier],'type':a['type'],'magic':a['magic'],'element':a['element']??b['element'],'specialEffect':a['specialEffect']??b['specialEffect'],'damage':((x['damage'] as int)+(y['damage'] as int))*3~/4,'cost':max(x['cost'] as int,y['cost'] as int)+1};skills.add(id);return true;}
   bool acquireRankedSkill(Map skill){if(skill['copyable']==false||!canAppraise(skill))return false;if(skill['element']=='divine'&&!flags.contains('divine_devotion'))return false;final id=skill['id'] as String;if((appraisedRanks[id]??rankIndex(skill['rank']))<rankIndex(skill['rank']))return false;if(!buySkill(id,skill['price'] as int))return false;copiedSkills[id]=Map<String,dynamic>.from(skill);return true;}
   bool buyWeapon(Map w){if(inBattle||world!='trade'||place!='Armería'||weapons.contains(w['id'])||grades.length<((w['minClasses'] as int?)??0)||w['requiresWin'] is String&&!wins.contains('battle_'+w['requiresWin'].toString()))return false;final price=w['price'] as int;if(price<=0||cash<price)return false;cash-=price;weapons.add(w['id'] as String);return true;}
   bool equipWeapon(Map w){if(inBattle||world!='school'||place!='Dormitorio'||!weapons.contains(w['id'])||strength<(w['minStrength'] as int)||intelligence<(w['minIntelligence'] as int))return false;equippedWeapon=w['id'] as String;weaponElement=w['element']?.toString()??'neutral';weaponStrength=w['strengthBonus'] as int;weaponMagic=w['magicBonus'] as int;weaponDefense=w['defenseBonus'] as int;return true;}
@@ -168,7 +168,7 @@ class DualState {
     final cost=skill['cost'] as int,magic=skill['magic']==true;
     if(magic?mana<cost:energy<cost)return 'No tienes energía suficiente para esa habilidad.';
     if(magic){mana-=cost;}else{energy-=cost;}
-    final kind=skill['type'] as String;final damage=skill['damage'] as int;final duration=(skill['effectTurns'] as int?)??2;if(skills.contains(skill['id'])){final id=skill['id'] as String;skillUses[id]=(skillUses[id]??0)+1;}
+    final kind=skill['type'] as String;final special=skill['specialEffect'];final damage=skill['damage'] as int;final duration=(skill['effectTurns'] as int?)??2;if(skills.contains(skill['id'])){final id=skill['id'] as String;skillUses[id]=(skillUses[id]??0)+1;}
     if(kind=='defense'){guardPower=damage;guardTurns=duration+1;}
     if(kind=='speed'){speedPower=damage;speedTurns=duration+1;}
     if(kind=='heal'){hp=min(maxHp,hp+damage);}
@@ -178,9 +178,14 @@ class DualState {
     final rng=Random((turn+1)*31+xp*7+enemyHp);
     final offensive=const ['attack','drain','bleed','void'].contains(kind);
     final missed=offensive&&rng.nextInt(100)<min(35,((enemy['evasion'] as int?)??0)+enemyEvade);
-    final dealt=offensive&&!missed?max(1,damage+(magic?intelligence+((weaponElement=='neutral'||weaponElement==skill['element'])?weaponMagic:weaponMagic~/2):strength+weaponStrength)~/2-(kind=='void'?0:(enemy['defense'] as int))-enemyGuard):0;
+    final defenseFactor=special=='space'?2:1;
+    final dealt=offensive&&!missed?max(1,damage+(magic?intelligence+((weaponElement=='neutral'||weaponElement==skill['element'])?weaponMagic:weaponMagic~/2):strength+weaponStrength)~/2-(kind=='void'?0:(enemy['defense'] as int)~/defenseFactor)-(special=='sound'?enemyGuard~/2:enemyGuard)):0;
     if(enemyGuardTurns>0&&--enemyGuardTurns==0)enemyGuard=0;if(enemyEvadeTurns>0&&--enemyEvadeTurns==0)enemyEvade=0;
     enemyHp=max(0,enemyHp-dealt);
+    if(dealt>0){if(special=='gravity'){enemyEvade=0;enemyEvadeTurns=0;enemyWeakTurns=max(enemyWeakTurns,duration);}if(special=='sound'||special=='magnetism'){enemyGuard=0;enemyGuardTurns=0;}}
+    if(special=='tempo'){enemyWeakTurns=max(enemyWeakTurns,duration+1);speedPower=max(speedPower,5);speedTurns=max(speedTurns,duration+1);}
+    if(special=='dream'){enemyWeakTurns=max(enemyWeakTurns,duration+1);}
+    if(special=='crystal'){guardPower=max(guardPower,damage);guardTurns=max(guardTurns,duration+2);}
     if(kind=='drain'&&dealt>0)hp=min(maxHp,hp+max(1,dealt~/3));
     if(kind=='bleed'&&dealt>0){enemyBleedPower=max(1,damage~/4);enemyBleedTurns=duration;}
     if(enemyBleedTurns>0){enemyHp=max(0,enemyHp-enemyBleedPower);enemyBleedTurns--;}
@@ -188,7 +193,7 @@ class DualState {
     if(enemyHp==0){final key=enemy['id'] as String;final first=wins.add('battle_'+key);final earned=victoryXp(enemy,first);xp+=earned;battleCounts[key]=(battleCounts[key]??(first?0:1))+1;rankPoints+=first?25:0;if(first)reputation=min(100,reputation+8);if(pendingDuel==key)pendingDuel='';for(final id in rescueMissions.keys.where((id)=>rescueMissions[id]==key).toList()){if(!deadStudents.contains(id)){rescuedStudents.add(id);trust[id]=(relationship(id)+15).clamp(-100,100).toInt();}rescueMissions.remove(id);}enemyIndex=-1;lethalBattle=false;return 'Victoria. +'+earned.toString()+' XP. '+(first?'Reputación y ranking aumentados.':earned>0?'Experiencia de monstruo.':'Práctica sin recompensa repetida.');}
     final choices=(enemy['techniques'] is List?(enemy['techniques'] as List).whereType<Map>().toList():<Map>[]);
     Map? move;if(choices.isNotEmpty&&turn%2==0)move=choices[(turn~/2-1)%choices.length];
-    final enemyType=move?['type'];final enemyPower=((move?['damage'] as int?)??0)*((move?['mastery'] as int?)??100)~/100;
+    final enemyType=move?['type'];final enemySpecial=move?['specialEffect'];final enemyPower=((move?['damage'] as int?)??0)*((move?['mastery'] as int?)??100)~/100;
     final enemyDuration=(move?['effectTurns'] as int?)??2;
     int enemyAttack=(enemy['attack'] as int)+(turn%3==0?4:0);
     String note='';
@@ -200,8 +205,9 @@ class DualState {
       else if(enemyType=='hypnosis'||enemyType=='seal'){final loss=min(mana,max(2,enemyDuration));mana-=loss;enemyAttack=max(1,enemyAttack~/2);note+=' · pierdes '+loss.toString()+' maná';}
       else {enemyAttack+=min(20,enemyPower~/5)+(move['magic']==true?((enemy['spellPower'] as int?)??0):0);}
     }
+    if(move!=null){if(enemySpecial=='gravity'){speedPower=0;speedTurns=0;enemyAttack+=min(8,enemyPower~/6);note+=' · presión gravitatoria';}else if(enemySpecial=='space'){note+=' · distorsión espacial';}else if(enemySpecial=='sound'||enemySpecial=='magnetism'){guardPower=0;guardTurns=0;note+=' · guardia quebrada';}else if(enemySpecial=='tempo'){energy=max(0,energy-2);note+=' · ritmo alterado';}else if(enemySpecial=='dream'){mana=max(0,mana-3);note+=' · somnolencia mágica';}else if(enemySpecial=='crystal'){enemyGuard=max(enemyGuard,min(30,enemyPower~/2));enemyGuardTurns=max(enemyGuardTurns,enemyDuration+1);}else if(enemySpecial=='entropy'){enemyAttack+=min(8,enemyPower~/5);note+=' · desgaste';}}
     if(enemyWeakTurns>0){enemyAttack=enemyAttack~/2;enemyWeakTurns--;}
-    final hit=enemyAttack<=0||rng.nextInt(100)<min(70,10+evade*5)?0:max(1,enemyAttack-(defense+weaponDefense)~/2-(enemyType=='void'?0:guard));
+    final hit=enemyAttack<=0||rng.nextInt(100)<min(70,10+(enemySpecial=='gravity'?0:evade)*5)?0:max(1,enemyAttack-(defense+weaponDefense)~/2-(enemyType=='void'||enemySpecial=='sound'||enemySpecial=='magnetism'?0:enemySpecial=='space'?guard~/2:guard));
     if(guardTurns>0)guardTurns--;if(speedTurns>0)speedTurns--;
     hp=max(0,hp-hit);
     if(hit>0&&(((enemy['lifesteal'] as int?)??0)>0||enemyType=='drain'))enemyHp=min(enemy['hp'] as int,enemyHp+min(3,hit));

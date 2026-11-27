@@ -124,12 +124,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
   bool needsAppraisal(Map sk)=>!s.appraised.contains(sk['id'])||(s.appraisedRanks[sk['id']]??0)<DualState.rankIndex(sk['rank']);
   List<Map<String,dynamic>> get purchasableSkills=>[for(final person in c.people.where((p)=>!s.deadStudents.contains(p['id']))) ...discoverableSkills(person).where((sk)=>s.appraised.contains(sk['id'])&&!needsAppraisal(sk)&&s.canAppraise(sk)&&sk['copyable']!=false)];
   List<Map<String,dynamic>> discoverableSkills(Map person)=>visibleSkills(person).where((sk)=>(sk['secret']!=true||sk['revealFlag'] is String&&s.flags.contains(sk['revealFlag']))&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id'])||sk['innate']!=true&&sk['concealed']!=true)).toList();
-  String elementName(dynamic id)=>const {'fire':'Fuego','water':'Agua','earth':'Tierra','wind':'Viento','lightning':'Rayo','ice':'Hielo','light':'Luz','dark':'Oscuridad','nature':'Naturaleza','blood':'Sangre','metal':'Metal','astral':'Astral','void':'Vacío','divine':'Divino','neutral':'Neutro'}[id]??id.toString();
-  List<String> elementsOf(Map person)=>person['elements'] is List?(person['elements'] as List).map((x)=>x.toString()).toList():['neutral'];
+  String elementName(dynamic id)=>const {'fire':'Fuego','water':'Agua','earth':'Tierra','wind':'Viento','lightning':'Rayo','ice':'Hielo','light':'Luz','dark':'Oscuridad','nature':'Naturaleza','blood':'Sangre','metal':'Metal','astral':'Astral','void':'Vacío','divine':'Divino','gravity':'Gravedad','space':'Espacio','tempo':'Ritmo temporal','sound':'Sonido','dream':'Sueño','crystal':'Cristal','entropy':'Entropía','magnetism':'Magnetismo','neutral':'Neutro'}[id]??id.toString();
+  List<String> elementsOf(Map person){final els=person['elements'] is List?(person['elements'] as List).map((x)=>x.toString()).toList():<String>['neutral'];if(person['singularElement'] is String&&s.flags.contains(person['singularFlag'])&&c.skills.any((sk)=>sk['owner']==person['id']&&sk['element']==person['singularElement']&&s.appraised.contains(sk['id'])&&s.canAppraise(sk)))els.add(person['singularElement'] as String);return els;}
   String className(Map person)=>person['combatClass']?.toString()??'Guerrero';
   int affinityFor(Map sp){
     final element=sp['element']??'neutral';
     if(element=='void')return 0;
+    if(element!='neutral'&&element!='divine'&&!DualState.commonElements.contains(element)&&!learnedSkills.any((sk)=>sk['element']==element))return 0;
     if(element=='divine'&&!s.flags.contains('divine_devotion'))return 0;
     return (c.data['player']?['spiritualAffinity'] as int?)??85;
   }
@@ -177,7 +178,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       Text('Rango espiritual: '+DualState.spiritualRank((publicTalent(person)['spiritualAffinity'] as int?)??35,npcIntelligence(publicTalent(person)))+' · Capacidad: '+npcSlots(publicTalent(person)).toString()),
       Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
       if(s.appraisalTier>=3&&s.intelligence>=30&&s.relationship(person['id'] as String)>=7&&!s.knownRaces.contains(person['id']))btn('Apreciación profunda',(){s.knownRaces.add(person['id'] as String);return 'La apreciación profunda permite examinar el repertorio real.';}),
-      if(discoverableSkills(person).any((sk)=>!s.canAppraise(sk)))const Text('Apreciación insuficiente · existen técnicas que todavía no puedes identificar.'),
+      if(discoverableSkills(person).any((sk)=>!s.canAppraise(sk)&&sk['singular']!=true))const Text('Apreciación insuficiente · existen técnicas que todavía no puedes identificar.'),
       if(discoverableSkills(person).any((sk)=>s.canAppraise(sk)&&needsAppraisal(sk)))btn('Apreciar '+person['name'].toString(),(){
         final discovered=discoverableSkills(person).where((sk)=>s.canAppraise(sk)&&needsAppraisal(sk)).toList();
         s.appraised.addAll(discovered.map((sk)=>sk['id'] as String));for(final sk in discovered){s.appraisedRanks[sk['id'] as String]=DualState.rankIndex(sk['rank']);}
@@ -185,7 +186,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
       }),
       for(final sk in discoverableSkills(person).where((x)=>s.canAppraise(x)&&s.appraised.contains(x['id'])&&!needsAppraisal(x)))...[
         Text(sk['name'].toString()+' · Rango '+(sk['rank']??'E').toString()+' · '+sk['type'].toString()+(sk['element']==null?'':' · '+elementName(sk['element']))+' · potencia '+sk['damage'].toString()+' · '+sk['price'].toString()+' monedas · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),
-        if(sk['innate']==true)const Text('Técnica racial · copiable mediante Robo'),
+        if(sk['singular']==true)const Text('Talento singular · afinidad excepcional'),
+        if(sk['innate']==true&&sk['copyable']!=false)const Text('Técnica racial · copiable mediante Robo'),
         if(sk['description'] is String)Text(sk['description'] as String),
         Text(sk['copyable']==false?'Poder exclusivo · no se puede copiar':s.skills.contains(sk['id'])?'Aprendida':'Disponible para adquirir en tu dormitorio.')
       ]
