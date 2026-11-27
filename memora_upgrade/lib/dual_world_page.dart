@@ -136,9 +136,11 @@ class _DualWorldPageState extends State<DualWorldPage>{
   bool talentRevealed(Map person)=>(person['talentRevealFlag']==null||s.flags.contains(person['talentRevealFlag']))&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id']));
   Map publicTalent(Map person)=>talentRevealed(person)?person:{...person,'race':publicRace(person),'spiritClass':person['coverSpiritClass']??'ordinary','combatClass':person['coverClass']??person['combatClass'],'elements':person['coverElements']??['neutral'],'initialRank':person['coverRank']??person['initialRank'],'potentialRank':person['coverPotential']??person['initialRank'],'spiritualAffinity':person['publicAffinity']??35,'spiritIntelligence':person['coverIntelligence']??15};
   bool spiritReady(Map sp)=>s.spiritChance(sp,affinityFor(sp))>0&&s.freshSpiritAttempt(sp);
-  List<Map<String,dynamic>> get combatSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])&&(sk['element']!='divine'||s.flags.contains('divine_devotion'))),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage'],'element':sp['element']}];
+  List<Map<String,dynamic>> get learnedSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])),...s.fusedSkills.values];
+  List<Map<String,dynamic>> get combatSkills=>[...learnedSkills.where((sk)=>sk['element']!='divine'||s.flags.contains('divine_devotion')).map(s.effectiveTechnique),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage'],'element':sp['element']}];
   Map<String,dynamic> enemyProfile(int index){
     final e=Map<String,dynamic>.from(c.enemies[index]);
+    if(e['training']==true)return e;
     final person=c.people.firstWhere((p)=>p['id']==e['person'],orElse:()=> <String,dynamic>{});
     final race=c.raceFor(person['race']??e['race']);
     final shown=c.raceFor(person.isEmpty?e['race']:publicRace(person));
@@ -189,12 +191,14 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Widget skillRoom()=>section('Poderes secretos · Apreciación y Robo',[
     const Text('Solo puedes adquirir las habilidades descubiertas en la academia cuando estás a solas en tu dormitorio. No tienes ninguna técnica de combate al empezar.'),
     Text('Apreciación · Rango '+s.appraisalRank+' · INT '+s.intelligence.toString()),
-    if(s.appraisalTier<7)Text('Siguiente rango por lectura: INT '+DualState.appraisalThresholds[s.appraisalTier+1].toString()),
-    if(s.appraisalTier<7&&s.appraisalTier==s.naturalAppraisal)btn('Refinar Apreciación · '+DualState.appraisalFees[s.appraisalTier+1].toString()+' monedas',()=>s.refineAppraisal()?'Apreciación mejorada.':'No tienes suficientes monedas.'),
+    if(s.appraisalTier<7)Text('Siguiente rango: INT '+DualState.appraisalThresholds[s.appraisalTier+1].toString()+' y '+DualState.appraisalFees[s.appraisalTier+1].toString()+' monedas.'),
+    if(s.appraisalTier<7)btn('Refinar Apreciación · '+DualState.appraisalFees[s.appraisalTier+1].toString()+' monedas',()=>s.refineAppraisal()?'Apreciación mejorada.':'Necesitas inteligencia y monedas suficientes.'),
     if(s.skills.isEmpty)const Text('Habilidades de combate: ninguna.'),
     const Text('Retorno: una muerte real reinicia ambos mundos. Solo conservas inteligencia.'),
     for(final sk in c.skills.where((x)=>s.appraised.contains(x['id'])&&s.canAppraise(x)&&x['copyable']!=false))...[Text(sk['name'].toString()+' · Rango '+(sk['rank']??'E').toString()+' · '+sk['price'].toString()+' monedas · potencia '+sk['damage'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>sk['element']=='divine'&&!s.flags.contains('divine_devotion')?'Necesitas profesar la fe de la Llama del Alba.':s.acquireRankedSkill(sk)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
   ]);
+  Future<void> chooseFusion(Map a)async{final options=learnedSkills.where((b)=>s.compatibleFusion(a,b)&&!s.fusedSkills.containsKey(s.fusionKey(a,b))).toList();if(options.isEmpty){setState(()=>message='No hay técnicas compatibles todavía.');return;}final b=await showDialog<Map<String,dynamic>>(context:context,builder:(ctx)=>SimpleDialog(title:const Text('Seleccionar segunda técnica'),children:[for(final b in options)SimpleDialogOption(onPressed:()=>Navigator.pop(ctx,b),child:Text(b['name'].toString()+' · '+s.fusionFee(a,b).toString()+' monedas'))]));if(b!=null&&mounted)await act(()=>s.fuse(a,b)?'Nueva técnica creada.':'Necesitas dinero e inteligencia suficientes.');}
+  Widget workshop()=>section('Taller secreto · evolución y fusión',[const Text('Solo tú puedes ascender y fusionar técnicas adquiridas. Los efectos y el consumo crecen con el rango. Retorno elimina estas mejoras.'),for(final sk in learnedSkills)...[const Divider(),Text(sk['name'].toString()+' · '+DualState.powerRanks[s.techniqueTier(sk)]+' · potencia '+s.effectiveTechnique(sk)['damage'].toString()),if(s.techniqueTier(sk)<7)btn('Ascender · '+s.upgradeFee(sk).toString()+' monedas',()=>s.upgradeTechnique(sk)?'Técnica ascendida.':'Necesitas dinero e inteligencia suficientes.'),if(!sk['id'].toString().startsWith('fusion_'))FilledButton(onPressed:busy?null:()=>chooseFusion(sk),child:const Text('Fusionar con otra técnica'))]]);
   String get arcTitle{final arcs=DualWorldContent.list(c.data['arcs']);String name='Arco I';for(final a in arcs){if(s.grades.length>=((a['afterClasses'] as int?)??0))name=a['title'].toString();}return name;}
   Widget storyEvents()=>Column(children:[for(final e in c.events.where(s.eligible))section(e['title'].toString(),[
     Text(e['scene'].toString()),const SizedBox(height:12),
@@ -211,7 +215,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     for(final person in c.people.where((p)=>s.rescuedStudents.contains(p['id'])))Text('Rescatado: '+person['name'].toString()),
     battle()
   ]);
-  bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;if((enemy['lethal']==true)!=(s.place=='Dungeon'))return false;if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag']))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
+  bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;if((enemy['lethal']==true)!=(s.place=='Dungeon'))return false;if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag']))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
     const Text('Los combates son por turnos. Las victorias iniciales otorgan XP, reputación y clasificación.'),
     if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),
@@ -258,7 +262,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(s.inBattle)battle()else...[
         Wrap(spacing:6,children:[for(final l in locations)ChoiceChip(label:Text(l),selected:l==current,onSelected:busy?null:(_)=>act((){s.place=l;answer.clear();return 'Llegaste a '+l+'.';}))]),
         if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida, maná y estamina recuperados.';})]),
-        if(current=='Dormitorio')...[skillRoom(),armory(store:false)],
+        if(current=='Dormitorio')...[skillRoom(),workshop(),armory(store:false)],
         if(current=='Armería')armory(store:true),
         storyEvents(),
         if(current=='Iglesia'||current=='Palacio'||current=='Consejo')section('Instituciones y relaciones políticas',[for(final faction in DualWorldContent.list(c.data['factions']))...[Text(faction['name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(faction['description'].toString()),Text('Relación: '+(s.factionStanding[faction['id']]??0).toString())]]),
