@@ -11,5 +11,11 @@ void main(){
   expect(const AdventurePath(trust:8,evidence:21,resources:5).finaleTitle,'La verdad sin aplausos');
   expect(const AdventurePath(trust:20,evidence:10,resources:5).finaleTitle,'El protector de Nébula');
  });
+ test('numeric cases accept decimals and negative results without guessing',(){
+  final s=ScenePath.parse({'numericAnswer':-54,'numericTolerance':0.001});
+  expect(s.acceptsNumber('-54'),isTrue);expect(s.acceptsNumber('54'),isFalse);expect(s.acceptsNumber('NaN'),isFalse);
+  final d=ScenePath.parse({'numericAnswer':63.33,'numericTolerance':0.01});
+  expect(d.acceptsNumber('63,33'),isTrue);expect(d.acceptsNumber('63.33'),isTrue);expect(d.acceptsNumber('64'),isFalse);
+ });
  test('no resource deadlock',(){expect(ScenePath.parse({'decisions':[{'label':'A','outcome':'A','resources':-5},{'label':'B','outcome':'B','resources':-5}]}).decisions,ScenePath.defaults);});
 }

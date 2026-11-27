@@ -89,7 +89,7 @@ class _AdventurePageState extends State<AdventurePage> {
                       const SizedBox(height: 10),
                       Text(widget.sideStory?'Nébula: La sombra del héroe':widget.guide.title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 9),
-                      Text(widget.sideStory?'Eres un aliado de los héroes. Investiga, protege al grupo y aprende a tomar decisiones financieras.':'Explora, aprende y toma decisiones que cambian el rumbo de las misiones.'),
+                      Text(widget.sideStory?'Eres el asesor financiero de los héroes. Analiza sus cuentas, negocia y decide cómo financiar sus misiones sin conocer el futuro.':'Explora, aprende y toma decisiones que cambian el rumbo de las misiones.'),
                       const SizedBox(height: 15),
                       Wrap(spacing: 9, runSpacing: 8, children: [
                         Chip(avatar: const Icon(Icons.stars_rounded, size: 18), label: Text('$_xp XP')),
@@ -171,6 +171,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
   int _correctCount = 0;
   bool _completing = false;
   bool _pathReady=false;
+  String _numericInput='';
   AdventurePath _path=const AdventurePath();
   StoryDecision? _decision;
   _Scene get _scene => _Scene.from(_card);
@@ -304,6 +305,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
       _needsSelfGrade = false;
       _selected = null;
       _decision=null;
+      _numericInput='';
     });
     _say(_narrative());
   }
@@ -403,11 +405,23 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
       key: const ValueKey('challenge'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(_scene.role=='boss'?'BATALLA CONTRA EL GUARDIÁN':'DESAFÍO DE CONOCIMIENTO',style:const TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),
+        Text(_scene.role=='boss'?'AUDIENCIA · PRUEBA FINAL':'DESAFÍO DE CONOCIMIENTO',style:const TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),
         const SizedBox(height: 14),
         Text(_card.question, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         const SizedBox(height: 18),
-        if (choices.isNotEmpty)
+        if(_scene.path.numericAnswer!=null)...[
+          const Text('Escribe tu resultado. Usa coma o punto decimal, sin separadores de miles ni unidades.'),
+          const SizedBox(height:10),
+          TextField(
+            key:ValueKey('number-$_step'),
+            keyboardType:const TextInputType.numberWithOptions(decimal:true,signed:true),
+            decoration:const InputDecoration(labelText:'Tu resultado',border:OutlineInputBorder()),
+            onChanged:(value)=>setState(()=>_numericInput=value),
+            onSubmitted:(value){if(ScenePath.parseNumber(value)!=null&&!_saving)_answer(_scene.path.acceptsNumber(value),selected:value);},
+          ),
+          const SizedBox(height:12),
+          FilledButton.icon(onPressed:_saving||ScenePath.parseNumber(_numericInput)==null?null:()=>_answer(_scene.path.acceptsNumber(_numericInput),selected:_numericInput),icon:const Icon(Icons.calculate_outlined),label:const Text('Presentar análisis')),
+        ]else if (choices.isNotEmpty)
           for (final choice in choices)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
