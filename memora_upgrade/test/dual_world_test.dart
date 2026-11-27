@@ -47,4 +47,21 @@ void main(){
    expect(saved.victoryXp(boss,true),14000);
    saved.enemyIndex=-1;expect(saved.startRaid(0,boss,withTeam:false),true);expect(saved.raidAllies,isEmpty);
  });
+ test('war progresses without volunteering, mobilizes academy and destroys the world on defeat',(){
+   final s=DualState();
+   for(var i=0;i<11;i++){expect(s.advanceWarWeek(),true);}
+   expect(s.academyMobilized,false);expect(s.canFightWar,false);
+   s.advanceWarWeek();expect(s.academyMobilized,true);expect(s.canFightWar,true);expect(s.flags.contains('mercenary_member'),false);
+   final saved=DualState.fromJson(s.toJson());expect(saved.warWeek,12);expect(saved.academyMobilized,true);
+   for(var i=0;i<6;i++){saved.advanceWarWeek();}
+   expect(saved.worldDestroyed,true);expect(saved.returned,true);expect(saved.hp,0);
+   final reset=saved.returnToBeginning();expect(reset.warWeek,0);expect(reset.worldDestroyed,false);
+ });
+ test('unique war victories contribute to allied defense and can avert destruction',(){
+   final s=DualState();s.warWeek=11;
+   final e={'id':'god_test','location':'Frente de guerra','warContribution':5,'xp':100};
+   s.battleVictory(e);s.battleVictory(e);expect(s.warContribution,5);
+   s.battleVictory({...e,'id':'god_two'});s.advanceWarWeek();expect(s.academyMobilized,false);
+   s.battleVictory({...e,'id':'god_three'});expect(s.warWon,true);expect(s.advanceWarWeek(),false);
+ });
 }
