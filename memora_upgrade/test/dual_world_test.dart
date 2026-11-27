@@ -74,11 +74,24 @@ void main(){
    s.warWeek=10;expect(s.warEnemyAvailable(god),true);
    s.warWeek=18;expect(s.warEnemyProfile(monster)['hp'],160);expect(monster['hp'],100);
  });
- test('allied forces can win without player joining or gaining XP',(){
+ test('fixed-power allied champions resist early invasion but lose against later gods without player help',(){
    final s=DualState();s.warSeed=0;
-   for(var i=0;i<18;i++){s.advanceWarWeek();}
-   expect(s.alliedContribution,greaterThanOrEqualTo(15));expect(s.warWon,true);
-   expect(s.warContribution,0);expect(s.xp,0);expect(s.flags.contains('mercenary_member'),false);
-   final copy=DualState.fromJson(s.toJson());expect(copy.alliedReports,s.alliedReports);expect(copy.warSeed,0);
+   final powers=DualState.alliedChampions.map((a)=>a['power']).toList();
+   for(var i=0;i<4;i++){s.advanceWarWeek();}
+   expect(s.alliedContribution,greaterThan(0));expect(s.activeAlliedChampions.length,8);
+   for(var i=4;i<12;i++){s.advanceWarWeek();}
+   expect(s.academyMobilized,true);expect(s.activeAlliedChampions.length,lessThan(8));
+   expect(DualState.alliedChampions.map((a)=>a['power']).toList(),powers);
+   final copy=DualState.fromJson(s.toJson());expect(copy.activeAlliedChampions.length,s.activeAlliedChampions.length);
+   for(var i=12;i<18;i++){copy.advanceWarWeek();}
+   expect(copy.worldDestroyed,true);expect(copy.warWon,false);expect(copy.xp,0);
+ });
+ test('allied heroes cannot deal direct damage to humanoid deities',(){
+   final s=DualState();s.place='Frente de guerra';s.flags.add('mercenary_member');s.xp=1000;
+   final god={'id':'god','raid':true,'form':'humanoid','level':150,'hp':10000,'attack':1600,'defense':650};
+   expect(s.startRaid(0,god,withTeam:true),true);
+   expect(s.raidSupport(god),0);
+   s.raidIntercept(2000,god);
+   expect(s.raidAllies.every((a)=>(a['hp'] as int)<(a['maxHp'] as int)),true);
  });
 }
