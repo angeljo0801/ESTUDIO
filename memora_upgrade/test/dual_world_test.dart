@@ -64,4 +64,14 @@ void main(){
    s.battleVictory({...e,'id':'god_two'});s.advanceWarWeek();expect(s.academyMobilized,false);
    s.battleVictory({...e,'id':'god_three'});expect(s.warWon,true);expect(s.advanceWarWeek(),false);
  });
+ test('war invaders arrive in waves and evolve without changing their base data',(){
+   final s=DualState();
+   final monster={'id':'wave_test','location':'Frente de guerra','warMinWeek':6,'warGrowth':true,'hp':100,'attack':20,'xp':500};
+   final god={'id':'god_wave_test','location':'Frente de guerra','warMinWeek':10};
+   expect(s.warEnemyAvailable(monster),false);expect(s.warEnemyAvailable(god),false);
+   s.warWeek=6;expect(s.warEnemyAvailable(monster),true);expect(s.warEnemyProfile(monster)['hp'],100);
+   s.warWeek=9;expect(s.warEnemyProfile(monster)['hp'],115);expect(s.warEnemyAvailable(god),false);
+   s.warWeek=10;expect(s.warEnemyAvailable(god),true);
+   s.warWeek=18;expect(s.warEnemyProfile(monster)['hp'],160);expect(monster['hp'],100);
+ });
 }
