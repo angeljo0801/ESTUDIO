@@ -311,6 +311,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
       Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(c.enemies[i]['rank']!=null?' · Rango '+c.enemies[i]['rank'].toString():'')+' · '+s.victoryXp(enemyProfile(i),!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
       if(DualState.numOf(enemyProfile(i),'warEvolution',0)>0)Text('Evolución de la Ruptura · fase '+DualState.numOf(enemyProfile(i),'warEvolution',0).toString()),
+      enemyArt(enemyProfile(i)),
       if(c.enemies[i]['raid']==true)...[
         Text((c.enemies[i]['form']=='humanoid'?'Entidad divina humanoide · ':'Amenaza legendaria · ')+(c.enemies[i]['description']??'Entidad invasora').toString()),
         if(combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))...[
@@ -365,6 +366,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       Text('Habilidades de combate: '+s.skills.length.toString()+' · poderes innatos: Apreciación, Robo y Retorno'),
       Text(arcTitle+' · '+s.decisions.length.toString()+' acontecimientos resueltos'),
       section('Crónica de la guerra · semana '+s.warWeek.toString(),[
+        if(s.warWeek>=6)art('war_colossus_arrival',height:240),
         if(s.warWon)const Text('La ofensiva ha sido repelida. La academia recupera la normalidad.'),
         if(s.academyMobilized)...[
           const Text('EMERGENCIA · La academia está bajo amenaza. Profesores y estudiantes han sido movilizados para defender el mundo. La defensa no exige jurar lealtad a la Corona.'),
@@ -399,13 +401,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
         if(current=='Campamento mercenario'||current=='Frente de guerra')section('Fuerzas aliadas',[
           const Text('Los héroes tienen poder fijo. Las hordas de rango B y A desgastan las defensas por su cantidad; los colosos SSS y las deidades pueden superarlas.'),
           Text('Combatientes activos: '+s.activeAlliedChampions.length.toString()+'/'+DualState.alliedChampions.length.toString()),
-          for(final rank in ['L','SS','S','A','B+','B','C'])ExpansionTile(
-            initiallyExpanded:const ['L','SS','S'].contains(rank),
+          for(final rank in ['L','SSS','SS','S','A','B+','B','C'])ExpansionTile(
+            initiallyExpanded:const ['L','SSS','SS','S'].contains(rank),
             title:Text('Rango '+rank+' · '+s.activeAlliedChampions.where((a)=>a['rank']==rank).length.toString()+'/'+DualState.alliedChampions.where((a)=>a['rank']==rank).length.toString()),
             children:[for(final ally in DualState.alliedChampions.where((a)=>a['rank']==rank))...[
-              if(const ['L','SS','S'].contains(rank))art(ally['id'].toString(),height:140),
+              art(ally['id'].toString(),height:140),
               Text(ally['name'].toString()+' · Nv. '+ally['level'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
-              Text(ally['role'].toString()+' · '+ally['ability'].toString()+' · '+(s.alliedDefeated(ally)?'Derrotado · fuera del frente':s.alliedAvailable(ally)?'Activo':'En reserva · espera la llegada de los colosos SSS')),
+              Text(ally['role'].toString()+' · '+ally['ability'].toString()+' · '+(s.alliedDefeated(ally)?'Derrotado · fuera del frente':s.alliedAvailable(ally)?'Activo':'En reserva · despliegue previsto en semana '+DualState.numOf(ally,'week',0).toString())),
             ]],
           ),
         ]),
