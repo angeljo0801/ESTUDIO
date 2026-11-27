@@ -61,7 +61,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Future<void> load()async{final p=await SharedPreferences.getInstance();try{final raw=p.getString(key);if(raw!=null)s=DualState.fromJson(jsonDecode(raw) as Map);}catch(_){}if(mounted)setState(()=>loading=false);}
   Future<void> act(String Function() fn)async{
     if(busy)return;setState(()=>busy=true);
-    try{var next=fn();if(s.returned&&s.lethalBattle&&s.hp==0){s=s.returnToBeginning();next='RETORNO · Despiertas en tu dormitorio, el día de ingreso. Solo conservas inteligencia. '+next;raceFilter='all';nameFilter='';answer.clear();}s.resolveFates(c.events);final p=await SharedPreferences.getInstance();if(!await p.setString(key,jsonEncode(s.toJson())))throw StateError('No se pudo guardar');if(mounted)setState(()=>message=next);}
+    try{var next=fn();s.resolveWar();if(s.returned&&s.lethalBattle&&s.hp==0){final destroyed=s.worldDestroyed;s=s.returnToBeginning();next=(destroyed?'FIN DEL MUNDO · La Ruptura ha consumido el reino. RETORNO: despiertas el día de ingreso y conservas tu inteligencia. ':'RETORNO · Despiertas en tu dormitorio, el día de ingreso. Solo conservas inteligencia. ')+next;raceFilter='all';nameFilter='';answer.clear();}s.resolveFates(c.events);final p=await SharedPreferences.getInstance();if(!await p.setString(key,jsonEncode(s.toJson())))throw StateError('No se pudo guardar');if(mounted)setState(()=>message=next);}
     catch(e){if(mounted)setState(()=>message=e.toString());}finally{if(mounted)setState(()=>busy=false);}
   }
   Widget btn(String label,String Function() fn)=>FilledButton(onPressed:busy?null:()=>act(fn),child:Text(label));
@@ -302,7 +302,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;
     final location=enemy['location'];
     if(location is String){if(location!=s.place)return false;if(enemy['repeatable']!=true&&s.wins.contains('battle_'+enemy['id'].toString()))return false;}else if((enemy['lethal']==true)!=(s.place=='Dungeon')||!const ['Arena','Dungeon'].contains(s.place))return false;
-    if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag']))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
+    if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag'])&&!(enemy['requiresFlag']=='mercenary_member'&&s.canFightWar))return false;if(location=='Frente de guerra'&&s.warWon)return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
     const Text('Los combates son por turnos. Las técnicas físicas consumen estamina; las mágicas consumen maná.'),
     for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))btn((s.activeSpirit==sp['id']?'Activo: ':'Vincular para combate: ')+sp['name'].toString(),()=>s.selectSpirit(sp)?'Espíritu seleccionado.':'No disponible.'),
@@ -311,7 +311,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
       Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(c.enemies[i]['rank']!=null?' · Rango '+c.enemies[i]['rank'].toString():'')+' · '+s.victoryXp(c.enemies[i],!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
       if(c.enemies[i]['raid']==true)...[
-        Text('Amenaza colosal · '+(c.enemies[i]['description']??'Entidad invasora').toString()),
+        Text((c.enemies[i]['form']=='humanoid'?'Entidad divina humanoide · ':'Amenaza legendaria · ')+(c.enemies[i]['description']??'Entidad invasora').toString()),
         if(combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))...[
           if(s.level>=DualState.numOf(c.enemies[i],'teamMinLevel',1))btn('Asalto con escuadrón',()=>s.startRaid(i,enemyProfile(i),withTeam:true)?'Tu escuadrón entra en combate.':'No puedes iniciar el asalto.')else Text('Escuadrón disponible desde nivel '+DualState.numOf(c.enemies[i],'teamMinLevel',1).toString()),
           btn('Desafiar en solitario · peligro extremo',()=>s.startRaid(i,enemyProfile(i),withTeam:false)?'Entras solo al combate.':'No puedes iniciar el asalto.'),
@@ -362,6 +362,16 @@ class _DualWorldPageState extends State<DualWorldPage>{
       Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100 · reputación '+s.reputation.toString()),
       Text('Habilidades de combate: '+s.skills.length.toString()+' · poderes innatos: Apreciación, Robo y Retorno'),
       Text(arcTitle+' · '+s.decisions.length.toString()+' acontecimientos resueltos'),
+      section('Crónica de la guerra · semana '+s.warWeek.toString(),[
+        if(s.warWon)const Text('La ofensiva ha sido repelida. La academia recupera la normalidad.'),
+        if(s.academyMobilized)...[
+          const Text('EMERGENCIA · La academia está bajo amenaza. Profesores y estudiantes han sido movilizados para defender el mundo. La defensa no exige jurar lealtad a la Corona.'),
+          if(!s.inBattle)btn('Acudir a la defensa de Asteria',(){s.world='school';s.place='Frente de guerra';return 'Te reúnes con las fuerzas defensoras de la academia.';}),
+        ],
+        if(!s.warWon)Text('Situación aliada: '+(s.warThreat==0?'Defensas estables':s.warThreat<5?'Frontera en peligro':s.warThreat<9?'Derrotas graves':'Riesgo de colapso')),
+        ExpansionTile(title:Text(s.warNews.last),children:[for(final news in s.warNews)Padding(padding:const EdgeInsets.all(6),child:Text(news))]),
+        if(!s.inBattle&&!s.warWon&&s.privatePlace)btn('Avanzar una semana de la historia',()=>s.advanceWarWeek()?'Ha pasado una semana. Consulta los nuevos informes de la guerra.':'No puedes avanzar ahora.'),
+      ]),
       if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
       if(s.inBattle)battle()else...[
         Wrap(spacing:6,children:[for(final l in locations)ChoiceChip(label:Text(l),selected:l==current,onSelected:busy?null:(_)=>act((){s.place=l;answer.clear();return 'Llegaste a '+l+'.';}))]),
@@ -372,7 +382,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
         if(current=='Palacio'||current=='Consejo')royalPolitics(),
         if(current=='Iglesia'||current=='Palacio'||current=='Consejo')section('Instituciones y relaciones políticas',[for(final faction in DualWorldContent.list(c.data['factions']))...[Text(faction['name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(faction['description'].toString()),Text('Relación: '+(s.factionStanding[faction['id']]??0).toString())]]),
         if(current=='Gremio')section('Gremio · encargos financieros',[const Text('Los encargos se pagan aquí, una sola vez por examen superado.'),for(final l in c.lessons.where((x)=>s.grades.containsKey(x['id'])&&!s.wins.contains('guild_'+x['id'].toString())))btn('Cobrar '+l['title'].toString(),(){final n=s.claimGuild(l['id'] as String);return 'Recibiste '+n.toString()+' monedas por tu informe.';})]),
-        if(current=='Clases')...[
+        if(current=='Clases'&&s.academyMobilized)const Text('Clases suspendidas por la emergencia. Acude al frente de defensa; puedes prepararte en el dormitorio.'),
+        if(current=='Clases'&&!s.academyMobilized)...[
           for(var i=0;i<c.lessons.length;i++)if(i<=s.grades.length&&(i!=2||s.wins.contains('battle_darian_practice'))&&(i!=4||s.wins.contains('battle_stone_beast'))&&(i!=6||s.wins.contains('battle_seren_duel')))lesson(c.lessons[i])else ListTile(leading:const Icon(Icons.lock),title:Text(c.lessons[i]['title'].toString()),subtitle:Text(i==2?'Supera el duelo de práctica de Darian.':i==4?'Derrota a la bestia de piedra.':i==6?'Supera el torneo de Seren.':'Supera las clases anteriores.'))
         ],
         if(current=='Biblioteca')library(),
