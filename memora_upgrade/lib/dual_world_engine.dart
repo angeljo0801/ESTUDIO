@@ -43,13 +43,35 @@ class DualState {
 
   bool returned=false;
   bool lethalBattle=false;
-  int warWeek=0,warContribution=0;
+  int warWeek=0,warContribution=0,alliedContribution=0,warSeed=Random().nextInt(1000000);
+  final List<String> alliedReports=[];
+  static const alliedChampions=<Map<String,dynamic>>[
+    {'id':'ally_kaelen','name':'Kaelen Voss','role':'Vanguardia','rank':'A','level':35,'power':65,'week':0,'ability':'Espada del amanecer'},
+    {'id':'ally_mirath','name':'Mirath Solenne','role':'Sanador','rank':'S','level':65,'power':180,'week':0,'ability':'Restauración del alma'},
+    {'id':'ally_therak','name':'Therak Forjaestelar','role':'Vanguardia','rank':'SS','level':95,'power':380,'week':0,'ability':'Armadura de estrella'},
+    {'id':'ally_ashara','name':'Ashara Veyl','role':'Elementalista','rank':'SSS','level':130,'power':720,'week':0,'ability':'Fuego solar'},
+    {'id':'ally_elysian','name':'Elysian Ardent','role':'Sanador','rank':'SSS','level':160,'power':950,'week':6,'ability':'Santuario de vida'},
+    {'id':'ally_draeven','name':'Draeven Aster','role':'Vanguardia','rank':'SSS','level':190,'power':1500,'week':8,'ability':'Corte dimensional'},
+    {'id':'ally_iria','name':'Iria Celest','role':'Elementalista','rank':'SSS','level':220,'power':2300,'week':10,'ability':'Dominio de la causalidad'},
+    {'id':'ally_orion','name':'Orion del Alba','role':'Vanguardia','rank':'SSS','level':240,'power':3000,'week':14,'ability':'Autoridad del firmamento'},
+  ];
+  int get defenseTotal=>warContribution+alliedContribution;
+  void simulateAlliedFront(){
+    if(warWeek==0||warWeek%2!=0||warWon||worldDestroyed)return;
+    final active=alliedChampions.where((a)=>numOf(a,'week',0)<=warWeek).toList();
+    final champion=active[(warWeek~/2-1)%active.length];
+    final roll=(warSeed+warWeek*17+warWeek*warWeek*7)%10;
+    final gain=roll<3?(warWeek>=10?3:2):roll<7?1:0;
+    alliedContribution+=gain;
+    alliedReports.add('Semana '+warWeek.toString()+' · '+champion['name'].toString()+': '+(gain>=2?'victoria importante; los aliados recuperan terreno.':gain==1?'contiene la ofensiva y protege la retirada.':'la defensa pierde terreno a pesar de su resistencia.'));
+  }
+
   bool get warWon=>flags.contains('rupture_repulsed');
   bool get academyMobilized=>flags.contains('academy_mobilized')&&!warWon;
   bool get worldDestroyed=>flags.contains('rupture_world_destroyed');
   bool get canFightWar=>flags.contains('mercenary_member')||academyMobilized;
   static int warPressure(int week)=>week<4?0:week<8?2:week<12?5:week<18?9:15;
-  int get warThreat=>max(0,warPressure(warWeek)-warContribution);
+  int get warThreat=>max(0,warPressure(warWeek)-defenseTotal);
   bool warEnemyAvailable(Map enemy)=>enemy['location']!='Frente de guerra'||(!warWon&&!worldDestroyed&&warWeek>=numOf(enemy,'warMinWeek',0));
   Map<String,dynamic> warEnemyProfile(Map enemy){
     final result=Map<String,dynamic>.from(enemy);
@@ -66,11 +88,11 @@ class DualState {
   List<String> get warNews=>[
     'La Guerra de la Ruptura lleva décadas activa. La academia permanece neutral.',
     if(warWeek>=2) 'Semana 2 · Los exploradores informan de nuevas criaturas y de una creciente concentración de energía en las grietas.',
-    if(warWeek>=4) warContribution>=2?'Semana 4 · Las defensas resisten gracias a las victorias aliadas.':'Semana 4 · Los invasores han roto las primeras defensas fronterizas.',
+    if(warWeek>=4) defenseTotal>=2?'Semana 4 · Las defensas resisten gracias a las victorias aliadas.':'Semana 4 · Los invasores han roto las primeras defensas fronterizas.',
     if(warWeek>=6) 'Semana 6 · Los primeros monstruos legendarios atraviesan las grietas. Las compañías necesitan refuerzos.',
-    if(warWeek>=8) warContribution>=5?'Semana 8 · Los aliados recuperan posiciones.':'Semana 8 · Caen fortalezas y llegan refugiados a Asteria.',
+    if(warWeek>=8) defenseTotal>=5?'Semana 8 · Los aliados recuperan posiciones.':'Semana 8 · Caen fortalezas y llegan refugiados a Asteria.',
     if(warWeek>=10) 'Semana 10 · Aparecen entidades de apariencia humana con poderes nunca vistos. Su presencia supera a la de los colosos.',
-    if(warWeek>=12) warContribution>=9||warWon?'Semana 12 · La ofensiva ha sido contenida.':'Semana 12 · Las entidades avanzan hacia la academia; se declara la movilización de emergencia.',
+    if(warWeek>=12) defenseTotal>=9||warWon?'Semana 12 · La ofensiva ha sido contenida.':'Semana 12 · Las entidades avanzan hacia la academia; se declara la movilización de emergencia.',
     if(warWeek>=14&&!warWon) 'Semana 14 · Los supervivientes advierten que las deidades superiores están entrando al mundo.',
     if(warWeek>=16&&!warWon) 'Semana 16 · Se ha detectado una presencia divina de poder desconocido. La última línea defensiva está amenazada.',
     if(warWon)'Las grietas de esta ofensiva han sido selladas. El mundo ha sobrevivido.',
@@ -78,17 +100,17 @@ class DualState {
   ];
   void resolveWar(){
     if(warWon||worldDestroyed)return;
-    if(warWeek>=12&&warContribution<9){flags.add('academy_mobilized');}
+    if(warWeek>=12&&defenseTotal<9){flags.add('academy_mobilized');}
     if(warWeek>=18){
-      if(warContribution>=15){flags.add('rupture_repulsed');return;}
+      if(defenseTotal>=15){flags.add('rupture_repulsed');return;}
       flags.add('rupture_world_destroyed');enemyIndex=-1;hp=0;lethalBattle=true;returned=true;
     }
   }
-  bool advanceWarWeek(){if(inBattle||worldDestroyed||warWon)return false;warWeek++;resolveWar();return true;}
+  bool advanceWarWeek(){if(inBattle||worldDestroyed||warWon)return false;warWeek++;simulateAlliedFront();resolveWar();return true;}
   void recordWarVictory(Map enemy,bool first){
     if(enemy['location']!='Frente de guerra'||!first)return;
     warContribution+=max(0,numOf(enemy,'warContribution',1));
-    if(enemy['warFinal']==true||warContribution>=15){flags.add('rupture_repulsed');}
+    if(enemy['warFinal']==true||defenseTotal>=15){flags.add('rupture_repulsed');}
     resolveWar();
   }
 
@@ -98,9 +120,13 @@ class DualState {
     if(withTeam&&level<numOf(enemy,'teamMinLevel',1))return false;
     if(!startBattle(index,numOf(enemy,'hp',0),lethal:true))return false;
     if(withTeam){
-      final power=max(8,min(numOf(enemy,'level',1),level+5));
+      final target=numOf(enemy,'level',1);
       for(final role in ['Vanguardia','Elementalista','Sanador']){
-        raidAllies.add({'role':role,'hp':power*9,'maxHp':power*9,'energy':power*3,'mana':power*3,'power':power});
+        final candidates=alliedChampions.where((a)=>a['role']==role&&numOf(a,'week',0)<=warWeek).toList()
+          ..sort((a,b)=>(numOf(a,'level',1)-target).abs().compareTo((numOf(b,'level',1)-target).abs()));
+        if(candidates.isEmpty)continue;
+        final member=candidates.first,power=numOf(member,'power',1);
+        raidAllies.add({...member,'hp':power*20,'maxHp':power*20,'energy':power*3,'mana':power*3});
       }
     }
     return true;
@@ -385,12 +411,12 @@ class DualState {
     if((availableSkills!=null&&!availableSkills.any(usable))||(energy==0&&mana==0)){enemyIndex=-1;lethalBattle=false;return 'Derrota por agotamiento.';}
     return stateNote+' '+(missed?'El rival esquivó. ':'')+'Daño directo: '+dealt.toString()+' · daño recibido: '+hit.toString()+note;
   }
-  Map<String,dynamic> toJson()=>{'cash':cash,'stock':stock,'inventoryCost':inventoryCost,'day':day,'xp':xp,'strength':strength,'defense':defense,'stamina':stamina,'intelligence':intelligence,'rankPoints':rankPoints,'chapter':chapter,'hp':hp,'energy':energy,'mana':mana,'enemyHp':enemyHp,'turn':turn,'enemyIndex':enemyIndex,'guardPower':guardPower,'guardTurns':guardTurns,'speedPower':speedPower,'speedTurns':speedTurns,'enemyWeakTurns':enemyWeakTurns,'enemyBleedTurns':enemyBleedTurns,'enemyBleedPower':enemyBleedPower,'enemyGuard':enemyGuard,'enemyEvade':enemyEvade,'enemyGuardTurns':enemyGuardTurns,'enemyEvadeTurns':enemyEvadeTurns,'world':world,'place':place,'workoutDate':workoutDate,'skills':skills.toList(),'appraised':appraised.toList(),'readPages':readPages,'grades':grades,'attempts':attempts,'wins':wins.toList(),'reputation':reputation,'trust':trust,'affection':affection,'decisions':decisions,'flags':flags.toList(),'pendingDuel':pendingDuel,'lastEvent':lastEvent,'spirits':spirits.toList(),'deadStudents':deadStudents.toList(),'rescuedStudents':rescuedStudents.toList(),'knownRaces':knownRaces.toList(),'rumors':rumors.toList(),'rescueMissions':rescueMissions,'activeSpirit':activeSpirit,'spiritElement':spiritElement,'spiritMode':spiritMode,'spiritEnergy':spiritEnergy,'spiritDamage':spiritDamage,'precision':precision,'enemyEnergy':enemyEnergy,'enemyMana':enemyMana,'enemyMaxEnergy':enemyMaxEnergy,'enemyMaxMana':enemyMaxMana,'charisma':charisma,'luck':luck,'lastElement':lastElement,'playerStates':playerStates,'enemyStates':enemyStates,'elementResistance':elementResistance,'lethalBattle':lethalBattle,'warWeek':warWeek,'warContribution':warContribution,'raidAllies':raidAllies,'returned':returned,'readingLog':readingLog,'readingRemainder':readingRemainder,'battleCounts':battleCounts,'spiritAttempts':spiritAttempts,'factionStanding':factionStanding,'weapons':weapons.toList(),'equippedWeapon':equippedWeapon,'weaponElement':weaponElement,'weaponStrength':weaponStrength,'weaponMagic':weaponMagic,'weaponDefense':weaponDefense,'appraisalRefinement':appraisalRefinement,'skillUpgrades':skillUpgrades,'skillUses':skillUses,'fusedSkills':fusedSkills,'copiedSkills':copiedSkills,'appraisedRanks':appraisedRanks,'fusionAttempts':fusionAttempts,'economy':economy.toJson()};
+  Map<String,dynamic> toJson()=>{'cash':cash,'stock':stock,'inventoryCost':inventoryCost,'day':day,'xp':xp,'strength':strength,'defense':defense,'stamina':stamina,'intelligence':intelligence,'rankPoints':rankPoints,'chapter':chapter,'hp':hp,'energy':energy,'mana':mana,'enemyHp':enemyHp,'turn':turn,'enemyIndex':enemyIndex,'guardPower':guardPower,'guardTurns':guardTurns,'speedPower':speedPower,'speedTurns':speedTurns,'enemyWeakTurns':enemyWeakTurns,'enemyBleedTurns':enemyBleedTurns,'enemyBleedPower':enemyBleedPower,'enemyGuard':enemyGuard,'enemyEvade':enemyEvade,'enemyGuardTurns':enemyGuardTurns,'enemyEvadeTurns':enemyEvadeTurns,'world':world,'place':place,'workoutDate':workoutDate,'skills':skills.toList(),'appraised':appraised.toList(),'readPages':readPages,'grades':grades,'attempts':attempts,'wins':wins.toList(),'reputation':reputation,'trust':trust,'affection':affection,'decisions':decisions,'flags':flags.toList(),'pendingDuel':pendingDuel,'lastEvent':lastEvent,'spirits':spirits.toList(),'deadStudents':deadStudents.toList(),'rescuedStudents':rescuedStudents.toList(),'knownRaces':knownRaces.toList(),'rumors':rumors.toList(),'rescueMissions':rescueMissions,'activeSpirit':activeSpirit,'spiritElement':spiritElement,'spiritMode':spiritMode,'spiritEnergy':spiritEnergy,'spiritDamage':spiritDamage,'precision':precision,'enemyEnergy':enemyEnergy,'enemyMana':enemyMana,'enemyMaxEnergy':enemyMaxEnergy,'enemyMaxMana':enemyMaxMana,'charisma':charisma,'luck':luck,'lastElement':lastElement,'playerStates':playerStates,'enemyStates':enemyStates,'elementResistance':elementResistance,'lethalBattle':lethalBattle,'warWeek':warWeek,'warContribution':warContribution,'alliedContribution':alliedContribution,'warSeed':warSeed,'alliedReports':alliedReports,'raidAllies':raidAllies,'returned':returned,'readingLog':readingLog,'readingRemainder':readingRemainder,'battleCounts':battleCounts,'spiritAttempts':spiritAttempts,'factionStanding':factionStanding,'weapons':weapons.toList(),'equippedWeapon':equippedWeapon,'weaponElement':weaponElement,'weaponStrength':weaponStrength,'weaponMagic':weaponMagic,'weaponDefense':weaponDefense,'appraisalRefinement':appraisalRefinement,'skillUpgrades':skillUpgrades,'skillUses':skillUses,'fusedSkills':fusedSkills,'copiedSkills':copiedSkills,'appraisedRanks':appraisedRanks,'fusionAttempts':fusionAttempts,'economy':economy.toJson()};
   factory DualState.fromJson(Map j){final s=DualState();if(j['economy'] is Map)s.economy=LumenEconomy.fromJson(j['economy'] as Map);int n(String k,int fallback)=>j[k] is int?j[k] as int:fallback;
     s.cash=n('cash',0);s.stock=n('stock',0);s.inventoryCost=n('inventoryCost',0);s.day=n('day',0);s.xp=n('xp',0);s.strength=n('strength',4);s.defense=n('defense',3);s.stamina=n('stamina',10);s.intelligence=n('intelligence',5);s.rankPoints=n('rankPoints',0);s.chapter=n('chapter',0);s.hp=n('hp',40);s.energy=n('energy',10);s.mana=n('mana',5);s.enemyHp=n('enemyHp',0);s.turn=n('turn',0);s.enemyIndex=n('enemyIndex',-1);s.guardPower=n('guardPower',0);s.guardTurns=n('guardTurns',0);s.speedPower=n('speedPower',0);s.speedTurns=n('speedTurns',0);s.enemyWeakTurns=n('enemyWeakTurns',0);s.enemyBleedTurns=n('enemyBleedTurns',0);s.enemyBleedPower=n('enemyBleedPower',0);s.enemyGuard=n('enemyGuard',0);s.enemyEvade=n('enemyEvade',0);s.enemyGuardTurns=n('enemyGuardTurns',s.enemyGuard>0?1:0);s.enemyEvadeTurns=n('enemyEvadeTurns',s.enemyEvade>0?1:0);s.world=j['world']=='trade'?'trade':'school';s.place=j['place'] is String?j['place'] as String:'Dormitorio';s.workoutDate=j['workoutDate'] is String?j['workoutDate'] as String:'';
     for(final e in [MapEntry('skills',s.skills),MapEntry('weapons',s.weapons),MapEntry('appraised',s.appraised),MapEntry('wins',s.wins),MapEntry('flags',s.flags),MapEntry('spirits',s.spirits),MapEntry('deadStudents',s.deadStudents),MapEntry('rescuedStudents',s.rescuedStudents),MapEntry('knownRaces',s.knownRaces),MapEntry('rumors',s.rumors)]){if(j[e.key] is List)e.value.addAll((j[e.key] as List).whereType<String>());}
     for(final e in [MapEntry('readPages',s.readPages),MapEntry('grades',s.grades),MapEntry('attempts',s.attempts),MapEntry('trust',s.trust),MapEntry('affection',s.affection),MapEntry('battleCounts',s.battleCounts),MapEntry('spiritAttempts',s.spiritAttempts),MapEntry('factionStanding',s.factionStanding),MapEntry('skillUpgrades',s.skillUpgrades),MapEntry('skillUses',s.skillUses),MapEntry('appraisedRanks',s.appraisedRanks),MapEntry('fusionAttempts',s.fusionAttempts)]){if(j[e.key] is Map)for(final item in (j[e.key] as Map).entries){if(item.key is String&&item.value is int)e.value[item.key as String]=item.value as int;}}
-    s.readingRemainder=n('readingRemainder',0).clamp(0,999).toInt();if(j['readingLog'] is Map)for(final item in (j['readingLog'] as Map).entries){if(item.key is String&&item.value is Map){final b=Map<String,dynamic>.from(item.value as Map);if(b['total'] is int&&b['page'] is int&&(b['total'] as int)>0&&(b['page'] as int)>=0&&(b['page'] as int)<=(b['total'] as int))s.readingLog[item.key as String]=b;}}s.lethalBattle=j['lethalBattle']==true;s.warWeek=max(0,n('warWeek',s.grades.length));s.warContribution=max(0,n('warContribution',0));if(j['raidAllies'] is List){s.raidAllies.addAll((j['raidAllies'] as List).whereType<Map>().take(3).map((a)=>Map<String,dynamic>.from(a)));}s.returned=j['returned']==true;s.activeSpirit=j['activeSpirit'] is String?j['activeSpirit'] as String:'';if(j['rescueMissions'] is Map)for(final e in (j['rescueMissions'] as Map).entries){if(e.key is String&&e.value is String)s.rescueMissions[e.key as String]=e.value as String;}s.spiritElement=j['spiritElement']?.toString()??'neutral';s.spiritMode=j['spiritMode']?.toString()??'';s.lastElement=j['lastElement']?.toString()??'neutral';s.spiritEnergy=n('spiritEnergy',0);s.spiritDamage=n('spiritDamage',0);s.precision=n('precision',0);s.enemyEnergy=n('enemyEnergy',-1);s.enemyMana=n('enemyMana',-1);s.enemyMaxEnergy=n('enemyMaxEnergy',0);s.enemyMaxMana=n('enemyMaxMana',0);s.charisma=n('charisma',0);s.luck=n('luck',0);for(final e in [MapEntry('playerStates',s.playerStates),MapEntry('enemyStates',s.enemyStates),MapEntry('elementResistance',s.elementResistance)]){if(j[e.key] is Map)for(final v in (j[e.key] as Map).entries){if(v.key is String&&v.value is int)e.value[v.key as String]=v.value as int;}}s.appraisalRefinement=n('appraisalRefinement',0).clamp(0,7).toInt();s.equippedWeapon=j['equippedWeapon']?.toString()??'';if(s.weapons.contains(s.equippedWeapon)){s.weaponElement=j['weaponElement']?.toString()??'neutral';s.weaponStrength=max(0,n('weaponStrength',0));s.weaponMagic=max(0,n('weaponMagic',0));s.weaponDefense=max(0,n('weaponDefense',0));}else{s.equippedWeapon='';}if(j['fusedSkills'] is Map)for(final entry in (j['fusedSkills'] as Map).entries){if(entry.key is String&&entry.value is Map)s.fusedSkills[entry.key as String]=Map<String,dynamic>.from(entry.value as Map);}if(j['copiedSkills'] is Map)for(final entry in (j['copiedSkills'] as Map).entries){if(entry.key is String&&entry.value is Map)s.copiedSkills[entry.key as String]=Map<String,dynamic>.from(entry.value as Map);}s.skills.remove('strike');s.reputation=n('reputation',-30);s.pendingDuel=j['pendingDuel'] is String?j['pendingDuel'] as String:'';s.lastEvent=j['lastEvent'] is String?j['lastEvent'] as String:'';if(j['decisions'] is Map)for(final e in (j['decisions'] as Map).entries){if(e.key is String&&e.value is String)s.decisions[e.key as String]=e.value as String;}return s;
+    s.readingRemainder=n('readingRemainder',0).clamp(0,999).toInt();if(j['readingLog'] is Map)for(final item in (j['readingLog'] as Map).entries){if(item.key is String&&item.value is Map){final b=Map<String,dynamic>.from(item.value as Map);if(b['total'] is int&&b['page'] is int&&(b['total'] as int)>0&&(b['page'] as int)>=0&&(b['page'] as int)<=(b['total'] as int))s.readingLog[item.key as String]=b;}}s.lethalBattle=j['lethalBattle']==true;s.warWeek=max(0,n('warWeek',s.grades.length));s.warContribution=max(0,n('warContribution',0));s.alliedContribution=max(0,n('alliedContribution',0));s.warSeed=n('warSeed',s.warSeed);if(j['alliedReports'] is List)s.alliedReports.addAll((j['alliedReports'] as List).whereType<String>().take(20));if(j['raidAllies'] is List){s.raidAllies.addAll((j['raidAllies'] as List).whereType<Map>().take(3).map((a)=>Map<String,dynamic>.from(a)));}s.returned=j['returned']==true;s.activeSpirit=j['activeSpirit'] is String?j['activeSpirit'] as String:'';if(j['rescueMissions'] is Map)for(final e in (j['rescueMissions'] as Map).entries){if(e.key is String&&e.value is String)s.rescueMissions[e.key as String]=e.value as String;}s.spiritElement=j['spiritElement']?.toString()??'neutral';s.spiritMode=j['spiritMode']?.toString()??'';s.lastElement=j['lastElement']?.toString()??'neutral';s.spiritEnergy=n('spiritEnergy',0);s.spiritDamage=n('spiritDamage',0);s.precision=n('precision',0);s.enemyEnergy=n('enemyEnergy',-1);s.enemyMana=n('enemyMana',-1);s.enemyMaxEnergy=n('enemyMaxEnergy',0);s.enemyMaxMana=n('enemyMaxMana',0);s.charisma=n('charisma',0);s.luck=n('luck',0);for(final e in [MapEntry('playerStates',s.playerStates),MapEntry('enemyStates',s.enemyStates),MapEntry('elementResistance',s.elementResistance)]){if(j[e.key] is Map)for(final v in (j[e.key] as Map).entries){if(v.key is String&&v.value is int)e.value[v.key as String]=v.value as int;}}s.appraisalRefinement=n('appraisalRefinement',0).clamp(0,7).toInt();s.equippedWeapon=j['equippedWeapon']?.toString()??'';if(s.weapons.contains(s.equippedWeapon)){s.weaponElement=j['weaponElement']?.toString()??'neutral';s.weaponStrength=max(0,n('weaponStrength',0));s.weaponMagic=max(0,n('weaponMagic',0));s.weaponDefense=max(0,n('weaponDefense',0));}else{s.equippedWeapon='';}if(j['fusedSkills'] is Map)for(final entry in (j['fusedSkills'] as Map).entries){if(entry.key is String&&entry.value is Map)s.fusedSkills[entry.key as String]=Map<String,dynamic>.from(entry.value as Map);}if(j['copiedSkills'] is Map)for(final entry in (j['copiedSkills'] as Map).entries){if(entry.key is String&&entry.value is Map)s.copiedSkills[entry.key as String]=Map<String,dynamic>.from(entry.value as Map);}s.skills.remove('strike');s.reputation=n('reputation',-30);s.pendingDuel=j['pendingDuel'] is String?j['pendingDuel'] as String:'';s.lastEvent=j['lastEvent'] is String?j['lastEvent'] as String:'';if(j['decisions'] is Map)for(final e in (j['decisions'] as Map).entries){if(e.key is String&&e.value is String)s.decisions[e.key as String]=e.value as String;}return s;
   }
   DualState();
 }
