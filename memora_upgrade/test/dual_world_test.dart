@@ -78,7 +78,7 @@ void main(){
    final s=DualState();s.warSeed=0;
    final powers=DualState.alliedChampions.map((a)=>a['power']).toList();
    for(var i=0;i<4;i++){s.advanceWarWeek();}
-   expect(s.alliedContribution,greaterThan(0));expect(s.activeAlliedChampions.length,89);
+   expect(s.alliedContribution,greaterThan(0));expect(s.activeAlliedChampions.length,88);
    for(var i=4;i<12;i++){s.advanceWarWeek();}
    expect(s.academyMobilized,true);expect(s.activeAlliedChampions.length,lessThan(89));
    expect(DualState.alliedChampions.map((a)=>a['power']).toList(),powers);
@@ -113,5 +113,12 @@ void main(){
    s.battleVictory({'id':'rupture_test','location':'Frente de guerra','repeatable':true,'xp':50});
    expect(s.remainingHorde,849);
    expect(DualState.fromJson(s.toJson()).remainingHorde,849);
+ });
+ test('legendary hero remains in reserve until first colossal invasion',(){
+   final s=DualState();final orion=DualState.alliedChampions.singleWhere((a)=>a['id']=='ally_orion');
+   expect(s.alliedAvailable(orion),false);
+   s.warWeek=5;expect(s.activeAlliedChampions.contains(orion),false);
+   s.warWeek=6;expect(s.alliedAvailable(orion),true);
+   s.flags.add('ally_defeated_ally_orion');expect(s.alliedAvailable(orion),false);
  });
 }
