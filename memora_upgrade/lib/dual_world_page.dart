@@ -217,6 +217,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(confirm==true&&mounted)await act((){final before=s.cash;final ok=s.fuse(a,b);return ok?'Nueva técnica creada.':s.cash<before?'Fusión fallida. Conservas las técnicas originales; el coste se ha consumido.':'No cumples los requisitos.';});
   }
   String resourceCost(Map sk)=>[if(DualState.staminaCost(sk)>0)DualState.staminaCost(sk).toString()+' estamina',if(DualState.manaCost(sk)>0)DualState.manaCost(sk).toString()+' maná'].join(' + ');
+  Widget classTree()=>section('Especializaciones abiertas',[
+    const Text('Puedes aprender varias clases. Desbloquea sus ramas con fuerza, inteligencia y especializaciones previas.'),
+    for(final entry in DualState.specializations.entries)...[
+      Text(entry.key+' · FUE '+entry.value[0].toString()+' · INT '+entry.value[1].toString()+(entry.value[2]==''?'':' · requiere '+entry.value[2].toString())+(entry.key=='Espadachín mágico'?' y Mago':'')),
+      if(s.hasClass(entry.key))const Text('Aprendida')else if(s.canLearnClass(entry.key))btn('Especializarme en '+entry.key,()=>s.learnClass(entry.key)?'Especialización adquirida.':'Requisitos insuficientes.'),
+    ],
+  ]);
   Widget socialTraining()=>section('Carisma y suerte',[
     Text('Carisma '+s.charisma.toString()+' · Suerte '+s.luck.toString()),
     const Text('El carisma mejora moderadamente la confianza ganada por tus decisiones. No elimina penalizaciones.'),
@@ -314,7 +321,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(s.inBattle)battle()else...[
         Wrap(spacing:6,children:[for(final l in locations)ChoiceChip(label:Text(l),selected:l==current,onSelected:busy?null:(_)=>act((){s.place=l;answer.clear();return 'Llegaste a '+l+'.';}))]),
         if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida, maná y estamina recuperados.';})]),
-        if(current=='Dormitorio')...[skillRoom(),workshop(),socialTraining(),armory(store:false)],
+        if(current=='Dormitorio')...[skillRoom(),workshop(),classTree(),socialTraining(),armory(store:false)],
         if(current=='Armería')armory(store:true),
         storyEvents(),
         if(current=='Palacio'||current=='Consejo')royalPolitics(),
