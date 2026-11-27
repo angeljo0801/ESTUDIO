@@ -7,6 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'dual_world_engine.dart';
 import 'lumen_business_panel.dart';
+import 'nebula_art.dart';
+
+String dualWorldLandscapeKey(String place)=>const <String,String>{
+  'Dormitorio':'scene_dormitorio','Clases':'scene_clases','Biblioteca':'scene_biblioteca','Patio':'scene_patio','Arena':'scene_arena','Gimnasio':'scene_gimnasio','Ranking':'scene_ranking','Jardín':'scene_jardin','Consejo':'scene_consejo','Pasillo antiguo':'scene_pasillo','Dungeon':'scene_dungeon','Iglesia':'scene_iglesia','Palacio':'scene_palacio','Taller privado':'scene_taller','Mercado':'scene_mercado','Gremio':'scene_gremio','Almacén':'scene_almacen','Puerto':'scene_puerto','Armería':'scene_armeria','Empresas':'scene_empresas',
+}[place]??'scene_asteria';
 
 class DualWorldContent {
   const DualWorldContent(this.data,this.lessons,this.books,this.events,this.extraSkills,this.extraPeople,this.extraEnemies,this.spirits,this.catalog,this.weapons);
@@ -60,6 +65,25 @@ class _DualWorldPageState extends State<DualWorldPage>{
   }
   Widget btn(String label,String Function() fn)=>FilledButton(onPressed:busy?null:()=>act(fn),child:Text(label));
   Widget section(String title,List<Widget> children)=>Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[Text(title,style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),const SizedBox(height:10),...children])));
+  Widget art(String id,{double height=160,String? fallback})=>ValueListenableBuilder<int>(
+    valueListenable:MemoraArtStore.revision,
+    builder:(context,_,child)=>FutureBuilder(future:AdventureArtStore.load(widget.guide.id),builder:(context,snapshot){
+      final assets=snapshot.data;
+      final bytes=assets?[id]??(fallback==null?null:assets?[fallback]);
+      if(bytes==null)return const SizedBox.shrink();
+      return Padding(padding:const EdgeInsets.symmetric(vertical:6),child:ClipRRect(borderRadius:BorderRadius.circular(12),child:SizedBox(height:height,width:double.infinity,child:Image.memory(bytes,fit:BoxFit.contain,gaplessPlayback:true,errorBuilder:(context,error,stack)=>const SizedBox.shrink()))));
+    }));
+  String portraitKey(Map person)=>person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?person['id'].toString()+'_cover':person['id'].toString();
+  Widget personArt(Map person)=>art(portraitKey(person),height:200);
+  Widget landscape(String location)=>AdventureSceneView(guide:widget.guide,visual:AdventureVisualSpec(background:dualWorldLandscapeKey(location),height:240),location:location);
+  Widget enemyArt(Map enemy){
+    final person=c.people.firstWhere((p)=>p['id']==enemy['person'],orElse:()=> <String,dynamic>{});
+    if(person.isNotEmpty)return personArt(person);
+    return art(enemy['id'].toString(),height:200);
+  }
+  Future<void> importArt()async{
+    try{final n=await AdventureArtStore.importLocal(widget.guide);if(n!=null&&mounted)setState(()=>message='Arte instalado: '+n.toString()+' imágenes.');}catch(e){if(mounted)setState(()=>message=e.toString());}
+  }
   String today(){final d=DateTime.now();return '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';}
   Future<void> workout()async{
     if(busy||s.workoutDate.compareTo(today())>=0)return;
@@ -168,6 +192,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     TextField(decoration:const InputDecoration(labelText:'Buscar estudiante'),onChanged:(value)=>setState(()=>nameFilter=value.toLowerCase().trim())),
     for(final person in c.people.where((p)=>!s.deadStudents.contains(p['id'])&&(raceFilter=='all'||publicRace(p)==raceFilter)&&p['name'].toString().toLowerCase().contains(nameFilter)))...[
       const Divider(),
+      personArt(person),
       Text(person['name'].toString()+' · Año '+person['year'].toString()+' · Nv. '+studentLevel(person).toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
       Text(person['intro'].toString()),
       if(person['race']!=null)Text('Raza: '+(c.raceFor(publicRace(person))['name']??publicRace(person)).toString()),
@@ -248,6 +273,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       }
   ];
   Widget royalPolitics()=>section('La disputa de la Corona',[
+    Row(children:[for(final p in c.people.where((p)=>DualState.royalFaction(p)!=null))Expanded(child:personArt(p))]),
     const Text('Evelyne Aurel y Aldren Aurel lideran facciones adversarias. Sus seguidores compiten por influencia en la academia y el reino. Puedes tomar partido o permanecer neutral.'),
     Text('Tu postura: '+(s.royalChoiceMade?DualState.royalFactions[s.royalAlignment]??'Neutral':'Sin decidir')),
     for(final side in ['evelyne','aldren'])Text(DualState.royalFactions[side]!+' · reputación '+s.royalStanding(side).toString()),
@@ -255,6 +281,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(s.royalChoiceMade)const Text('Tu decisión abre determinadas misiones. La confianza personal sigue dependiendo de tus actos.'),
   ]);
   Widget storyEvents()=>Column(children:[for(final e in [...c.events,...royalEvents].where(s.eligible))section(e['title'].toString(),[
+    for(final p in c.people.where((p)=>p['id']==e['person']))personArt(p),
     Text(e['scene'].toString()),const SizedBox(height:12),
     for(final choice in DualWorldContent.list(e['choices']))FilledButton(onPressed:busy||s.cash<((choice['cost'] as int?)??0)?null:()=>act(()=>s.chooseEvent(e,choice)?s.lastEvent:'No puedes elegir esta opción.'),child:Text(choice['label'].toString())),
   ])]);
@@ -263,7 +290,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     Text('Tus vínculos espirituales: '+s.spirits.length.toString()+' · Sin límite fijo · rango innato '+DualState.spiritualRank((c.data['player']?['spiritualAffinity'] as int?)??85,0)),
     Text('Elementos adquiridos: '+({for(final sk in c.skills.where((sk)=>s.skills.contains(sk['id']))) (sk['element']??'neutral').toString()}.map(elementName).join(', '))),
     const Text('La afinidad espiritual es innata y fija. La inteligencia aumenta tus posibilidades de vínculo, no tu rango espiritual.'),
-    for(final sp in c.spirits.where((sp)=>s.grades.length>=((sp['minClasses'] as int?)??0)))...[Text(sp['name'].toString()+' · '+(sp['rarity']??'Común').toString()+' · INT '+sp['intelligence'].toString()+' · elemento '+elementName(sp['element']??'neutral')+' · afinidad '+sp['affinity'].toString()),
+    for(final sp in c.spirits.where((sp)=>s.grades.length>=((sp['minClasses'] as int?)??0)))...[art(sp['id'].toString(),height:180),Text(sp['name'].toString()+' · '+(sp['rarity']??'Común').toString()+' · INT '+sp['intelligence'].toString()+' · elemento '+elementName(sp['element']??'neutral')+' · afinidad '+sp['affinity'].toString()),
     if(sp['form'] is String)Text(sp['form'] as String),Text(s.spirits.contains(sp['id'])?'Vinculado':'Afinidad: '+affinityFor(sp).toString()+'/100 · probabilidad: '+s.spiritChance(sp,affinityFor(sp)).toString()+'%'),if(spiritReady(sp))btn('Intentar vínculo',()=>s.trySpirit(sp,affinityFor(sp)))else if(!s.spirits.contains(sp['id']))const Text('Necesitas cumplir los requisitos o vencer nuevamente en su encuentro.')],
     if(s.rescueMissions.isNotEmpty)const Text('Hay una expedición de rescate pendiente. Completa el combate antes de que termine el plazo.'),
     for(final person in c.people.where((p)=>s.rescuedStudents.contains(p['id'])))Text('Rescatado: '+person['name'].toString()),
@@ -279,6 +306,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(c.enemies[i]['rank']!=null?' · Rango '+c.enemies[i]['rank'].toString():'')+' · '+s.victoryXp(c.enemies[i],!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
       if(s.level>=(c.enemies[i]['level'] as int)&&combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
   ]);final e=enemyProfile(s.enemyIndex);return section('Combate · '+e['name'].toString(),[
+    Row(children:[Expanded(child:art('hero',height:200)),Expanded(child:enemyArt(e))]),
     if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
     Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()),
     Text('Estamina: '+s.energy.toString()+'/'+s.stamina.toString()+' · Maná: '+s.mana.toString()+'/'+s.intelligence.toString()),
@@ -296,7 +324,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     const Text('El bono mágico completo requiere que la técnica coincida con la afinidad del arma; si no coincide, se aplica la mitad. Las armas neutras son compatibles con cualquier técnica.'),
     if(!store)Text('Bonificaciones equipadas: +'+s.weaponStrength.toString()+' fuerza · +'+s.weaponMagic.toString()+' magia · +'+s.weaponDefense.toString()+' defensa'),
     if(!store&&s.equippedWeapon.isNotEmpty)btn('Desequipar arma',(){s.unequipWeapon();return 'Arma guardada.';}),
-    for(final w in c.weapons.where((w)=>store?s.grades.length>=((w['minClasses'] as int?)??0)&&(w['requiresWin']==null||s.wins.contains('battle_'+w['requiresWin'].toString())):s.weapons.contains(w['id'])))...[const Divider(),Text(w['name'].toString()+' · '+w['category'].toString()+' · Rango '+w['rank'].toString()),Text((w['rarity']??'Común').toString()+' · Afinidad '+elementName(w['element']??'neutral')),Text('Requiere FUE '+w['minStrength'].toString()+' / INT '+w['minIntelligence'].toString()+' · Bonos +'+w['strengthBonus'].toString()+' fuerza, +'+w['magicBonus'].toString()+' magia, +'+w['defenseBonus'].toString()+' defensa'),if(store&&!s.weapons.contains(w['id']))btn('Comprar · '+w['price'].toString()+' monedas',()=>s.buyWeapon(w)?'Arma comprada. Equípala en el dormitorio.':'No puedes comprar esta arma.')else if(store)const Text('Adquirida')else if(s.equippedWeapon==w['id'])const Text('Equipada')else btn('Equipar',()=>s.equipWeapon(w)?'Arma equipada.':'No reúnes fuerza o inteligencia suficiente.')]
+    for(final w in c.weapons.where((w)=>store?s.grades.length>=((w['minClasses'] as int?)??0)&&(w['requiresWin']==null||s.wins.contains('battle_'+w['requiresWin'].toString())):s.weapons.contains(w['id'])))...[const Divider(),art(w['id'].toString(),height:140),Text(w['name'].toString()+' · '+w['category'].toString()+' · Rango '+w['rank'].toString()),Text((w['rarity']??'Común').toString()+' · Afinidad '+elementName(w['element']??'neutral')),Text('Requiere FUE '+w['minStrength'].toString()+' / INT '+w['minIntelligence'].toString()+' · Bonos +'+w['strengthBonus'].toString()+' fuerza, +'+w['magicBonus'].toString()+' magia, +'+w['defenseBonus'].toString()+' defensa'),if(store&&!s.weapons.contains(w['id']))btn('Comprar · '+w['price'].toString()+' monedas',()=>s.buyWeapon(w)?'Arma comprada. Equípala en el dormitorio.':'No puedes comprar esta arma.')else if(store)const Text('Adquirida')else if(s.equippedWeapon==w['id'])const Text('Equipada')else btn('Equipar',()=>s.equipWeapon(w)?'Arma equipada.':'No reúnes fuerza o inteligencia suficiente.')]
   ]);
   Widget market(){final cost=5+s.day%4,base=16+s.day%5;final demand=max(0,base-(price-10)*2);return section('Mercado · día '+(s.day+1).toString(),[
     Text('Compra: '+cost.toString()+' por unidad · puesto: 2 · existencias: '+s.stock.toString()),
@@ -310,8 +338,9 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(loading)return const Scaffold(body:Center(child:CircularProgressIndicator()));
     final school=s.world=='school';final current=s.place;
     final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo','Dungeon','Iglesia','Palacio']:['Taller privado','Mercado','Gremio','Almacén','Puerto','Armería','Empresas'];
-    return Scaffold(appBar:AppBar(title:Text(school?'Academia · Entre dos mundos':'Mundo comercial')),body:ListView(padding:const EdgeInsets.all(14),children:[
-      if(c.data['player'] is Map)section((c.data['player']['name']??'Valcrest').toString(),[Text((c.data['player']['appearance']??'').toString()),const Text('Becario · Casa de Valcrest')]),
+    return Scaffold(appBar:AppBar(title:Text(school?'Academia · Entre dos mundos':'Mundo comercial'),actions:[IconButton(onPressed:busy?null:importArt,icon:const Icon(Icons.image_outlined),tooltip:'Importar arte de Asteria')]),body:ListView(padding:const EdgeInsets.all(14),children:[
+      landscape(current),
+      if(c.data['player'] is Map)section((c.data['player']['name']??'Valcrest').toString(),[art('hero',height:180),Text((c.data['player']['appearance']??'').toString()),const Text('Becario · Casa de Valcrest')]),
       Text('Nivel '+s.level.toString()+' · Rango '+s.playerCombatRank+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
       Text('Fuerza '+s.strength.toString()+' · defensa/resistencia '+s.defense.toString()+' · estamina '+s.stamina.toString()+' · inteligencia '+s.intelligence.toString()),
       Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100 · reputación '+s.reputation.toString()),
