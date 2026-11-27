@@ -46,14 +46,25 @@ class DualState {
   int warWeek=0,warContribution=0,alliedContribution=0,warSeed=Random().nextInt(1000000);
   final List<String> alliedReports=[];
   static const alliedChampions=<Map<String,dynamic>>[
-    {'id':'ally_kaelen','name':'Kaelen Voss','role':'Vanguardia','rank':'A','level':28,'power':65,'week':0,'ability':'Espada del amanecer'},
-    {'id':'ally_mirath','name':'Mirath Solenne','role':'Sanador','rank':'S','level':45,'power':130,'week':0,'ability':'Restauración del alma'},
-    {'id':'ally_therak','name':'Therak Forjaestelar','role':'Vanguardia','rank':'SS','level':60,'power':220,'week':0,'ability':'Armadura de estrella'},
-    {'id':'ally_ashara','name':'Ashara Veyl','role':'Elementalista','rank':'SS','level':65,'power':260,'week':0,'ability':'Fuego solar'},
-    {'id':'ally_elysian','name':'Elysian Ardent','role':'Sanador','rank':'SS','level':70,'power':290,'week':0,'ability':'Santuario de vida'},
-    {'id':'ally_draeven','name':'Draeven Aster','role':'Vanguardia','rank':'SSS','level':85,'power':390,'week':0,'ability':'Corte dimensional'},
-    {'id':'ally_iria','name':'Iria Celest','role':'Elementalista','rank':'SSS','level':90,'power':420,'week':0,'ability':'Sello de causalidad'},
-    {'id':'ally_orion','name':'Orion del Alba','role':'Vanguardia','rank':'SSS','level':95,'power':450,'week':0,'ability':'Espada del firmamento'},
+    {'id':'ally_orion','name':'Orion del Alba','role':'Vanguardia','rank':'L','level':95,'power':450,'week':0,'ability':'Espada del firmamento'},
+    {'id':'ally_draeven','name':'Draeven Aster','role':'Vanguardia','rank':'S','level':60,'power':210,'week':0,'ability':'Corte dimensional'},
+    {'id':'ally_iria','name':'Iria Celest','role':'Elementalista','rank':'S','level':58,'power':200,'week':0,'ability':'Sello de causalidad'},
+    {'id':'ally_kaelen','name':'Kaelen Voss','role':'Vanguardia','rank':'A','level':38,'power':105,'week':0,'ability':'Espada del amanecer'},
+    {'id':'ally_mirath','name':'Mirath Solenne','role':'Sanador','rank':'A','level':39,'power':110,'week':0,'ability':'Restauración del alma'},
+    {'id':'ally_therak','name':'Therak Forjaestelar','role':'Vanguardia','rank':'A','level':40,'power':115,'week':0,'ability':'Armadura de estrella'},
+    {'id':'ally_ashara','name':'Ashara Veyl','role':'Elementalista','rank':'A','level':42,'power':120,'week':0,'ability':'Fuego solar'},
+    {'id':'ally_elysian','name':'Elysian Ardent','role':'Sanador','rank':'B+','level':29,'power':75,'week':0,'ability':'Santuario de vida'},
+    {'id':'ally_bplus_1','name':'Neris Tal','role':'Elementalista','rank':'B+','level':27,'power':70,'week':0,'ability':'Lanza de escarcha'},
+    {'id':'ally_bplus_2','name':'Garrik Dorn','role':'Vanguardia','rank':'B+','level':28,'power':72,'week':0,'ability':'Muro de hierro'},
+    {'id':'ally_bplus_3','name':'Salia Vern','role':'Sanador','rank':'B+','level':26,'power':68,'week':0,'ability':'Luz vital'},
+    {'id':'ally_b_1','name':'Taren Holt','role':'Vanguardia','rank':'B','level':21,'power':48,'week':0,'ability':'Filo de viento'},
+    {'id':'ally_b_2','name':'Mira Thal','role':'Elementalista','rank':'B','level':22,'power':50,'week':0,'ability':'Chispa arcana'},
+    {'id':'ally_b_3','name':'Oren Vale','role':'Sanador','rank':'B','level':20,'power':45,'week':0,'ability':'Bendición menor'},
+    {'id':'ally_b_4','name':'Vanya Reed','role':'Vanguardia','rank':'B','level':23,'power':52,'week':0,'ability':'Escudo rúnico'},
+    {'id':'ally_c_1','name':'Lian Crest','role':'Vanguardia','rank':'C','level':14,'power':26,'week':0,'ability':'Estocada veloz'},
+    {'id':'ally_c_2','name':'Eris Moon','role':'Elementalista','rank':'C','level':15,'power':28,'week':0,'ability':'Pulso ígneo'},
+    {'id':'ally_c_3','name':'Dorin Flint','role':'Vanguardia','rank':'C','level':13,'power':24,'week':0,'ability':'Guardia firme'},
+    {'id':'ally_c_4','name':'Nalia Dawn','role':'Sanador','rank':'C','level':14,'power':25,'week':0,'ability':'Luz reparadora'},
   ];
   bool alliedDefeated(Map ally)=>flags.contains('ally_defeated_'+ally['id'].toString());
   List<Map<String,dynamic>> get activeAlliedChampions=>alliedChampions.where((a)=>!alliedDefeated(a)).toList();
@@ -65,7 +76,7 @@ class DualState {
     final active=activeAlliedChampions..sort((a,b)=>numOf(b,'power',0).compareTo(numOf(a,'power',0)));
     if(active.isEmpty){alliedContribution=max(0,alliedContribution-2);alliedReports.add('Semana $warWeek · Las fuerzas aliadas ya no tienen campeones disponibles.');return;}
     final champion=active.first;
-    final strength=active.fold<int>(0,(sum,a)=>sum+numOf(a,'power',0))~/max(1,active.length);
+    final elite=active.take(3).toList();final strength=elite.fold<int>(0,(sum,a)=>sum+numOf(a,'power',0))~/max(1,elite.length);
     final threat=alliedFrontThreat(warWeek);
     final helped=warContribution>=warPressure(warWeek)&&warContribution>0;
     final effectiveThreat=helped?threat*65~/100:threat;
@@ -263,8 +274,12 @@ class DualState {
     return min(cap,1+affinity~/20+max(0,intelligence)~/15);
   }
   static const powerRanks=['E','D','C','B','A','S','SS','SSS'];
+  // Combat ranks are separate from existing technique/appraisal tiers.
+  static const combatRanks=['E','D','C','B','B+','A','S','SS','L','Divino','Divino+'];
+  static int combatRankIndex(dynamic value)=>max(0,combatRanks.indexOf(value=='SSS'?'L':value?.toString()??'E'));
+  static int combatAppraisalTier(String rank)=>rank=='B+'?3:rank=='L'||rank=='Divino'||rank=='Divino+'?7:rankIndex(rank);
   static const commonElements=['fire','water','earth','wind','lightning','ice','light','dark','nature','blood','metal','astral'];
-  static String combatRank(Map person,int completed){final initial=powerRanks.indexOf(person['initialRank']?.toString()??'E'),potential=powerRanks.indexOf(person['potentialRank']?.toString()??'E');final start=max(0,initial),end=max(start,potential);return powerRanks[min(end,start+max(0,completed)~/3)];}
+  static String combatRank(Map person,int completed){final start=combatRankIndex(person['initialRank']),end=max(start,combatRankIndex(person['potentialRank']));return combatRanks[min(end,start+max(0,completed)~/3)];}
   static Map<String,dynamic> npcTechnique(Map sk,Map person,int completed){
     final base=rankIndex(sk['rank']),initial=rankIndex(person['initialRank']),potential=max(initial,rankIndex(person['potentialRank']));
     final room=potential-initial,age=max(0,completed-((sk['minClasses'] as int?)??0));
@@ -324,7 +339,7 @@ class DualState {
   DualState returnToBeginning(){final next=DualState();next.intelligence=intelligence;next.mana=intelligence;next.readPages.addAll(readPages);next.readingLog.addAll(readingLog.map((k,v)=>MapEntry(k,Map<String,dynamic>.from(v))));next.readingRemainder=readingRemainder;next.workoutDate=workoutDate;next.returned=false;return next;}
   int get level=>1+xp~/100;
   int get maxHp=>40+(level-1)*5;
-  String get playerCombatRank{final score=strength+defense+stamina+(level-1)*8+skills.length*3+spirits.length*5;return score>=1000?'SSS':score>=650?'SS':score>=400?'S':score>=250?'A':score>=140?'B':score>=75?'C':score>=35?'D':'E';}
+  String get playerCombatRank{final score=strength+defense+stamina+(level-1)*8+skills.length*3+spirits.length*5;return score>=120000?'Divino+':score>=25000?'Divino':score>=1000?'L':score>=650?'SS':score>=400?'S':score>=250?'A':score>=190?'B+':score>=140?'B':score>=75?'C':score>=35?'D':'E';}
   int get power=>strength+defense+stamina+intelligence+level*2+skills.length*3;
   int get examAverage=>grades.isEmpty?0:(grades.values.reduce((a,b)=>a+b)/grades.length).round();
   bool get inBattle=>enemyIndex>=0;
