@@ -171,6 +171,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
   int _correctCount = 0;
   bool _completing = false;
   bool _pathReady=false;
+  bool _failedOnce=false;
   String _numericInput='';
   AdventurePath _path=const AdventurePath();
   StoryDecision? _decision;
@@ -249,9 +250,10 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
       _wasCorrect = correct;
       _selected = selected;
       _stage = 'feedback';
-      _earned += correct ? 100 : 20;
+      _earned += correct ? 100 : (_scene.path.requireMastery?0:20);
       if (correct) _correctCount++;
-      _path=_path.resolve(correct);
+      if(correct||!_scene.path.requireMastery||!_failedOnce)_path=_path.resolve(correct);
+      if(!correct)_failedOnce=true;
       HapticFeedback.mediumImpact();
     });
     _tts.stop();
@@ -268,7 +270,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-    if (mounted) _say(correct ? '¡Excelente! ${_card.answer}' : 'Seguimos aprendiendo. ${_card.answer}');
+    if (mounted) _say(correct ? '¡Excelente! ${_card.answer}' : _scene.path.requireMastery?'Revisa el método e inténtalo de nuevo.':'Seguimos aprendiendo. ${_card.answer}');
   }
 
   Future<void> _complete() async {
@@ -291,7 +293,13 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
     if (mounted) setState(() => _finished = true);
   }
 
+  void _retryMastery(){
+    if(_saving)return;
+    setState((){_rated=false;_wasCorrect=null;_selected=null;_numericInput='';_stage='challenge';});
+    _say(_card.question);
+  }
   void _next() {
+    if(_scene.path.requireMastery&&_wasCorrect!=true)return;
     if (_step + 1 >= widget.episode.cards.length) {
       _complete();
       return;
@@ -305,6 +313,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
       _needsSelfGrade = false;
       _selected = null;
       _decision=null;
+      _failedOnce=false;
       _numericInput='';
     });
     _say(_narrative());
@@ -457,7 +466,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
         children: [
           Text(_needsSelfGrade
               ? '🎯 Comprueba tu respuesta'
-              : _wasCorrect == true ? '¡MISIÓN SUPERADA! +100 XP' : '¡REAGRÚPATE! +20 XP',
+              : _wasCorrect == true ? '¡MISIÓN SUPERADA! +100 XP' : _scene.path.requireMastery?'PISTA BLOQUEADA · INTÉNTALO DE NUEVO':'¡REAGRÚPATE! +20 XP',
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
           const SizedBox(height: 14),
           if(!_needsSelfGrade)Text(_wasCorrect==true?(_scene.path.success??'El equipo avanza gracias a tu conocimiento. +1 confianza y +1 prueba.'):(_scene.path.failure??'El plan encuentra un obstáculo. Pierdes 1 recurso y 1 confianza.')),
@@ -468,9 +477,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Respuesta de la guía', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(_scene.path.requireMastery&&_wasCorrect!=true?'Repasa el método':'Respuesta de la guía', style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
-                SelectableText(_scene.explanation ?? _card.answer,style:const TextStyle(fontSize:19,height:1.4)),
+                SelectableText(_scene.path.requireMastery&&_wasCorrect!=true?(_scene.path.teach??'Vuelve a revisar los datos y el método.') : (_scene.explanation ?? _card.answer),style:const TextStyle(fontSize:19,height:1.4)),
               ]),
             ),
           ),
@@ -487,12 +496,14 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Necesito repasarla'),
             ),
-          ] else
+          ] else if(_scene.path.requireMastery&&_wasCorrect!=true)
+            FilledButton.icon(onPressed:_saving?null:_retryMastery,icon:const Icon(Icons.refresh),label:const Text('Volver a resolver el caso'))
+          else
             FilledButton.icon(
               onPressed: _saving ? null : _next,
               icon: const Icon(Icons.arrow_forward_rounded),
               label: Text(_step + 1 == widget.episode.cards.length
-                  ? 'Terminar episodio' : 'Siguiente escena'),
+                  ? (_scene.path.requireMastery?'Desbloquear siguiente capítulo':'Terminar episodio') : (_scene.path.requireMastery?'Desbloquear siguiente escena':'Siguiente escena')),
             ),
         ],
       );

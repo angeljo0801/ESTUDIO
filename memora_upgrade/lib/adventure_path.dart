@@ -33,13 +33,14 @@ class AdventurePath {
   String get endingText=>trust>=7&&evidence>=4?'El equipo conserva la confianza en ti y tiene pruebas para avanzar.':evidence>=4?'Conseguiste información valiosa, pero tus relaciones necesitan recuperarse.':resources==0||trust<3?'El equipo debe reagruparse y reconstruir sus recursos.':'Has avanzado, pero aún quedan pruebas por descubrir. Tus decisiones se conservan para el próximo capítulo.';
 }
 class ScenePath {
-  const ScenePath({this.prompt='El grupo necesita decidir cómo abordar la misión.',this.decisions=defaults,this.reactions=const {},this.teach,this.success,this.failure,this.numericAnswer,this.numericTolerance=.001});
+  const ScenePath({this.prompt='El grupo necesita decidir cómo abordar la misión.',this.decisions=defaults,this.reactions=const {},this.teach,this.success,this.failure,this.numericAnswer,this.numericTolerance=.001,this.requireMastery=false});
   final String prompt;
   final List<StoryDecision> decisions;
   final Map<String,String> reactions;
   final String? teach,success,failure;
   final double? numericAnswer;
   final double numericTolerance;
+  final bool requireMastery;
   static double? parseNumber(String raw){final n=double.tryParse(raw.trim().replaceAll(',', '.'));return n!=null&&n.isFinite?n:null;}
   bool acceptsNumber(String raw){final n=parseNumber(raw);return n!=null&&numericAnswer!=null&&(n-numericAnswer!).abs()<=numericTolerance+1e-9;}
   static const defaults=[
@@ -54,7 +55,7 @@ class ScenePath {
     final decisions=list.length>=2&&list.any((d)=>d.resources>=0)?list:defaults;
     final reactions=<String,String>{};
     if(v['reactions'] is Map){for(final e in (v['reactions'] as Map).entries.take(24)){if(e.key is String&&e.value is String)reactions[e.key as String]=e.value as String;}}
-    return ScenePath(prompt:s('prompt')??'El grupo necesita decidir cómo abordar la misión.',decisions:decisions,reactions:reactions,teach:s('teach'),success:s('success'),failure:s('failure'),numericAnswer:v['numericAnswer'] is num&&(v['numericAnswer'] as num).isFinite?(v['numericAnswer'] as num).toDouble():null,numericTolerance:v['numericTolerance'] is num&&(v['numericTolerance'] as num).isFinite?(v['numericTolerance'] as num).toDouble().clamp(0.000001,1).toDouble():.001);
+    return ScenePath(prompt:s('prompt')??'El grupo necesita decidir cómo abordar la misión.',decisions:decisions,reactions:reactions,teach:s('teach'),success:s('success'),failure:s('failure'),requireMastery:v['requireMastery']==true,numericAnswer:v['numericAnswer'] is num&&(v['numericAnswer'] as num).isFinite?(v['numericAnswer'] as num).toDouble():null,numericTolerance:v['numericTolerance'] is num&&(v['numericTolerance'] as num).isFinite?(v['numericTolerance'] as num).toDouble().clamp(0.000001,1).toDouble():.001);
   }
   String? reaction(AdventurePath path){
     for(final flag in path.flags.reversed){if(reactions.containsKey(flag))return reactions[flag];}

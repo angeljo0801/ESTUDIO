@@ -17,5 +17,6 @@ void main(){
   final d=ScenePath.parse({'numericAnswer':63.33,'numericTolerance':0.01});
   expect(d.acceptsNumber('63,33'),isTrue);expect(d.acceptsNumber('63.33'),isTrue);expect(d.acceptsNumber('64'),isFalse);
  });
+ test('mastery gating is opt in',(){expect(ScenePath.parse({'requireMastery':true}).requireMastery,isTrue);expect(ScenePath.parse({}).requireMastery,isFalse);});
  test('no resource deadlock',(){expect(ScenePath.parse({'decisions':[{'label':'A','outcome':'A','resources':-5},{'label':'B','outcome':'B','resources':-5}]}).decisions,ScenePath.defaults);});
 }
