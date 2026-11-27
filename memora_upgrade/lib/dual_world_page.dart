@@ -324,7 +324,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()+'/'+e['hp'].toString()),
     if(e['raid']==true)...[
       Text(s.raidAllies.isEmpty?'Asalto en solitario':'Escuadrón de mercenarios'),
-      for(final a in s.raidAllies)Text(a['role'].toString()+' · Vida '+a['hp'].toString()+'/'+a['maxHp'].toString()+' · Estamina '+a['energy'].toString()+' · Maná '+a['mana'].toString()+(a['hp']==0?' · Fuera de combate':'')),
+      for(final a in s.raidAllies)Text((a['name']??a['role']).toString()+' · '+(a['rank']??'').toString()+' · '+a['role'].toString()+' · Vida '+a['hp'].toString()+'/'+a['maxHp'].toString()+' · Estamina '+a['energy'].toString()+' · Maná '+a['mana'].toString()+(a['hp']==0?' · Fuera de combate':'')),
     ],
     Text('Estamina: '+s.energy.toString()+'/'+s.stamina.toString()+' · Maná: '+s.mana.toString()+'/'+s.intelligence.toString()),
     if(s.enemyEnergy>=0)Text('Rival: estamina '+s.enemyEnergy.toString()+'/'+s.enemyMaxEnergy.toString()+' · maná '+s.enemyMana.toString()+'/'+s.enemyMaxMana.toString()),
@@ -370,7 +370,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
           if(!s.inBattle)btn('Acudir a la defensa de Asteria',(){s.world='school';s.place='Frente de guerra';return 'Te reúnes con las fuerzas defensoras de la academia.';}),
         ],
         if(!s.warWon)Text('Situación aliada: '+(s.warThreat==0?'Defensas estables':s.warThreat<5?'Frontera en peligro':s.warThreat<9?'Derrotas graves':'Riesgo de colapso')),
-        ExpansionTile(title:Text(s.warNews.last),children:[for(final news in s.warNews)Padding(padding:const EdgeInsets.all(6),child:Text(news))]),
+        ExpansionTile(title:Text(s.alliedReports.isEmpty?s.warNews.last:s.alliedReports.last),children:[for(final news in [...s.warNews,...s.alliedReports])Padding(padding:const EdgeInsets.all(6),child:Text(news))]),
         if(!s.inBattle&&!s.warWon&&s.privatePlace)btn('Avanzar una semana de la historia',()=>s.advanceWarWeek()?'Ha pasado una semana. Consulta los nuevos informes de la guerra.':'No puedes avanzar ahora.'),
       ]),
       if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
@@ -393,6 +393,14 @@ class _DualWorldPageState extends State<DualWorldPage>{
           Text(s.flags.contains('adventurer_member')?'Licencia activa · victorias de caza '+c.enemies.where((e)=>e['requiresFlag']=='adventurer_member').fold<int>(0,(total,e)=>total+(s.battleCounts[e['id']]??0)).toString():'Sin licencia. Habla con el maestro del gremio.'),
           const Text('El gremio es independiente de la academia y del ejército. Las cacerías exteriores son voluntarias y letales.'),
           if(s.flags.contains('adventurer_member'))Text('Rango del gremio: '+(c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=12?'A':c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=6?'C':c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=3?'D':'E')),
+        ]),
+        if(current=='Campamento mercenario'||current=='Frente de guerra')section('Campeones de las fuerzas aliadas',[
+          const Text('Los campeones tienen poder propio, no dependen de tu nivel y combaten incluso sin tu participación.'),
+          for(final ally in DualState.alliedChampions.where((a)=>DualState.numOf(a,'week',0)<=s.warWeek))...[
+            art(ally['id'].toString(),height:140),
+            Text(ally['name'].toString()+' · Rango '+ally['rank'].toString()+' · Nv. '+ally['level'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+            Text(ally['role'].toString()+' · '+ally['ability'].toString()),
+          ],
         ]),
         if(current=='Campamento mercenario')section('Compañía mercenaria',[
           Text(s.flags.contains('mercenary_member')?'Contrato activo · servicio voluntario':'Sin contrato'),
