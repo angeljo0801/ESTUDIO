@@ -179,6 +179,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(talentRevealed(person)&&person['classAffinities'] is List)Text('Afinidad con clases: '+(person['classAffinities'] as List).join(', ')),
       if(talentRevealed(person)&&person['weaponAffinities'] is List)Text('Aptitud de armas: '+(person['weaponAffinities'] as List).join(', ')),
       Text('Rango espiritual: '+DualState.spiritualRank((publicTalent(person)['spiritualAffinity'] as int?)??35,npcIntelligence(publicTalent(person)))+' · Capacidad: '+npcSlots(publicTalent(person)).toString()),
+      if(DualState.royalFaction(person)!=null)Text(DualState.royalFactions[DualState.royalFaction(person)]!+' · adversario: '+(DualState.royalFaction(person)=='evelyne'?'Aldren Aurel':'Evelyne Aurel')),
       Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
       if(s.appraisalTier>=3&&s.intelligence>=30&&s.relationship(person['id'] as String)>=7&&!s.knownRaces.contains(person['id']))btn('Apreciación profunda',(){s.knownRaces.add(person['id'] as String);return 'La apreciación profunda permite examinar el repertorio real.';}),
       if(discoverableSkills(person).any((sk)=>!s.canAppraise(sk)&&sk['singular']!=true))const Text('Apreciación insuficiente · existen técnicas que todavía no puedes identificar.'),
@@ -217,7 +218,29 @@ class _DualWorldPageState extends State<DualWorldPage>{
   }
   Widget workshop()=>section('Taller secreto · evolución y fusión',[const Text('Solo tú puedes ascender técnicas con dinero y fusionarlas. La inteligencia aumenta la probabilidad de éxito. Un fallo consume monedas, no las técnicas originales. Retorno elimina estas mejoras.'),for(final sk in learnedSkills)...[const Divider(),Text(sk['name'].toString()+' · '+DualState.powerRanks[s.techniqueTier(sk)]+' · potencia '+s.effectiveTechnique(sk)['damage'].toString()),if(s.techniqueTier(sk)<7)btn('Ascender · '+s.upgradeFee(sk).toString()+' monedas',()=>s.upgradeTechnique(sk)?'Técnica ascendida.':'Necesitas dinero e inteligencia suficientes.'),if(!sk['id'].toString().startsWith('fusion_'))FilledButton(onPressed:busy?null:()=>chooseFusion(sk),child:const Text('Fusionar con otra técnica'))]]);
   String get arcTitle{final arcs=DualWorldContent.list(c.data['arcs']);String name='Arco I';for(final a in arcs){if(s.grades.length>=((a['afterClasses'] as int?)??0))name=a['title'].toString();}return name;}
-  Widget storyEvents()=>Column(children:[for(final e in c.events.where(s.eligible))section(e['title'].toString(),[
+  List<Map<String,dynamic>> get royalEvents=>[
+    for(final p in c.people.where((p)=>DualState.royalFaction(p)!=null))
+      <String,dynamic>{
+        'id':'royal_mission_'+DualState.royalFaction(p)!,
+        'world':'school','place':'Consejo','person':p['id'],'minClasses':1,
+        'requiresRoyalFaction':DualState.royalFaction(p),
+        'title':DualState.royalFaction(p)=='evelyne'?'La petición de la princesa':'La petición del príncipe',
+        'scene':p['name'].toString()+' te pide que apoyes su propuesta ante el Consejo. La facción rival está en desacuerdo. Tu postura será recordada.',
+        'choices':[
+          {'id':'support','label':'Defender su propuesta','trust':4,'faction':'royal_'+DualState.royalFaction(p)!,'standing':5,'outcome':'Tu apoyo ha sido observado. La facción rival también toma nota.'},
+          {'id':'question','label':'Pedir pruebas antes de tomar partido','trust':1,'outcome':'El Consejo escucha tus preguntas. No prometes lealtad.'},
+          {'id':'refuse','label':'Rechazar la petición','trust':-3,'faction':'royal_'+DualState.royalFaction(p)!,'standing':-3,'outcome':'La petición queda rechazada. Tu decisión tiene consecuencias.'}
+        ]
+      }
+  ];
+  Widget royalPolitics()=>section('La disputa de la Corona',[
+    const Text('Evelyne Aurel y Aldren Aurel lideran facciones adversarias. Sus seguidores compiten por influencia en la academia y el reino. Puedes tomar partido o permanecer neutral.'),
+    Text('Tu postura: '+(s.royalChoiceMade?DualState.royalFactions[s.royalAlignment]??'Neutral':'Sin decidir')),
+    for(final side in ['evelyne','aldren'])Text(DualState.royalFactions[side]!+' · reputación '+s.royalStanding(side).toString()),
+    if(!s.royalChoiceMade)for(final side in ['evelyne','aldren','neutral'])btn(side=='neutral'?'Permanecer neutral':'Unirme a '+DualState.royalFactions[side]!,()=>s.chooseRoyalFaction(side)?(side=='neutral'?'No juras lealtad a ninguno. Conservas tu independencia.':'Tu alianza queda registrada. La facción rival te observa con desconfianza.'):'No puedes cambiar tu postura ahora.'),
+    if(s.royalChoiceMade)const Text('Tu decisión abre determinadas misiones. La confianza personal sigue dependiendo de tus actos.'),
+  ]);
+  Widget storyEvents()=>Column(children:[for(final e in [...c.events,...royalEvents].where(s.eligible))section(e['title'].toString(),[
     Text(e['scene'].toString()),const SizedBox(height:12),
     for(final choice in DualWorldContent.list(e['choices']))FilledButton(onPressed:busy||s.cash<((choice['cost'] as int?)??0)?null:()=>act(()=>s.chooseEvent(e,choice)?s.lastEvent:'No puedes elegir esta opción.'),child:Text(choice['label'].toString())),
   ])]);
@@ -286,6 +309,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
         if(current=='Dormitorio')...[skillRoom(),workshop(),armory(store:false)],
         if(current=='Armería')armory(store:true),
         storyEvents(),
+        if(current=='Palacio'||current=='Consejo')royalPolitics(),
         if(current=='Iglesia'||current=='Palacio'||current=='Consejo')section('Instituciones y relaciones políticas',[for(final faction in DualWorldContent.list(c.data['factions']))...[Text(faction['name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(faction['description'].toString()),Text('Relación: '+(s.factionStanding[faction['id']]??0).toString())]]),
         if(current=='Gremio')section('Gremio · encargos financieros',[const Text('Los encargos se pagan aquí, una sola vez por examen superado.'),for(final l in c.lessons.where((x)=>s.grades.containsKey(x['id'])&&!s.wins.contains('guild_'+x['id'].toString())))btn('Cobrar '+l['title'].toString(),(){final n=s.claimGuild(l['id'] as String);return 'Recibiste '+n.toString()+' monedas por tu informe.';})]),
         if(current=='Clases')...[
