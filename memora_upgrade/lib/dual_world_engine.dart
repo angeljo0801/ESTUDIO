@@ -39,6 +39,23 @@ class DualState {
   final Map<String,Map<String,dynamic>> readingLog={};
   int readingRemainder=0;
   final Set<String> wins={};
+  static const royalFactions={'evelyne':'Facción de Evelyne','aldren':'Facción de Aldren','neutral':'Neutral'};
+  String get royalAlignment=>decisions['royal_allegiance']??'neutral';
+  bool get royalChoiceMade=>decisions.containsKey('royal_allegiance');
+  static String? royalFaction(Map person){
+    final name=person['name']?.toString().toLowerCase()??'';
+    if(name.contains('evelyne')&&name.contains('aurel'))return 'evelyne';
+    if(name.contains('aldren')&&name.contains('aurel'))return 'aldren';
+    return null;
+  }
+  int royalStanding(String side)=>factionStanding['royal_'+side]??0;
+  bool chooseRoyalFaction(String side){
+    if(inBattle||world!='school'||!const ['Consejo','Palacio'].contains(place)||royalChoiceMade||!royalFactions.containsKey(side))return false;
+    decisions['royal_allegiance']=side;
+    if(side!='neutral'){final rival=side=='evelyne'?'aldren':'evelyne';factionStanding['royal_'+side]=(royalStanding(side)+8).clamp(-100,100).toInt();factionStanding['royal_'+rival]=(royalStanding(rival)-8).clamp(-100,100).toInt();}
+    return true;
+  }
+  bool royalEventAvailable(String side)=>royalChoiceMade&&(royalAlignment=='neutral'||royalAlignment==side);
   int relationship(String id)=>trust[id]??0;
   int warmth(String id)=>affection[id]??0;
   bool eligible(Map e){
@@ -46,6 +63,7 @@ class DualState {
     if(e['maxClasses'] is int&&grades.length>(e['maxClasses'] as int))return false;
     if(decisions.containsKey(e['id'])||e['world']!=world||e['place']!=place)return false;
     if(grades.length<((e['minClasses'] as int?)??0)||reputation<((e['minRep'] as int?)??-100))return false;
+    if(e['requiresRoyalFaction'] is String&&!royalEventAvailable(e['requiresRoyalFaction'] as String))return false;
     if(e['requiresFlag'] is String&&!flags.contains(e['requiresFlag']))return false;
     if(e['excludesFlag'] is String&&flags.contains(e['excludesFlag']))return false;
     if(e['requiresWin'] is String&&!wins.contains('battle_'+(e['requiresWin'] as String)))return false;
