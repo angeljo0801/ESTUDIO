@@ -370,6 +370,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
           const Text('EMERGENCIA · La academia está bajo amenaza. Profesores y estudiantes han sido movilizados para defender el mundo. La defensa no exige jurar lealtad a la Corona.'),
           if(!s.inBattle)btn('Acudir a la defensa de Asteria',(){s.world='school';s.place='Frente de guerra';return 'Te reúnes con las fuerzas defensoras de la academia.';}),
         ],
+        if(!s.warWon)Text('Estimación de la horda invasora: '+s.remainingHorde.toString()+' criaturas'),
         if(!s.warWon)Text('Situación aliada: '+(s.warThreat==0?'Defensas estables':s.warThreat<5?'Frontera en peligro':s.warThreat<9?'Derrotas graves':'Riesgo de colapso')),
         ExpansionTile(title:Text(s.alliedReports.isEmpty?s.warNews.last:s.alliedReports.last),children:[for(final news in [...s.warNews,...s.alliedReports])Padding(padding:const EdgeInsets.all(6),child:Text(news))]),
         if(!s.inBattle&&!s.warWon&&s.privatePlace)btn('Avanzar una semana de la historia',()=>s.advanceWarWeek()?'Ha pasado una semana. Consulta los nuevos informes de la guerra.':'No puedes avanzar ahora.'),
@@ -395,13 +396,18 @@ class _DualWorldPageState extends State<DualWorldPage>{
           const Text('El gremio es independiente de la academia y del ejército. Las cacerías exteriores son voluntarias y letales.'),
           if(s.flags.contains('adventurer_member'))Text('Rango del gremio: '+(c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=12?'A':c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=6?'C':c.enemies.where((e)=>e['requiresFlag']=='adventurer_member'&&s.wins.contains('battle_'+e['id'].toString())).length>=3?'D':'E')),
         ]),
-        if(current=='Campamento mercenario'||current=='Frente de guerra')section('Campeones de las fuerzas aliadas',[
-          const Text('Los campeones tienen un poder fijo: pueden resistir a monstruos legendarios, pero no vencer a entidades divinas. Los derrotados dejan de participar en la guerra.'),
-          for(final ally in DualState.alliedChampions.where((a)=>DualState.numOf(a,'week',0)<=s.warWeek))...[
-            art(ally['id'].toString(),height:140),
-            Text(ally['name'].toString()+' · Rango '+ally['rank'].toString()+' · Nv. '+ally['level'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
-            Text(ally['role'].toString()+' · '+ally['ability'].toString()+' · '+(s.alliedDefeated(ally)?'Derrotado · fuera del frente':'Activo')),
-          ],
+        if(current=='Campamento mercenario'||current=='Frente de guerra')section('Fuerzas aliadas',[
+          const Text('Los héroes tienen poder fijo. Las hordas de rango B y A desgastan las defensas por su cantidad; los colosos SSS y las deidades pueden superarlas.'),
+          Text('Combatientes activos: '+s.activeAlliedChampions.length.toString()+'/'+DualState.alliedChampions.length.toString()),
+          for(final rank in ['L','SS','S','A','B+','B','C'])ExpansionTile(
+            initiallyExpanded:const ['L','SS','S'].contains(rank),
+            title:Text('Rango '+rank+' · '+s.activeAlliedChampions.where((a)=>a['rank']==rank).length.toString()+'/'+DualState.alliedChampions.where((a)=>a['rank']==rank).length.toString()),
+            children:[for(final ally in DualState.alliedChampions.where((a)=>a['rank']==rank))...[
+              if(const ['L','SS','S'].contains(rank))art(ally['id'].toString(),height:140),
+              Text(ally['name'].toString()+' · Nv. '+ally['level'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+              Text(ally['role'].toString()+' · '+ally['ability'].toString()+' · '+(s.alliedDefeated(ally)?'Derrotado · fuera del frente':'Activo')),
+            ]],
+          ),
         ]),
         if(current=='Campamento mercenario')section('Compañía mercenaria',[
           Text(s.flags.contains('mercenary_member')?'Contrato activo · servicio voluntario':'Sin contrato'),
