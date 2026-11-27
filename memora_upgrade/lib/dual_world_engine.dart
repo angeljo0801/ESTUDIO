@@ -75,6 +75,7 @@ class DualState {
   bool get inBattle=>enemyIndex>=0;
   bool get privatePlace=>place=='Dormitorio'||place=='Taller privado';
   bool travel(){if(inBattle||!privatePlace)return false;world=world=='school'?'trade':'school';place=world=='school'?'Dormitorio':'Taller privado';return true;}
+  int pageReward(int page,int count)=>count<=0||page<0||page>=count?0:((page+1)*5)~/count-(page*5)~/count;
   bool read(String id,int page,int count){final old=readPages[id]??0;if(count<=0||page!=old||page>=count)return false;final before=(old*5)~/count;final after=((old+1)*5)~/count;readPages[id]=old+1;intelligence+=after-before;mana=min(intelligence,mana+after-before);return true;}
   bool workout(String date){if(date.isEmpty||workoutDate.compareTo(date)>=0)return false;workoutDate=date;strength+=2;defense+=2;stamina+=2;return true;}
   int rewardExam(String id,bool correct){if(grades.containsKey(id))return grades[id]!;attempts[id]=(attempts[id]??0)+1;if(!correct)return 0;final grade=max(60,100-10*((attempts[id]??1)-1));grades[id]=grade;rankPoints+=grade;reputation=min(100,reputation+max(1,grade~/20));xp+=30;return grade;}

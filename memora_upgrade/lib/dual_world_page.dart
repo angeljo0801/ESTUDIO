@@ -42,6 +42,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   DualState s=DualState();bool loading=true,busy=false;
   String message='';int qty=1,price=12;
   String raceFilter='all';
+  String bookFilter='all',bookSearch='';
   String nameFilter='';
   final answer=TextEditingController();
   DualWorldContent get c=>widget.content;
@@ -80,14 +81,32 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Widget lesson(Map<String,dynamic> l){
     final id=l['id'] as String,grade=s.grades[id];
     return section(l['title'].toString(),[
-      Text(l['teach'].toString()),const SizedBox(height:10),Text(l['example'].toString()),const Divider(),Text(l['question'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+      const Text('Traducción de Apreciación: examen de finanzas',style:TextStyle(fontWeight:FontWeight.bold)),Text(l['teach'].toString()),const SizedBox(height:10),Text(l['example'].toString()),const Divider(),Text(l['question'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
       if(grade==null)...[TextField(controller:answer,keyboardType:const TextInputType.numberWithOptions(decimal:true,signed:true),decoration:const InputDecoration(labelText:'Resultado numérico')),btn('Entregar examen',(){final n=double.tryParse(answer.text.trim().replaceAll(',','.'));if(n==null||!n.isFinite)return 'Introduce una cifra válida.';final ok=(n-(l['answer'] as num)).abs()<=0.011;final g=s.rewardExam(id,ok);answer.clear();if(ok){s.chapter=s.grades.length;return 'Nota: '+g.toString()+'/100. Desbloqueaste una revelación. Cobra tu encargo financiero en el gremio de Lumen.';}return 'Repasa el ejemplo e inténtalo otra vez.';})]else...[Text('Nota: '+grade.toString()+'/100'),const Divider(),Text(l['explanation'].toString()),const SizedBox(height:8),Text(l['reveal'].toString(),style:const TextStyle(fontWeight:FontWeight.w600))],
     ]);
   }
-  Widget library()=>section('Biblioteca · inteligencia',[
-    const Text('Cada libro completo otorga exactamente +5 inteligencia. Las páginas leídas quedan guardadas; releer no duplica la recompensa.'),
-    for(final book in c.books)...[const Divider(),Text(book['title'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text('Páginas: '+(s.readPages[book['id']]??0).toString()+'/'+(book['pages'] as List).length.toString()),btn('Leer libro',(){final id=book['id'] as String;final i=s.readPages[id]??0;final pages=book['pages'] as List;if(i>=pages.length)return 'Libro completado.';showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:Text(book['title'].toString()+' · '+(i+1).toString()),content:SingleChildScrollView(child:Text(pages[i].toString())),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cerrar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Página leída'))])).then((v){if(v==true&&mounted)act(()=>s.read(id,i,pages.length)?'Página registrada.':'Sin recompensa duplicada.');});return 'Lee la página y confirma al terminar.';})]
-  ]);
+  bool isFinanceBook(Map book)=>book['category']=='Finanzas'||book['category']=='Economía'||book['category']=='Inversiones'||book['category']=='Negocios';
+  Future<void> readBook(Map book)async{
+    if(busy)return;
+    final id=book['id'] as String,pages=book['pages'] as List;
+    final index=s.readPages[id]??0;if(index>=pages.length)return;
+    final gain=s.pageReward(index,pages.length);
+    final marked=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+      title:Text(book['title'].toString()+' · '+(index+1).toString()+'/'+pages.length.toString()),
+      content:SingleChildScrollView(child:Text(pages[index].toString(),style:const TextStyle(fontSize:17,height:1.55))),
+      actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cerrar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:Text('Marcar leída · +'+gain.toString()+' INT'))]));
+    if(marked==true&&mounted)await act(()=>s.read(id,index,pages.length)?'Página registrada. +'+gain.toString()+' inteligencia.':'Página ya registrada.');
+  }
+  Widget library(){
+    final filtered=c.books.where((book)=>(bookFilter=='all'||bookFilter=='unread'&&(s.readPages[book['id']]??0)<(book['pages'] as List).length||bookFilter=='finance'&&isFinanceBook(book)||bookFilter=='literature'&&!isFinanceBook(book))&&book['title'].toString().toLowerCase().contains(bookSearch)).toList();
+    return section('Biblioteca · inteligencia',[
+      Text('Inteligencia: '+s.intelligence.toString()+' · '+c.books.length.toString()+' libros disponibles'),
+      const Text('Cada libro completo da +5 inteligencia en total. No hay límite diario. Solo cuentan páginas nuevas marcadas como leídas; puedes continuar después de Retorno.'),
+      DropdownButton<String>(isExpanded:true,value:bookFilter,items:const [DropdownMenuItem(value:'all',child:Text('Todos los libros')),DropdownMenuItem(value:'unread',child:Text('Pendientes')),DropdownMenuItem(value:'finance',child:Text('Finanzas, negocios e inversiones')),DropdownMenuItem(value:'literature',child:Text('Literatura y mitología'))],onChanged:busy?null:(v)=>setState(()=>bookFilter=v??'all')),
+      TextField(decoration:const InputDecoration(labelText:'Buscar libro'),onChanged:(v)=>setState(()=>bookSearch=v.toLowerCase().trim())),
+      for(final book in filtered)...[const Divider(),Text(book['title'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text((book['category']??'Literatura').toString()),Text('Páginas: '+(s.readPages[book['id']]??0).toString()+'/'+(book['pages'] as List).length.toString()),LinearProgressIndicator(value:((s.readPages[book['id']]??0)/(book['pages'] as List).length).clamp(0.0,1.0).toDouble()),FilledButton(onPressed:busy||(s.readPages[book['id']]??0)>=(book['pages'] as List).length?null:()=>readBook(book),child:Text((s.readPages[book['id']]??0)>=(book['pages'] as List).length?'Libro completado · +5 INT':'Leer siguiente página'))]
+    ]);
+  }
   String publicRace(Map person)=>person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?'human':(person['race']??'human').toString();
   List<Map<String,dynamic>> visibleSkills(Map person)=>c.skills.where((sk)=>sk['owner']==person['id']&&s.skillAvailable(sk)).toList();
   List<Map<String,dynamic>> discoverableSkills(Map person)=>visibleSkills(person).where((sk)=>(sk['secret']!=true||sk['revealFlag'] is String&&s.flags.contains(sk['revealFlag']))&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id'])||sk['innate']!=true&&sk['concealed']!=true)).toList();
@@ -146,7 +165,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
   ])]);
   Widget dungeon()=>section('Dungeons · expediciones y espíritus',[
     const Text('Los combates aquí pueden terminar en muerte real. El Retorno reinicia ambos mundos. Los duelos de academia son protegidos.'),
-    for(final sp in c.spirits.where((sp)=>s.grades.length>=((sp['minClasses'] as int?)??0)))...[Text(sp['name'].toString()+' · inteligencia '+sp['intelligence'].toString()+' · afinidad '+sp['affinity'].toString()),Text(s.spirits.contains(sp['id'])?'Vinculado':(spiritReady(sp)?'Puedes intentar vincularlo.':'Necesitas inteligencia superior, afinidad y superar su encuentro.')),if(spiritReady(sp))btn('Vincular espíritu',()=>s.capture(sp)?'Espíritu vinculado. Puedes invocarlo en combate.':'No cumples las condiciones.')],
+    for(final sp in c.spirits.where((sp)=>s.grades.length>=((sp['minClasses'] as int?)??0)))...[Text(sp['name'].toString()+' · '+(sp['rarity']??'Común').toString()+' · INT '+sp['intelligence'].toString()+' · afinidad '+sp['affinity'].toString()),
+    if(sp['form'] is String)Text(sp['form'] as String),Text(s.spirits.contains(sp['id'])?'Vinculado':(spiritReady(sp)?'Puedes intentar vincularlo.':'Necesitas inteligencia superior, afinidad y superar su encuentro.')),if(spiritReady(sp))btn('Vincular espíritu',()=>s.capture(sp)?'Espíritu vinculado. Puedes invocarlo en combate.':'No cumples las condiciones.')],
     if(s.rescueMissions.isNotEmpty)const Text('Hay una expedición de rescate pendiente. Completa el combate antes de que termine el plazo.'),
     for(final person in c.people.where((p)=>s.rescuedStudents.contains(p['id'])))Text('Rescatado: '+person['name'].toString()),
     battle()
