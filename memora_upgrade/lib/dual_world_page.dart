@@ -405,7 +405,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
             children:[for(final ally in DualState.alliedChampions.where((a)=>a['rank']==rank))...[
               if(const ['L','SS','S'].contains(rank))art(ally['id'].toString(),height:140),
               Text(ally['name'].toString()+' · Nv. '+ally['level'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
-              Text(ally['role'].toString()+' · '+ally['ability'].toString()+' · '+(s.alliedDefeated(ally)?'Derrotado · fuera del frente':'Activo')),
+              Text(ally['role'].toString()+' · '+ally['ability'].toString()+' · '+(s.alliedDefeated(ally)?'Derrotado · fuera del frente':s.alliedAvailable(ally)?'Activo':'En reserva · espera la llegada de los colosos SSS')),
             ]],
           ),
         ]),
