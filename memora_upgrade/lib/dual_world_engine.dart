@@ -46,7 +46,7 @@ class DualState {
   int warWeek=0,warContribution=0,alliedContribution=0,warSeed=Random().nextInt(1000000);
   final List<String> alliedReports=[];
   static const alliedChampions=<Map<String,dynamic>>[
-    {'id':'ally_orion','name':'Orion del Alba','role':'Vanguardia','rank':'L','level':95,'power':450,'week':0,'ability':'Espada del firmamento'},
+    {'id':'ally_orion','name':'Orion del Alba','role':'Vanguardia','rank':'L','level':95,'power':450,'week':6,'ability':'Espada del firmamento'},
     {'id':'ally_draeven','name':'Draeven Aster','role':'Vanguardia','rank':'SS','level':78,'power':340,'week':0,'ability':'Corte dimensional'},
     {'id':'ally_iria','name':'Iria Celest','role':'Elementalista','rank':'SS','level':76,'power':330,'week':0,'ability':'Sello de causalidad'},
     {'id':'ally_kaelen','name':'Kaelen Voss','role':'Vanguardia','rank':'A','level':38,'power':105,'week':0,'ability':'Espada del amanecer'},
@@ -137,7 +137,8 @@ class DualState {
     {'id':'ally_c_36','name':'Faron Stone','role':'Elementalista','rank':'C','level':14,'power':27,'week':0,'ability':'Pulso elemental'},
   ];
   bool alliedDefeated(Map ally)=>flags.contains('ally_defeated_'+ally['id'].toString());
-  List<Map<String,dynamic>> get activeAlliedChampions=>alliedChampions.where((a)=>!alliedDefeated(a)).toList();
+  bool alliedAvailable(Map ally)=>warWeek>=numOf(ally,'week',0)&&!alliedDefeated(ally);
+  List<Map<String,dynamic>> get activeAlliedChampions=>alliedChampions.where(alliedAvailable).toList();
   int get defenseTotal=>warContribution+alliedContribution;
   // Threat rises with the invasion, not with player or allied levels.
   static int invadingHordeSize(int week)=>week<2?180:week<4?420:week<6?850:week<8?1300:week<10?1800:week<12?2400:week<14?3200:week<16?4200:5200;
@@ -190,7 +191,7 @@ class DualState {
     'La Guerra de la Ruptura lleva décadas activa. La academia permanece neutral.',
     if(warWeek>=2) 'Semana 2 · Los exploradores informan de nuevas criaturas y de una creciente concentración de energía en las grietas.',
     if(warWeek>=4) defenseTotal>=2?'Semana 4 · Las defensas resisten gracias a las victorias aliadas.':'Semana 4 · Los invasores han roto las primeras defensas fronterizas.',
-    if(warWeek>=6) 'Semana 6 · Los primeros monstruos legendarios atraviesan las grietas. Las compañías necesitan refuerzos.',
+    if(warWeek>=6) 'Semana 6 · Aparecen los primeros colosos SSS. Orion del Alba, el único héroe legendario, entra al frente para contenerlos.',
     if(warWeek>=8) defenseTotal>=5?'Semana 8 · Los aliados recuperan posiciones.':'Semana 8 · Caen fortalezas y llegan refugiados a Asteria.',
     if(warWeek>=10) 'Semana 10 · Aparecen entidades de apariencia humana con poderes nunca vistos. Su presencia supera a la de los colosos.',
     if(warWeek>=12) defenseTotal>=9||warWon?'Semana 12 · La ofensiva ha sido contenida.':'Semana 12 · Las entidades avanzan hacia la academia; se declara la movilización de emergencia.',
