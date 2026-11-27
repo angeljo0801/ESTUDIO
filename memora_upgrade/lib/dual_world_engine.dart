@@ -50,12 +50,29 @@ class DualState {
   bool get canFightWar=>flags.contains('mercenary_member')||academyMobilized;
   static int warPressure(int week)=>week<4?0:week<8?2:week<12?5:week<18?9:15;
   int get warThreat=>max(0,warPressure(warWeek)-warContribution);
+  bool warEnemyAvailable(Map enemy)=>enemy['location']!='Frente de guerra'||(!warWon&&!worldDestroyed&&warWeek>=numOf(enemy,'warMinWeek',0));
+  Map<String,dynamic> warEnemyProfile(Map enemy){
+    final result=Map<String,dynamic>.from(enemy);
+    if(enemy['location']!='Frente de guerra'||enemy['warGrowth']!=true)return result;
+    final stages=(max(0,warWeek-numOf(enemy,'warMinWeek',0))~/3).clamp(0,4).toInt();
+    final scale=100+stages*15;
+    for(final k in ['hp','attack','defense','stamina','intelligence','xp','goldReward']){
+      if(enemy[k] is int)result[k]=max(1,numOf(enemy,k,1)*scale~/100);
+    }
+    if(enemy['techniques'] is List)result['techniques']=[for(final m in (enemy['techniques'] as List).whereType<Map>()) {...Map<String,dynamic>.from(m),'damage':numOf(m,'damage',0)*scale~/100}];
+    result['warEvolution']=stages;
+    return result;
+  }
   List<String> get warNews=>[
     'La Guerra de la Ruptura lleva décadas activa. La academia permanece neutral.',
+    if(warWeek>=2) 'Semana 2 · Los exploradores informan de nuevas criaturas y de una creciente concentración de energía en las grietas.',
     if(warWeek>=4) warContribution>=2?'Semana 4 · Las defensas resisten gracias a las victorias aliadas.':'Semana 4 · Los invasores han roto las primeras defensas fronterizas.',
+    if(warWeek>=6) 'Semana 6 · Los primeros monstruos legendarios atraviesan las grietas. Las compañías necesitan refuerzos.',
     if(warWeek>=8) warContribution>=5?'Semana 8 · Los aliados recuperan posiciones.':'Semana 8 · Caen fortalezas y llegan refugiados a Asteria.',
+    if(warWeek>=10) 'Semana 10 · Aparecen entidades de apariencia humana con poderes nunca vistos. Su presencia supera a la de los colosos.',
     if(warWeek>=12) warContribution>=9||warWon?'Semana 12 · La ofensiva ha sido contenida.':'Semana 12 · Las entidades avanzan hacia la academia; se declara la movilización de emergencia.',
-    if(warWeek>=16&&!warWon) 'Semana 16 · La última línea defensiva está amenazada.',
+    if(warWeek>=14&&!warWon) 'Semana 14 · Los supervivientes advierten que las deidades superiores están entrando al mundo.',
+    if(warWeek>=16&&!warWon) 'Semana 16 · Se ha detectado una presencia divina de poder desconocido. La última línea defensiva está amenazada.',
     if(warWon)'Las grietas de esta ofensiva han sido selladas. El mundo ha sobrevivido.',
     if(worldDestroyed)'Semana 18 · La última defensa cae. La Ruptura consume el mundo.',
   ];
@@ -77,7 +94,7 @@ class DualState {
 
   final List<Map<String,dynamic>> raidAllies=[];
   bool startRaid(int index,Map enemy,{required bool withTeam}){
-    if(!canFightWar||place!='Frente de guerra'||enemy['raid']!=true)return false;
+    if(!canFightWar||place!='Frente de guerra'||enemy['raid']!=true||!warEnemyAvailable(enemy))return false;
     if(withTeam&&level<numOf(enemy,'teamMinLevel',1))return false;
     if(!startBattle(index,numOf(enemy,'hp',0),lethal:true))return false;
     if(withTeam){
@@ -258,7 +275,7 @@ class DualState {
   int spiritChance(Map spirit,int affinity){if(!canCapture(spirit)||affinity<((spirit['minAffinity'] as int?)??25))return 0;return (20+affinity~/2+(intelligence-(spirit['intelligence'] as int))*2+min(10,luck~/5)).clamp(5,100).toInt();}
   bool freshSpiritAttempt(Map spirit){final encounter=spirit['requiresWin']?.toString()??'';final count=battleCounts[encounter]??(wins.contains('battle_'+encounter)?1:0);return count>(spiritAttempts[spirit['id']]??0);}
   String trySpirit(Map spirit,int affinity){final chance=spiritChance(spirit,affinity);if(chance==0||!freshSpiritAttempt(spirit))return 'Necesitas afinidad, inteligencia o superar de nuevo su encuentro.';final encounter=spirit['requiresWin']?.toString()??'',id=spirit['id'] as String;spiritAttempts[id]=battleCounts[encounter]??1;if(Random().nextInt(100)>=chance)return 'El espíritu no acepta el vínculo. Supera de nuevo el encuentro para intentar otra vez.';spirits.add(id);return 'Espíritu vinculado.';}
-  int victoryXp(Map enemy,bool first){if(enemy['raid']==true)return first||enemy['repeatable']==true?max(0,numOf(enemy,'xp',0)):0;if(enemy['repeatable']==true){final l=(enemy['level'] as int?)??1;return 20+15*l*l+((enemy['hp'] as int?)??0)~/10;}return first?((enemy['xp'] as int?)??0):0;}
+  int victoryXp(Map enemy,bool first){if(enemy['raid']==true||enemy['location']=='Frente de guerra')return first||enemy['repeatable']==true?max(0,numOf(enemy,'xp',0)):0;if(enemy['repeatable']==true){final l=(enemy['level'] as int?)??1;return 20+15*l*l+((enemy['hp'] as int?)??0)~/10;}return first?((enemy['xp'] as int?)??0):0;}
   DualState returnToBeginning(){final next=DualState();next.intelligence=intelligence;next.mana=intelligence;next.readPages.addAll(readPages);next.readingLog.addAll(readingLog.map((k,v)=>MapEntry(k,Map<String,dynamic>.from(v))));next.readingRemainder=readingRemainder;next.workoutDate=workoutDate;next.returned=false;return next;}
   int get level=>1+xp~/100;
   int get maxHp=>40+(level-1)*5;
