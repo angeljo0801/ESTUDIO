@@ -141,7 +141,10 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Map publicTalent(Map person)=>talentRevealed(person)?person:{...person,'race':publicRace(person),'spiritClass':person['coverSpiritClass']??'ordinary','combatClass':person['coverClass']??person['combatClass'],'elements':person['coverElements']??['neutral'],'initialRank':person['coverRank']??person['initialRank'],'potentialRank':person['coverPotential']??person['initialRank'],'spiritualAffinity':person['publicAffinity']??35,'spiritIntelligence':person['coverIntelligence']??15};
   bool spiritReady(Map sp)=>s.spiritChance(sp,affinityFor(sp))>0&&s.freshSpiritAttempt(sp);
   List<Map<String,dynamic>> get learnedSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])).map((sk)=>s.copiedSkills[sk['id']]??sk),...s.fusedSkills.values];
-  List<Map<String,dynamic>> get combatSkills=>[...learnedSkills.where((sk)=>sk['element']!='divine'||s.flags.contains('divine_devotion')).map(s.effectiveTechnique),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage'],'element':sp['element']}];
+  List<Map<String,dynamic>> get combatSkills=>[...learnedSkills.where((sk)=>sk['element']!='divine'||s.flags.contains('divine_devotion')).map(s.effectiveTechnique),for(final sp in c.spirits.where((sp)=>s.activeSpirit==sp['id']&&s.spirits.contains(sp['id'])))...[
+    <String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Técnica de '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage'],'element':sp['element'],'minIntelligence':sp['intelligence']},
+    for(final mode in ['manifest','fusion','enchant']) <String,dynamic>{'id':'spirit_'+sp['id'].toString()+'_'+mode,'spirit':sp['id'],'spiritMode':mode,'name':({'manifest':'Manifestar','fusion':'Fusionar con','enchant':'Encantar arma con'}[mode]??mode)+' '+sp['name'].toString(),'type':'support','magic':true,'cost':DualState.numOf(sp,'cost',3)+2,'damage':0,'element':sp['element'],'minIntelligence':sp['intelligence'],'spiritStamina':DualState.numOf(sp,'stamina',10)}
+  ]];
   Map<String,dynamic> enemyProfile(int index){
     final e=Map<String,dynamic>.from(c.enemies[index]);
     if(e['training']==true)return e;
@@ -231,7 +234,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
   ]);
   bool enemyVisible(Map enemy){if(s.deadStudents.contains(enemy['person']))return false;if((enemy['lethal']==true)!=(s.place=='Dungeon'))return false;if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag']))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
-    const Text('Los combates son por turnos. Las victorias iniciales otorgan XP, reputación y clasificación.'),
+    const Text('Los combates son por turnos. Las técnicas físicas consumen estamina; las mágicas consumen maná.'),
+    for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))btn((s.activeSpirit==sp['id']?'Activo: ':'Vincular para combate: ')+sp['name'].toString(),()=>s.selectSpirit(sp)?'Espíritu seleccionado.':'No disponible.'),
     if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),
     if(!combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
@@ -240,10 +244,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
   ]);final e=enemyProfile(s.enemyIndex);return section('Combate · '+e['name'].toString(),[
     if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
     Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()),
-    Text('Estamina: '+s.energy.toString()+' · maná: '+s.mana.toString()),
+    Text('Estamina: '+s.energy.toString()+'/'+s.stamina.toString()+' · Maná: '+s.mana.toString()+'/'+s.intelligence.toString()),
+    Text('Tus estados: '+(s.playerStates.isEmpty?'ninguno':s.playerStates.entries.map((e)=>e.key+' ('+e.value.toString()+')').join(', '))),
+    Text('Estados del rival: '+(s.enemyStates.isEmpty?'ninguno':s.enemyStates.entries.map((e)=>e.key+' ('+e.value.toString()+')').join(', '))),
+    if(s.activeSpirit.isNotEmpty)Text('Espíritu: '+s.spiritMode+' · resistencia elemental +3% · estamina espiritual '+s.spiritEnergy.toString()),
     Text('Guardia: '+s.guardTurns.toString()+' turnos · evasión: '+s.speedTurns.toString()+' turnos · sello: '+s.enemyWeakTurns.toString()+' · hemorragia: '+s.enemyBleedTurns.toString()),
     if((s.turn+1)%3==0)const Text('El rival prepara un ataque fuerte. Considera defenderte o esquivar.'),
-    for(final sk in combatSkills)btn(sk['name'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina'),()=>s.action(sk,e)),
+    for(final sk in combatSkills)if(s.usable(sk))btn(sk['name'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')+' · crítico '+DualState.critChance(DualState.numOf(sk,'criticalChance',5),s.precision+DualState.numOf(sk,'precision',0)).toString()+'%',()=>s.action(sk,e,availableSkills:combatSkills))else Text(sk['name'].toString()+' · no disponible'),
     btn('Retirarte',(){s.enemyIndex=-1;s.lethalBattle=false;return 'Retirada sin recompensa. Un rescate pendiente sigue sujeto a su plazo.';})
   ]);}
   Widget armory({required bool store})=>section(store?'Armería de Lumen':'Inventario y equipamiento',[
