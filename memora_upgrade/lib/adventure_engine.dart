@@ -20,8 +20,8 @@ class AdventureEpisode {
 }
 
 class AdventureEngine {
-  static List<AdventureEpisode> episodesFor(StudyGuide guide) {
-    final cards = guide.cards.where((c) =>
+  static List<AdventureEpisode> episodesFor(StudyGuide guide,{bool sideStory=false}) {
+    final cards = guide.cards.where((c)=>isSideStory(c)==sideStory).where((c) =>
         StudyEngine.isCardUsable(c) ||
         (guide.sourceType == 'quiz' &&
             c.question.trim().isNotEmpty &&
@@ -56,6 +56,9 @@ class AdventureEngine {
     return episodes;
   }
 
+  static bool isSideStory(StudyCard card){
+    try{final v=jsonDecode(card.adventureStory);return v is Map && v['kind']=='memora_scene_v1' && v['sideStory']==true;}catch(_){return false;}
+  }
   static String iconFor(String text) {
     final t = text.toLowerCase();
     if (RegExp(r'circuit|volt|electric|resist|electr|ohm|transistor').hasMatch(t)) return '⚡';

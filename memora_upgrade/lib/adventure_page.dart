@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'adventure_engine.dart';
 import 'adventure_music.dart';
+import 'adventure_path.dart';
 import 'guide_store.dart';
 import 'models.dart';
 import 'trade_campaign_page.dart';
@@ -15,8 +16,9 @@ import 'nebula_art.dart';
 
 /// A free, offline, animated interactive lesson - not an MP4 generator.
 class AdventurePage extends StatefulWidget {
-  const AdventurePage({super.key, required this.store, required this.guide});
+  const AdventurePage({super.key, required this.store, required this.guide,this.sideStory=false});
 
+  final bool sideStory;
   final GuideStore store;
   final StudyGuide guide;
 
@@ -30,12 +32,12 @@ class _AdventurePageState extends State<AdventurePage> {
   bool _loading = true;
   late final List<AdventureEpisode> _episodes;
 
-  String get _key => 'memora_adventure_${widget.guide.id}';
+  String get _key => 'memora_adventure_${widget.guide.id}'+(widget.sideStory?'_side':'');
 
   @override
   void initState() {
     super.initState();
-    _episodes = AdventureEngine.episodesFor(widget.guide);
+    _episodes = AdventureEngine.episodesFor(widget.guide,sideStory:widget.sideStory);
     _load();
   }
 
@@ -64,8 +66,8 @@ class _AdventurePageState extends State<AdventurePage> {
 
   @override
   Widget build(BuildContext context) {
-    final campaign = TradeCampaign.fromGuide(widget.guide);
-    if (campaign != null) return TradeCampaignPage(guide: widget.guide, campaign: campaign, sceneBuilder: (day) => _TradeSceneArt(day: day,guide:widget.guide));
+    final campaign = widget.sideStory?null:TradeCampaign.fromGuide(widget.guide);
+    if (campaign != null) return TradeCampaignPage(guide: widget.guide, campaign: campaign, sceneBuilder: (day) => _TradeSceneArt(day: day,guide:widget.guide),sideAdventure:widget.guide.cards.any(AdventureEngine.isSideStory)?()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>AdventurePage(store:widget.store,guide:widget.guide,sideStory:true))):null);
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Memora Aventuras'),actions:[IconButton(tooltip:'Personajes y paisajes',icon:const Icon(Icons.people_outline),onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>NebulaCastPage(guide:widget.guide))))]),
@@ -85,7 +87,7 @@ class _AdventurePageState extends State<AdventurePage> {
                     children: [
                       const Text('🎬  TEMPORADA DE ESTUDIO', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
                       const SizedBox(height: 10),
-                      Text(widget.guide.title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
+                      Text(widget.sideStory?'Nébula: La sombra del héroe':widget.guide.title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 9),
                       const Text('Historias animadas, voz, preguntas y puntos. Todo basado en las tarjetas de tu guía.'),
                       const SizedBox(height: 15),
@@ -168,8 +170,11 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
   int _dialogueIndex = 0;
   int _correctCount = 0;
   bool _completing = false;
+  bool _pathReady=false;
+  AdventurePath _path=const AdventurePath();
+  StoryDecision? _decision;
   _Scene get _scene => _Scene.from(_card);
-  List<String> get _dialogues => _scene.dialogue.isNotEmpty ? _scene.dialogue : [AdventureEngine.storyHook(_step), _card.answer];
+  List<String> get _dialogues => [if(_scene.path.reaction(_path)!=null)_scene.path.reaction(_path)!, ...(_scene.dialogue.isNotEmpty ? _scene.dialogue : [AdventureEngine.storyHook(_step), _card.answer])];
   final FlutterTts _tts = FlutterTts();
   int _step = 0;
   int _earned = 0;
@@ -189,10 +194,22 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
     super.initState();
     _motion = AnimationController(vsync: this, duration: const Duration(seconds: 9))..repeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _say(_narrative());
+      if (mounted) _restorePath();
     });
   }
 
+  Future<void> _restorePath() async {
+    AdventurePath saved=const AdventurePath();
+    try{final prefs=await SharedPreferences.getInstance();final raw=prefs.getString(widget.progressKey+'_path_'+(widget.episode.number-1).toString());if(raw!=null)saved=AdventurePath.fromJson(jsonDecode(raw));}catch(_){}
+    if(!mounted)return;
+    setState((){_path=saved;_pathReady=true;});_say(_narrative());
+  }
+  void _beginDecision()=>_changeStage('decision',voiceText:_scene.path.prompt);
+  void _choose(StoryDecision d){
+    if(_stage!='decision'||_decision!=null||_path.resources+d.resources<0)return;
+    setState((){_decision=d;_path=_path.apply(d);_stage='consequence';});
+    HapticFeedback.selectionClick();_say(d.outcome);
+  }
   @override
   void dispose() {
     _motion.dispose();
@@ -233,6 +250,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
       _stage = 'feedback';
       _earned += correct ? 100 : 20;
       if (correct) _correctCount++;
+      _path=_path.resolve(correct);
       HapticFeedback.mediumImpact();
     });
     _tts.stop();
@@ -263,6 +281,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
     await prefs.setInt(bestKey, max(previousBest, _earned));
     await prefs.setInt(widget.progressKey + '_xp',
         (prefs.getInt(widget.progressKey + '_xp') ?? 0) + extra);
+    await prefs.setString(widget.progressKey+'_path_'+widget.episode.number.toString(),jsonEncode(_path.toJson()));
     final next = widget.episode.number + 1;
     final unlocked = prefs.getInt(widget.progressKey + '_unlocked') ?? 1;
     if (next > unlocked) {
@@ -284,6 +303,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
       _wasCorrect = null;
       _needsSelfGrade = false;
       _selected = null;
+      _decision=null;
     });
     _say(_narrative());
   }
@@ -345,22 +365,45 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
           setState(()=>_dialogueIndex++);
           _say(_narrative());
         }else{
-          _changeStage('challenge',voiceText:_card.question);
+          _beginDecision();
         }
       },icon:Icon(_dialogueIndex+1<_dialogues.length?Icons.arrow_forward_rounded:Icons.sports_esports_rounded),
-        label:Text(_dialogueIndex+1<_dialogues.length?'Continuar diálogo':'Aceptar misión')),
+        label:Text(_dialogueIndex+1<_dialogues.length?'Continuar diálogo':'Tomar una decisión')),
       if(_dialogueIndex+1<_dialogues.length)
-        TextButton(onPressed:()=>_changeStage('challenge',voiceText:_card.question),child:const Text('Ir al desafío')),
+        TextButton(onPressed:_beginDecision,child:const Text('Ir a la decisión')),
     ],
   );
 
+  Widget _pathStatus()=>Wrap(spacing:6,runSpacing:4,children:[
+    Chip(avatar:const Icon(Icons.handshake_outlined,size:16),label:Text('Confianza '+_path.trust.toString())),
+    Chip(avatar:const Icon(Icons.backpack_outlined,size:16),label:Text('Recursos '+_path.resources.toString())),
+    Chip(avatar:const Icon(Icons.search,size:16),label:Text('Pruebas '+_path.evidence.toString())),
+  ]);
+  Widget _decisionPanel(ColorScheme cs)=>Column(key:ValueKey('decision-$_step'),crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+    Text('DECISIÓN NARRATIVA',style:TextStyle(color:cs.primary,fontWeight:FontWeight.w900)),
+    const SizedBox(height:12),Text(_scene.path.prompt,style:const TextStyle(fontSize:21,fontWeight:FontWeight.bold)),
+    const SizedBox(height:8),const Text('No hay una única respuesta correcta. Tu elección cambia el rumbo del equipo.'),
+    const SizedBox(height:12),
+    for(final d in _scene.path.decisions)Padding(padding:const EdgeInsets.only(bottom:10),child:OutlinedButton(
+      onPressed:_path.resources+d.resources<0?null:()=>_choose(d),
+      style:OutlinedButton.styleFrom(alignment:Alignment.centerLeft,padding:const EdgeInsets.all(15)),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(d.label,style:const TextStyle(fontWeight:FontWeight.bold)),if(d.resources<0)Text('Requiere '+(-d.resources).toString()+' recursos')]))),
+  ]);
+  Widget _consequencePanel(ColorScheme cs)=>Column(key:ValueKey('consequence-$_step'),crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+    Text('CONSECUENCIA DE TU DECISIÓN',style:TextStyle(color:cs.primary,fontWeight:FontWeight.w900)),
+    const SizedBox(height:10),Text(_decision?.outcome??'',style:const TextStyle(fontSize:19,height:1.45)),
+    const SizedBox(height:10),Text(_decision?.effectSummary??''),const Divider(),
+    const Text('PREPARACIÓN · Aprende antes de actuar',style:TextStyle(fontWeight:FontWeight.bold)),const SizedBox(height:10),
+    Text(_scene.path.teach??_scene.explanation??_card.answer,style:const TextStyle(fontSize:16,height:1.4)),
+    const SizedBox(height:16),FilledButton.icon(onPressed:()=>_changeStage('challenge',voiceText:_card.question),icon:const Icon(Icons.sports_esports),label:const Text('Aplicar lo aprendido')),
+  ]);
   Widget _challenge(ColorScheme cs) {
     final choices = _scene.validChoices(_card) ?? AdventureEngine.choicesFor(_card, widget.allCards);
     return Column(
       key: const ValueKey('challenge'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(_scene.role=='boss'?'BATALLA CONTRA EL GUARDIÁN':'TU DECISIÓN',style:const TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),
+        Text(_scene.role=='boss'?'BATALLA CONTRA EL GUARDIÁN':'DESAFÍO DE CONOCIMIENTO',style:const TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),
         const SizedBox(height: 14),
         Text(_card.question, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         const SizedBox(height: 18),
@@ -403,6 +446,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
               : _wasCorrect == true ? '¡MISIÓN SUPERADA! +100 XP' : '¡REAGRÚPATE! +20 XP',
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
           const SizedBox(height: 14),
+          if(!_needsSelfGrade)Text(_wasCorrect==true?(_scene.path.success??'El equipo avanza gracias a tu conocimiento. +1 confianza y +1 prueba.'):(_scene.path.failure??'El plan encuentra un obstáculo. Pierdes 1 recurso y 1 confianza.')),
           if (_selected != null && _wasCorrect == false)
             Text('Elegiste: $_selected', style: TextStyle(color: cs.error)),
           Card(
@@ -440,12 +484,12 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
       );
 
   Widget _ending() => Center(
-        child: Column(
+        child: SingleChildScrollView(child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('🏆', style: TextStyle(fontSize: 90)),
             const SizedBox(height: 12),
-            const Text('¡Episodio completado!', textAlign: TextAlign.center,
+            Text(_path.endingTitle, textAlign: TextAlign.center,
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24)),
             const SizedBox(height: 12),
             Text('Conseguiste $_earned XP en esta partida',
@@ -453,7 +497,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
             const SizedBox(height:12),
             Text('$_correctCount/${widget.episode.cards.length} misiones superadas · ${_correctCount == widget.episode.cards.length ? 'Rango S' : _correctCount > 0 ? 'Rango A' : 'En entrenamiento'}',textAlign:TextAlign.center,style:const TextStyle(fontWeight:FontWeight.w800)),
             const SizedBox(height: 15),
-            const Text('Tus resultados se añadieron al repaso espaciado de Memora.',
+            Text(_path.endingText,textAlign:TextAlign.center),
+            const SizedBox(height:10),_pathStatus(),
+            const SizedBox(height:10),const Text('Tus resultados se añadieron al repaso espaciado de Memora.',
                 textAlign: TextAlign.center),
             const SizedBox(height: 20),
             FilledButton.icon(
@@ -462,7 +508,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
               label: const Text('Volver a episodios'),
             ),
           ],
-        ),
+        )),
       );
 
   @override
@@ -472,7 +518,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
       appBar: AppBar(
         title: Text('Episodio ${widget.episode.number}'),
         actions: [
-          AdventureMusicButton(mood: _finished ? 'victory' : _stage == 'feedback' ? (_wasCorrect == true ? 'victory' : 'study') : _stage == 'challenge' && _scene.role != 'boss' ? 'study' : adventureMood(_scene.music, _scene.biome, _scene.role)),
+          AdventureMusicButton(mood: !_pathReady?'silent':_finished ? (_path.trust>=3?'victory':'mystery') : _stage == 'feedback' ? (_wasCorrect == true ? 'victory' : 'study') : _stage == 'challenge' && _scene.role != 'boss' ? 'study' : adventureMood(_scene.music, _scene.biome, _scene.role)),
           IconButton(
             tooltip: _voiceOn ? 'Silenciar narración' : 'Activar narración',
             icon: Icon(_voiceOn ? Icons.volume_up_rounded : Icons.volume_off_rounded),
@@ -481,15 +527,14 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
               if (!_voiceOn) {
                 _tts.stop();
               } else if (!_finished) {
-                _say(_stage == 'story' ? _narrative()
-                    : _stage == 'challenge' ? _card.question : _card.answer);
+                _say(_stage == 'story' ? _narrative():_stage=='decision'?_scene.path.prompt:_stage=='consequence'?(_decision?.outcome??''): _stage == 'challenge' ? _card.question : _card.answer);
               }
             },
           ),
         ],
       ),
       body: SafeArea(
-        child: _finished ? Padding(padding: const EdgeInsets.all(25), child: _ending()) :
+        child: !_pathReady?const Center(child:CircularProgressIndicator()):_finished ? Padding(padding: const EdgeInsets.all(25), child: _ending()) :
           ListView(
             padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
             children: [
@@ -505,12 +550,14 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
                 borderRadius: BorderRadius.circular(8),
               ),
               const SizedBox(height: 23),
+              _pathStatus(),
+              const SizedBox(height:12),
               _world(cs),
               const SizedBox(height: 24),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 320),
                 transitionBuilder:(child,animation)=>FadeTransition(opacity:animation,child:SlideTransition(position:Tween<Offset>(begin:const Offset(.04,.03),end:Offset.zero).animate(animation),child:child)),
-                child: _stage == 'story' ? _story(cs)
+                child: _stage == 'story' ? _story(cs):_stage=='decision'?_decisionPanel(cs):_stage=='consequence'?_consequencePanel(cs)
                     : _stage == 'challenge' ? _challenge(cs) : _feedback(cs),
               ),
             ],
@@ -522,9 +569,10 @@ class _EpisodePlayerState extends State<_EpisodePlayer> with SingleTickerProvide
 
 
 class _Scene {
-  const _Scene({this.arc,this.location,this.speaker,this.biome='mercado',this.role='mentor',this.dialogue=const [],this.choices=const [],this.explanation,this.visual,this.music});
+  const _Scene({this.arc,this.location,this.speaker,this.biome='mercado',this.role='mentor',this.dialogue=const [],this.choices=const [],this.explanation,this.visual,this.music,this.path=const ScenePath()});
   final String? arc,location,speaker,explanation,music;
   final AdventureVisualSpec? visual;
+  final ScenePath path;
   final String biome,role;
   final List<String> dialogue,choices;
   static _Scene from(StudyCard card){
@@ -535,7 +583,7 @@ class _Scene {
       if(v is Map && v['kind']=='memora_scene_v1'){
         String? str(String k)=>v[k] is String?v[k] as String:null;
         List<String> list(String k)=>v[k] is List?(v[k] as List).whereType<String>().where((x)=>x.trim().isNotEmpty).take(8).toList():<String>[];
-        return _Scene(arc:str('arc'),location:str('location'),speaker:str('speaker'),biome:str('biome')??'mercado',role:str('role')??'mentor',dialogue:list('dialogue'),choices:list('choices'),explanation:str('explanation'),visual:AdventureVisualSpec.parse(v['visual']),music:str('music'));
+        return _Scene(arc:str('arc'),location:str('location'),speaker:str('speaker'),biome:str('biome')??'mercado',role:str('role')??'mentor',dialogue:list('dialogue'),choices:list('choices'),explanation:str('explanation'),visual:AdventureVisualSpec.parse(v['visual']),music:str('music'),path:ScenePath.parse(v['path']));
       }
     }catch(_){}
     return _Scene(dialogue:[raw,card.answer]);
