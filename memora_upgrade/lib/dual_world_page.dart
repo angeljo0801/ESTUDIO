@@ -119,7 +119,9 @@ class _DualWorldPageState extends State<DualWorldPage>{
     ]);
   }
   String publicRace(Map person)=>person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?'human':(person['race']??'human').toString();
-  List<Map<String,dynamic>> visibleSkills(Map person)=>c.skills.where((sk)=>sk['owner']==person['id']&&s.skillAvailable(sk)).toList();
+  List<Map<String,dynamic>> visibleSkills(Map person)=>c.skills.where((sk)=>sk['owner']==person['id']&&DualState.npcTechniqueAvailable(sk,person,s.grades.length)).map((sk)=>DualState.npcTechnique(sk,publicTalent(person),s.grades.length)).toList();
+  bool needsAppraisal(Map sk)=>!s.appraised.contains(sk['id'])||(s.appraisedRanks[sk['id']]??0)<DualState.rankIndex(sk['rank']);
+  List<Map<String,dynamic>> get purchasableSkills=>[for(final person in c.people.where((p)=>!s.deadStudents.contains(p['id']))) ...discoverableSkills(person).where((sk)=>s.appraised.contains(sk['id'])&&!needsAppraisal(sk)&&s.canAppraise(sk)&&sk['copyable']!=false)];
   List<Map<String,dynamic>> discoverableSkills(Map person)=>visibleSkills(person).where((sk)=>(sk['secret']!=true||sk['revealFlag'] is String&&s.flags.contains(sk['revealFlag']))&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id'])||sk['innate']!=true&&sk['concealed']!=true)).toList();
   String elementName(dynamic id)=>const {'fire':'Fuego','water':'Agua','earth':'Tierra','wind':'Viento','lightning':'Rayo','ice':'Hielo','light':'Luz','dark':'Oscuridad','nature':'Naturaleza','blood':'Sangre','metal':'Metal','astral':'Astral','void':'Vacío','divine':'Divino','neutral':'Neutro'}[id]??id.toString();
   List<String> elementsOf(Map person)=>person['elements'] is List?(person['elements'] as List).map((x)=>x.toString()).toList():['neutral'];
@@ -136,7 +138,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   bool talentRevealed(Map person)=>(person['talentRevealFlag']==null||s.flags.contains(person['talentRevealFlag']))&&(person['hiddenRace']!=true||s.knownRaces.contains(person['id']));
   Map publicTalent(Map person)=>talentRevealed(person)?person:{...person,'race':publicRace(person),'spiritClass':person['coverSpiritClass']??'ordinary','combatClass':person['coverClass']??person['combatClass'],'elements':person['coverElements']??['neutral'],'initialRank':person['coverRank']??person['initialRank'],'potentialRank':person['coverPotential']??person['initialRank'],'spiritualAffinity':person['publicAffinity']??35,'spiritIntelligence':person['coverIntelligence']??15};
   bool spiritReady(Map sp)=>s.spiritChance(sp,affinityFor(sp))>0&&s.freshSpiritAttempt(sp);
-  List<Map<String,dynamic>> get learnedSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])),...s.fusedSkills.values];
+  List<Map<String,dynamic>> get learnedSkills=>[...c.skills.where((sk)=>s.skills.contains(sk['id'])).map((sk)=>s.copiedSkills[sk['id']]??sk),...s.fusedSkills.values];
   List<Map<String,dynamic>> get combatSkills=>[...learnedSkills.where((sk)=>sk['element']!='divine'||s.flags.contains('divine_devotion')).map(s.effectiveTechnique),for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))<String,dynamic>{'id':'spirit_'+sp['id'].toString(),'spirit':sp['id'],'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'magic':true,'cost':sp['cost'],'damage':sp['damage'],'element':sp['element']}];
   Map<String,dynamic> enemyProfile(int index){
     final e=Map<String,dynamic>.from(c.enemies[index]);
@@ -175,12 +177,12 @@ class _DualWorldPageState extends State<DualWorldPage>{
       Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
       if(s.appraisalTier>=3&&s.intelligence>=30&&s.relationship(person['id'] as String)>=7&&!s.knownRaces.contains(person['id']))btn('Apreciación profunda',(){s.knownRaces.add(person['id'] as String);return 'La apreciación profunda permite examinar el repertorio real.';}),
       if(discoverableSkills(person).any((sk)=>!s.canAppraise(sk)))const Text('Apreciación insuficiente · existen técnicas que todavía no puedes identificar.'),
-      if(discoverableSkills(person).any((sk)=>s.canAppraise(sk)&&!s.appraised.contains(sk['id'])))btn('Apreciar '+person['name'].toString(),(){
-        final discovered=discoverableSkills(person).where((sk)=>s.canAppraise(sk)&&!s.appraised.contains(sk['id'])).toList();
-        s.appraised.addAll(discovered.map((sk)=>sk['id'] as String));
+      if(discoverableSkills(person).any((sk)=>s.canAppraise(sk)&&needsAppraisal(sk)))btn('Apreciar '+person['name'].toString(),(){
+        final discovered=discoverableSkills(person).where((sk)=>s.canAppraise(sk)&&needsAppraisal(sk)).toList();
+        s.appraised.addAll(discovered.map((sk)=>sk['id'] as String));for(final sk in discovered){s.appraisedRanks[sk['id'] as String]=DualState.rankIndex(sk['rank']);}
         return 'Técnicas descubiertas: '+discovered.length.toString()+'.';
       }),
-      for(final sk in discoverableSkills(person).where((x)=>s.canAppraise(x)&&s.appraised.contains(x['id'])))...[
+      for(final sk in discoverableSkills(person).where((x)=>s.canAppraise(x)&&s.appraised.contains(x['id'])&&!needsAppraisal(x)))...[
         Text(sk['name'].toString()+' · Rango '+(sk['rank']??'E').toString()+' · '+sk['type'].toString()+(sk['element']==null?'':' · '+elementName(sk['element']))+' · potencia '+sk['damage'].toString()+' · '+sk['price'].toString()+' monedas · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),
         if(sk['innate']==true)const Text('Técnica racial · copiable mediante Robo'),
         if(sk['description'] is String)Text(sk['description'] as String),
@@ -195,10 +197,19 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(s.appraisalTier<7)btn('Refinar Apreciación · '+DualState.appraisalFees[s.appraisalTier+1].toString()+' monedas',()=>s.refineAppraisal()?'Apreciación mejorada.':'Necesitas inteligencia y monedas suficientes.'),
     if(s.skills.isEmpty)const Text('Habilidades de combate: ninguna.'),
     const Text('Retorno: una muerte real reinicia ambos mundos. Solo conservas inteligencia.'),
-    for(final sk in c.skills.where((x)=>s.appraised.contains(x['id'])&&s.canAppraise(x)&&x['copyable']!=false))...[Text(sk['name'].toString()+' · Rango '+(sk['rank']??'E').toString()+' · '+sk['price'].toString()+' monedas · potencia '+sk['damage'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>sk['element']=='divine'&&!s.flags.contains('divine_devotion')?'Necesitas profesar la fe de la Llama del Alba.':s.acquireRankedSkill(sk)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
+    for(final sk in purchasableSkills)...[Text(sk['name'].toString()+' · Rango '+(sk['rank']??'E').toString()+' · '+sk['price'].toString()+' monedas · potencia '+sk['damage'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>sk['element']=='divine'&&!s.flags.contains('divine_devotion')?'Necesitas profesar la fe de la Llama del Alba.':s.acquireRankedSkill(sk)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
   ]);
-  Future<void> chooseFusion(Map a)async{final options=learnedSkills.where((b)=>s.compatibleFusion(a,b)&&!s.fusedSkills.containsKey(s.fusionKey(a,b))).toList();if(options.isEmpty){setState(()=>message='No hay técnicas compatibles todavía.');return;}final b=await showDialog<Map<String,dynamic>>(context:context,builder:(ctx)=>SimpleDialog(title:const Text('Seleccionar segunda técnica'),children:[for(final b in options)SimpleDialogOption(onPressed:()=>Navigator.pop(ctx,b),child:Text(b['name'].toString()+' · '+s.fusionFee(a,b).toString()+' monedas'))]));if(b!=null&&mounted)await act(()=>s.fuse(a,b)?'Nueva técnica creada.':'Necesitas dinero e inteligencia suficientes.');}
-  Widget workshop()=>section('Taller secreto · evolución y fusión',[const Text('Solo tú puedes ascender y fusionar técnicas adquiridas. Los efectos y el consumo crecen con el rango. Retorno elimina estas mejoras.'),for(final sk in learnedSkills)...[const Divider(),Text(sk['name'].toString()+' · '+DualState.powerRanks[s.techniqueTier(sk)]+' · potencia '+s.effectiveTechnique(sk)['damage'].toString()),if(s.techniqueTier(sk)<7)btn('Ascender · '+s.upgradeFee(sk).toString()+' monedas',()=>s.upgradeTechnique(sk)?'Técnica ascendida.':'Necesitas dinero e inteligencia suficientes.'),if(!sk['id'].toString().startsWith('fusion_'))FilledButton(onPressed:busy?null:()=>chooseFusion(sk),child:const Text('Fusionar con otra técnica'))]]);
+  Future<void> chooseFusion(Map a)async{
+    final options=learnedSkills.where((b)=>s.compatibleFusion(a,b)&&!s.fusedSkills.containsKey(s.fusionKey(a,b))).toList();
+    if(options.isEmpty){setState(()=>message='No hay técnicas compatibles todavía.');return;}
+    final b=await showDialog<Map<String,dynamic>>(context:context,builder:(ctx)=>SimpleDialog(title:const Text('Seleccionar segunda técnica'),children:[for(final b in options)SimpleDialogOption(onPressed:()=>Navigator.pop(ctx,b),child:Text(b['name'].toString()+' · '+s.fusionFee(a,b).toString()+' monedas · INT mínima '+s.fusionMinimum(a,b).toString()+' · '+s.fusionChance(a,b).toString()+'% éxito'))]));
+    if(b==null||!mounted)return;
+    final chance=s.fusionChance(a,b),fee=s.fusionFee(a,b);
+    if(chance==0||s.cash<fee){setState(()=>message='Necesitas más inteligencia o monedas.');return;}
+    final confirm=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Confirmar fusión'),content:Text('Probabilidad: '+chance.toString()+'%. Coste: '+fee.toString()+' monedas, incluso si falla. Conservarás las dos técnicas originales.'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancelar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Intentar fusión'))]));
+    if(confirm==true&&mounted)await act((){final before=s.cash;final ok=s.fuse(a,b);return ok?'Nueva técnica creada.':s.cash<before?'Fusión fallida. Conservas las técnicas originales; el coste se ha consumido.':'No cumples los requisitos.';});
+  }
+  Widget workshop()=>section('Taller secreto · evolución y fusión',[const Text('Solo tú puedes ascender técnicas con dinero y fusionarlas. La inteligencia aumenta la probabilidad de éxito. Un fallo consume monedas, no las técnicas originales. Retorno elimina estas mejoras.'),for(final sk in learnedSkills)...[const Divider(),Text(sk['name'].toString()+' · '+DualState.powerRanks[s.techniqueTier(sk)]+' · potencia '+s.effectiveTechnique(sk)['damage'].toString()),if(s.techniqueTier(sk)<7)btn('Ascender · '+s.upgradeFee(sk).toString()+' monedas',()=>s.upgradeTechnique(sk)?'Técnica ascendida.':'Necesitas dinero e inteligencia suficientes.'),if(!sk['id'].toString().startsWith('fusion_'))FilledButton(onPressed:busy?null:()=>chooseFusion(sk),child:const Text('Fusionar con otra técnica'))]]);
   String get arcTitle{final arcs=DualWorldContent.list(c.data['arcs']);String name='Arco I';for(final a in arcs){if(s.grades.length>=((a['afterClasses'] as int?)??0))name=a['title'].toString();}return name;}
   Widget storyEvents()=>Column(children:[for(final e in c.events.where(s.eligible))section(e['title'].toString(),[
     Text(e['scene'].toString()),const SizedBox(height:12),
