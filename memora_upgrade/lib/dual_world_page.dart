@@ -157,7 +157,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(person.isNotEmpty){final talent=publicTalent(person);final techniques=<Map<String,dynamic>>[for(final sk in discoverableSkills(person)) {...sk,'mastery':DualState.elementMastery(talent,sk['element'])}];
       // Basic elemental spells do not grant a permanent learned technique to the player.
       for(final element in DualState.commonElements){techniques.add({'name':'Pulso de '+elementName(element),'type':'attack','magic':true,'damage':4+(person['level'] as int? ?? 1)*2,'mastery':DualState.elementMastery(talent,element)});}
-      final growth=DualState.powerRanks.indexOf(DualState.combatRank(talent,s.grades.length))-DualState.powerRanks.indexOf(DualState.combatRank(talent,0));if(growth>0){e['attack']=(e['attack'] as int)+growth*2;e['defense']=(e['defense'] as int)+growth;e['hp']=(e['hp'] as int)+growth*8;}final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final compatible=c.spirits.where((sp)=>npcAffinity(talent,sp)>=((sp['minAffinity'] as int?)??25)&&npcIntelligence(talent)>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).toList()..sort((a,b)=>(b['intelligence'] as int).compareTo(a['intelligence'] as int));for(final sp in compatible.take(npcSlots(talent)))techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true});}e['techniques']=techniques;}
+      final growth=DualState.powerRanks.indexOf(DualState.combatRank(talent,s.grades.length))-DualState.powerRanks.indexOf(DualState.combatRank(talent,0));if(growth>0){e['attack']=(e['attack'] as int)+growth*2;e['defense']=(e['defense'] as int)+growth;e['hp']=(e['hp'] as int)+growth*8;}final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final compatible=c.spirits.where((sp)=>npcAffinity(talent,sp)>=((sp['minAffinity'] as int?)??25)&&npcIntelligence(talent)>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).toList()..sort((a,b)=>(b['intelligence'] as int).compareTo(a['intelligence'] as int));for(final sp in compatible.take(npcSlots(talent)))techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true});}e['techniques']=techniques;e['level']=studentLevel(person);e['intelligence']=npcIntelligence(talent);}
     if(e['lethal']==true||person.isEmpty||person['hiddenRace']!=true||s.knownRaces.contains(person['id'])){}else{for(final k in ['lifesteal','regen','spellPower','evasion','hypnosis'])e.remove(k);e['attack']=c.enemies[index]['attack'];e['defense']=c.enemies[index]['defense'];}
     return e;
   }
@@ -216,6 +216,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
     final confirm=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Confirmar fusión'),content:Text('Probabilidad: '+chance.toString()+'%. Coste: '+fee.toString()+' monedas, incluso si falla. Conservarás las dos técnicas originales.'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancelar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Intentar fusión'))]));
     if(confirm==true&&mounted)await act((){final before=s.cash;final ok=s.fuse(a,b);return ok?'Nueva técnica creada.':s.cash<before?'Fusión fallida. Conservas las técnicas originales; el coste se ha consumido.':'No cumples los requisitos.';});
   }
+  String resourceCost(Map sk)=>[if(DualState.staminaCost(sk)>0)DualState.staminaCost(sk).toString()+' estamina',if(DualState.manaCost(sk)>0)DualState.manaCost(sk).toString()+' maná'].join(' + ');
+  Widget socialTraining()=>section('Carisma y suerte',[
+    Text('Carisma '+s.charisma.toString()+' · Suerte '+s.luck.toString()),
+    const Text('El carisma mejora moderadamente la confianza ganada por tus decisiones. No elimina penalizaciones.'),
+    btn('Aumentar carisma · '+s.charismaFee.toString()+' monedas',()=>s.improveSocial('charisma')?'Carisma aumentado.':'Monedas insuficientes.'),
+    btn('Aumentar suerte · '+s.luckFee.toString()+' monedas',()=>s.improveSocial('luck')?'Suerte aumentada.':'Monedas insuficientes.'),
+  ]);
   Widget workshop()=>section('Taller secreto · evolución y fusión',[const Text('Solo tú puedes ascender técnicas con dinero y fusionarlas. La inteligencia aumenta la probabilidad de éxito. Un fallo consume monedas, no las técnicas originales. Retorno elimina estas mejoras.'),for(final sk in learnedSkills)...[const Divider(),Text(sk['name'].toString()+' · '+DualState.powerRanks[s.techniqueTier(sk)]+' · potencia '+s.effectiveTechnique(sk)['damage'].toString()),if(s.techniqueTier(sk)<7)btn('Ascender · '+s.upgradeFee(sk).toString()+' monedas',()=>s.upgradeTechnique(sk)?'Técnica ascendida.':'Necesitas dinero e inteligencia suficientes.'),if(!sk['id'].toString().startsWith('fusion_'))FilledButton(onPressed:busy?null:()=>chooseFusion(sk),child:const Text('Fusionar con otra técnica'))]]);
   String get arcTitle{final arcs=DualWorldContent.list(c.data['arcs']);String name='Arco I';for(final a in arcs){if(s.grades.length>=((a['afterClasses'] as int?)??0))name=a['title'].toString();}return name;}
   List<Map<String,dynamic>> get royalEvents=>[
@@ -268,12 +275,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
     Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()),
     Text('Estamina: '+s.energy.toString()+'/'+s.stamina.toString()+' · Maná: '+s.mana.toString()+'/'+s.intelligence.toString()),
+    if(s.enemyEnergy>=0)Text('Rival: estamina '+s.enemyEnergy.toString()+'/'+s.enemyMaxEnergy.toString()+' · maná '+s.enemyMana.toString()+'/'+s.enemyMaxMana.toString()),
     Text('Tus estados: '+(s.playerStates.isEmpty?'ninguno':s.playerStates.entries.map((e)=>e.key+' ('+e.value.toString()+')').join(', '))),
     Text('Estados del rival: '+(s.enemyStates.isEmpty?'ninguno':s.enemyStates.entries.map((e)=>e.key+' ('+e.value.toString()+')').join(', '))),
     if(s.activeSpirit.isNotEmpty)Text('Espíritu: '+s.spiritMode+' · resistencia elemental +3% · estamina espiritual '+s.spiritEnergy.toString()),
     Text('Guardia: '+s.guardTurns.toString()+' turnos · evasión: '+s.speedTurns.toString()+' turnos · sello: '+s.enemyWeakTurns.toString()+' · hemorragia: '+s.enemyBleedTurns.toString()),
     if((s.turn+1)%3==0)const Text('El rival prepara un ataque fuerte. Considera defenderte o esquivar.'),
-    for(final sk in combatSkills)if(s.usable(sk))btn(sk['name'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')+' · crítico '+DualState.critChance(DualState.numOf(sk,'criticalChance',5),s.precision+DualState.numOf(sk,'precision',0)).toString()+'%',()=>s.action(sk,e,availableSkills:combatSkills))else Text(sk['name'].toString()+' · no disponible'),
+    for(final sk in combatSkills)if(s.usable(sk))btn(sk['name'].toString()+' · '+resourceCost(sk)+' · crítico '+DualState.critChance(DualState.numOf(sk,'criticalChance',5),s.precision+DualState.numOf(sk,'precision',0)).toString()+'%',()=>s.action(sk,e,availableSkills:combatSkills))else Text(sk['name'].toString()+' · no disponible'),
     btn('Retirarte',(){s.enemyIndex=-1;s.lethalBattle=false;return 'Retirada sin recompensa. Un rescate pendiente sigue sujeto a su plazo.';})
   ]);}
   Widget armory({required bool store})=>section(store?'Armería de Lumen':'Inventario y equipamiento',[
@@ -306,7 +314,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(s.inBattle)battle()else...[
         Wrap(spacing:6,children:[for(final l in locations)ChoiceChip(label:Text(l),selected:l==current,onSelected:busy?null:(_)=>act((){s.place=l;answer.clear();return 'Llegaste a '+l+'.';}))]),
         if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida, maná y estamina recuperados.';})]),
-        if(current=='Dormitorio')...[skillRoom(),workshop(),armory(store:false)],
+        if(current=='Dormitorio')...[skillRoom(),workshop(),socialTraining(),armory(store:false)],
         if(current=='Armería')armory(store:true),
         storyEvents(),
         if(current=='Palacio'||current=='Consejo')royalPolitics(),
