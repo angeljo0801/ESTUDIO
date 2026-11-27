@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memora/dual_world_engine.dart';
+import 'package:memora/wisdom_trial.dart';
 void main(){
  test('singular elements do not belong to ordinary elemental mastery',(){final elemental={'spiritClass':'elementalist','elements':['fire']};expect(DualState.elementMastery(elemental,'gravity'),0);expect(DualState.elementMastery({...elemental,'singularElement':'gravity'},'gravity'),100);expect(DualState.elementalAffinity(elemental,{'element':'gravity','affinity':'neutral'}),0);});
  test('fusion chance grows with intelligence and rank; failure preserves originals',(){final s=DualState();final a={'id':'a','name':'A','type':'attack','magic':false,'rank':'E','damage':6,'cost':2},b={'id':'b','name':'B','type':'attack','magic':false,'rank':'E','damage':8,'cost':2};s.skills.addAll(['a','b']);s.cash=1000;s.intelligence=29;expect(s.fusionChance(a,b),0);expect(s.fuse(a,b),false);expect(s.cash,1000);s.intelligence=30;expect(s.fusionChance(a,b),25);var seed=0;while(Random(seed).nextInt(100)<25){seed++;}expect(s.fuse(a,b,random:Random(seed)),false);expect(s.cash,500);expect(s.skills.containsAll(['a','b']),true);s.cash=1000;s.intelligence=60;expect(s.fusionChance(a,b),100);expect(s.fuse(a,b),true);expect(s.skills.containsAll(['a','b']),true);});
@@ -121,5 +122,39 @@ void main(){
    s.warWeek=5;expect(s.activeAlliedChampions.contains(orion),false);
    s.warWeek=6;expect(s.alliedAvailable(orion),true);
    s.flags.add('ally_defeated_ally_orion');expect(s.alliedAvailable(orion),false);
+ });
+ test('Wisdom uses generated numeric challenges scaled to enemy power, not player stats',(){
+   final s=DualState();s.place='Arena';s.warSeed=17;
+   final enemy={'id':'wisdom_test','level':3,'xp':100,'goldReward':30};
+   final trial=s.wisdomTrial(enemy);
+   expect(trial.questions.length,1);
+   expect(s.canUseWisdom(enemy),true);expect(s.skills,isEmpty);
+   final answers=trial.questions.map((q)=>q.answer.toStringAsFixed(2)).toList();
+   expect(s.resolveWisdom(enemy,answers),contains('SABIDURÍA'));
+   expect(s.wisdom,1);expect(s.xp,100);expect(s.cash,30);expect(s.hp,40);
+   expect(s.canUseWisdom(enemy),false);expect(s.wins.contains('battle_wisdom_test'),true);
+   final saved=DualState.fromJson(s.toJson());expect(saved.wisdom,1);expect(saved.canUseWisdom(enemy),false);
+   final god=WisdomTrial.generate({'rank':'Divino+','level':250},17);
+   expect(god.questions.length,11);expect(god.tier,8);
+   expect(god.passes(god.questions.map((q)=>q.answer.toStringAsFixed(2)).toList()),true);
+   expect(god.questions.every((q)=>q.answer.isFinite),true);
+ });
+ test('failed wisdom attempt grants no rewards and requires a fresh challenge',(){
+   final s=DualState();s.place='Arena';s.warSeed=17;
+   final e={'id':'wisdom_failure','level':10,'xp':100};
+   final initial=s.wisdomTrial(e);
+   expect(s.resolveWisdom(e,List.filled(initial.questions.length,'-999999')),contains('fallida'));
+   expect(s.wisdom,0);expect(s.xp,0);expect(s.canUseWisdom(e),false);
+   s.advanceWarWeek();expect(s.canUseWisdom(e),true);
+   final next=s.wisdomTrial(e);expect(next.questions.first.prompt,isNot(initial.questions.first.prompt));
+   expect(s.resolveWisdom(e,[]),contains('Completa'));expect(s.canUseWisdom(e),true);
+ });
+ test('finance functions use discounted cash flows and internally consistent solutions',(){
+   expect(WisdomTrial.npv(0.10,[-100.0,110.0]),closeTo(0,0.00001));
+   expect(WisdomTrial.irr([-100.0,110.0]),closeTo(0.10,0.00001));
+   for(var seed=0;seed<30;seed++){
+     final trial=WisdomTrial.generate({'rank':'Divino+','level':250},seed);
+     expect(trial.passes(trial.questions.map((q)=>q.answer.toStringAsFixed(2)).toList()),true);
+   }
  });
 }
