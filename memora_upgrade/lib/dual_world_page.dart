@@ -148,6 +148,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
     e['racialTrait']=shown['trait'];
     for(final k in ['attack','defense','evasion','regen','spellPower','hypnosis','lifesteal']){if(race[k] is int)e[k]=((e[k] as int?)??0)+(race[k] as int);}
     if(person.isNotEmpty){final talent=publicTalent(person);final techniques=<Map<String,dynamic>>[for(final sk in discoverableSkills(person)) {...sk,'mastery':DualState.elementMastery(talent,sk['element'])}];
+      // Basic elemental spells do not grant a permanent learned technique to the player.
+      for(final element in DualState.commonElements){techniques.add({'name':'Pulso de '+elementName(element),'type':'attack','magic':true,'damage':4+(person['level'] as int? ?? 1)*2,'mastery':DualState.elementMastery(talent,element)});}
       final growth=DualState.powerRanks.indexOf(DualState.combatRank(talent,s.grades.length))-DualState.powerRanks.indexOf(DualState.combatRank(talent,0));if(growth>0){e['attack']=(e['attack'] as int)+growth*2;e['defense']=(e['defense'] as int)+growth;e['hp']=(e['hp'] as int)+growth*8;}final hidden=person['hiddenRace']==true&&!s.knownRaces.contains(person['id']);if(!hidden||e['lethal']==true){final compatible=c.spirits.where((sp)=>npcAffinity(talent,sp)>=((sp['minAffinity'] as int?)??25)&&npcIntelligence(talent)>(sp['intelligence'] as int)&&s.grades.length>=((sp['minClasses'] as int?)??0)).toList()..sort((a,b)=>(b['intelligence'] as int).compareTo(a['intelligence'] as int));for(final sp in compatible.take(npcSlots(talent)))techniques.add({'name':'Invocar '+sp['name'].toString(),'type':sp['type'],'damage':sp['damage'],'magic':true});}e['techniques']=techniques;}
     if(e['lethal']==true||person.isEmpty||person['hiddenRace']!=true||s.knownRaces.contains(person['id'])){}else{for(final k in ['lifesteal','regen','spellPower','evasion','hypnosis'])e.remove(k);e['attack']=c.enemies[index]['attack'];e['defense']=c.enemies[index]['defense'];}
     return e;
@@ -155,7 +157,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   int studentLevel(Map person)=>((person['level'] as int?)??1)+s.grades.length~/3;
   Widget appraisal()=>section('Apreciación y adquisición',[
     const Text('Apreciación revela las técnicas actuales de un estudiante. Al avanzar los arcos, sus capacidades evolucionan. Vuelve a apreciar a tus compañeros para descubrir técnicas nuevas.'),
-    DropdownButton<String>(isExpanded:true,value:raceFilter,items:[const DropdownMenuItem(value:'all',child:Text('Todas las razas')),for(final r in c.races)DropdownMenuItem(value:r['id'].toString(),child:Text(r['name'].toString()))],onChanged:busy?null:(value)=>setState(()=>raceFilter=value??'all')),
+    DropdownButton<String>(isExpanded:true,value:raceFilter,items:[const DropdownMenuItem(value:'all',child:Text('Todas las razas')),for(final r in c.races.where((r)=>r['secret']!=true||c.people.any((p)=>p['race']==r['id']&&s.knownRaces.contains(p['id']))))DropdownMenuItem(value:r['id'].toString(),child:Text(r['name'].toString()))],onChanged:busy?null:(value)=>setState(()=>raceFilter=value??'all')),
     TextField(decoration:const InputDecoration(labelText:'Buscar estudiante'),onChanged:(value)=>setState(()=>nameFilter=value.toLowerCase().trim())),
     for(final person in c.people.where((p)=>!s.deadStudents.contains(p['id'])&&(raceFilter=='all'||publicRace(p)==raceFilter)&&p['name'].toString().toLowerCase().contains(nameFilter)))...[
       const Divider(),
@@ -167,6 +169,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
       Text('Afinidad espiritual: '+(publicTalent(person)['spiritualAffinity']??35).toString()+'/100'),
       Text('Clase: '+className(publicTalent(person))+' · Elementos: '+elementsOf(publicTalent(person)).map(elementName).join(', ')),
       Text('Rango de combate: '+DualState.combatRank(publicTalent(person),s.grades.length)+' · Potencial: '+(publicTalent(person)['potentialRank']??'Desconocido').toString()),
+      if(talentRevealed(person)&&person['classAffinities'] is List)Text('Afinidad con clases: '+(person['classAffinities'] as List).join(', ')),
+      if(talentRevealed(person)&&person['weaponAffinities'] is List)Text('Aptitud de armas: '+(person['weaponAffinities'] as List).join(', ')),
       Text('Rango espiritual: '+DualState.spiritualRank((publicTalent(person)['spiritualAffinity'] as int?)??35,npcIntelligence(publicTalent(person)))+' · Capacidad: '+npcSlots(publicTalent(person)).toString()),
       Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
       if(s.intelligence>=15&&s.relationship(person['id'] as String)>=7&&!s.knownRaces.contains(person['id']))btn('Apreciación profunda',(){s.knownRaces.add(person['id'] as String);return 'La apreciación profunda permite examinar el repertorio real.';}),
@@ -211,7 +215,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),
     if(!combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
-      Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+' · '+s.victoryXp(c.enemies[i],!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
+      Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(c.enemies[i]['rank']!=null?' · Rango '+c.enemies[i]['rank'].toString():'')+' · '+s.victoryXp(c.enemies[i],!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
       if(s.level>=(c.enemies[i]['level'] as int)&&combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int,lethal:c.enemies[i]['lethal']==true)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
   ]);final e=enemyProfile(s.enemyIndex);return section('Combate · '+e['name'].toString(),[
     if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
@@ -236,7 +240,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo','Dungeon','Iglesia','Palacio']:['Taller privado','Mercado','Gremio','Almacén','Puerto'];
     return Scaffold(appBar:AppBar(title:Text(school?'Academia · Entre dos mundos':'Mundo comercial')),body:ListView(padding:const EdgeInsets.all(14),children:[
       if(c.data['player'] is Map)section((c.data['player']['name']??'Valcrest').toString(),[Text((c.data['player']['appearance']??'').toString()),const Text('Becario · Casa de Valcrest')]),
-      Text('Nivel '+s.level.toString()+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
+      Text('Nivel '+s.level.toString()+' · Rango '+s.playerCombatRank+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
       Text('Fuerza '+s.strength.toString()+' · defensa/resistencia '+s.defense.toString()+' · estamina '+s.stamina.toString()+' · inteligencia '+s.intelligence.toString()),
       Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100 · reputación '+s.reputation.toString()),
       Text('Habilidades de combate: '+s.skills.length.toString()+' · poderes innatos: Apreciación, Robo y Retorno'),

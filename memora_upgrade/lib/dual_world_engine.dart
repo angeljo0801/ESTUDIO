@@ -101,6 +101,7 @@ class DualState {
   DualState returnToBeginning(){final next=DualState();next.intelligence=intelligence;next.mana=intelligence;next.readPages.addAll(readPages);next.readingLog.addAll(readingLog.map((k,v)=>MapEntry(k,Map<String,dynamic>.from(v))));next.readingRemainder=readingRemainder;next.workoutDate=workoutDate;next.returned=false;return next;}
   int get level=>1+xp~/100;
   int get maxHp=>40+(level-1)*5;
+  String get playerCombatRank{final score=strength+defense+stamina+(level-1)*8+skills.length*3+spirits.length*5;return score>=1000?'SSS':score>=650?'SS':score>=400?'S':score>=250?'A':score>=140?'B':score>=75?'C':score>=35?'D':'E';}
   int get power=>strength+defense+stamina+intelligence+level*2+skills.length*3;
   int get examAverage=>grades.isEmpty?0:(grades.values.reduce((a,b)=>a+b)/grades.length).round();
   bool get inBattle=>enemyIndex>=0;
@@ -157,7 +158,7 @@ class DualState {
       else {enemyAttack+=min(7,enemyPower~/5)+(move['magic']==true?((enemy['spellPower'] as int?)??0):0);}
     }
     if(enemyWeakTurns>0){enemyAttack=enemyAttack~/2;enemyWeakTurns--;}
-    final hit=enemyAttack<=0||rng.nextInt(100)<min(70,10+evade*5)?0:max(1,enemyAttack-defense~/2-guard);
+    final hit=enemyAttack<=0||rng.nextInt(100)<min(70,10+evade*5)?0:max(1,enemyAttack-defense~/2-(enemyType=='void'?0:guard));
     if(guardTurns>0)guardTurns--;if(speedTurns>0)speedTurns--;
     hp=max(0,hp-hit);
     if(hit>0&&(((enemy['lifesteal'] as int?)??0)>0||enemyType=='drain'))enemyHp=min(enemy['hp'] as int,enemyHp+min(3,hit));
