@@ -119,6 +119,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       if(person['appearance'] is String)Text(person['hiddenRace']==true&&!s.knownRaces.contains(person['id'])?(person['coverAppearance']??'Apariencia humana.').toString():person['appearance'] as String),
       if(discoverableSkills(person).any((sk)=>s.appraised.contains(sk['id']))&&c.raceFor(publicRace(person))['trait'] is String)Text('Rasgo innato: '+c.raceFor(publicRace(person))['trait'].toString()),
       Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
+      if(s.intelligence>=15&&s.relationship(person['id'] as String)>=7&&!s.knownRaces.contains(person['id']))btn('Apreciación profunda',(){s.knownRaces.add(person['id'] as String);return 'La apreciación profunda permite examinar el repertorio real.';}),
       if(discoverableSkills(person).any((sk)=>!s.appraised.contains(sk['id'])))btn('Apreciar '+person['name'].toString(),(){
         final discovered=discoverableSkills(person).where((sk)=>!s.appraised.contains(sk['id'])).toList();
         s.appraised.addAll(discovered.map((sk)=>sk['id'] as String));
@@ -200,6 +201,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
         if(current=='Patio')appraisal(),
         if(current=='Arena')battle(),
         if(current=='Dungeon')dungeon(),
+        if(current=='Patio'&&s.flags.any((x)=>x.startsWith('fallback_')))section('Noticias de expediciones',[for(final person in c.people.where((p)=>s.flags.contains('fallback_'+p['id'].toString())))Text(person['name'].toString()+' regresó gracias al equipo de rescate.')]),
+        if(current=='Patio'&&c.events.any((e)=>e['deadline'] is int&&s.grades.length>=((e['minClasses'] as int?)??0)&&s.grades.length<(e['deadline'] as int)&&!s.rescuedStudents.contains(e['person'])))section('Avisos de expedición',[const Text('Hay búsquedas pendientes en el Dungeon. Consulta los avisos antes de avanzar las clases.')]),
         if(current=='Patio'&&s.rumors.isNotEmpty)section('Rumores de la academia',[for(final person in c.people.where((p)=>s.rumors.contains(p['id'])))Text(person['name'].toString()+' ya no asiste a clases. Se comenta que no sobrevivió a un incidente; nadie explica bien qué ocurrió.')]),
         if(current=='Mercado')market(),
         if(current=='Gimnasio')section('Entrenamiento real · FitRoutine',[const Text('Una recompensa por día local como máximo, solo por una sesión completa registrada en FitRoutine. No hace falta entrenar más para obtener más puntos.'),FilledButton(onPressed:busy||s.workoutDate.compareTo(today())>=0?null:workout,child:Text(s.workoutDate==today()?'Recompensa de hoy obtenida':'Verificar rutina completada'))]),

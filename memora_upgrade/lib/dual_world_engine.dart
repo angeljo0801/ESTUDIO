@@ -44,7 +44,8 @@ class DualState {
     if(choice['flag'] is String)flags.add(choice['flag'] as String);
     if(choice['duel'] is String)pendingDuel=choice['duel'] as String;
     if(choice['rescue'] is String&&person.isNotEmpty)rescueMissions[person]=choice['rescue'] as String;
-    if(choice['abandon']==true&&person.isNotEmpty){deadStudents.add(person);rumors.add(person);rescueMissions.remove(person);}
+    if(choice['abandon']==true&&person.isNotEmpty){rescueMissions.remove(person);}
+    if(choice['defer']==true){decisions.remove(e['id']);}
     if(choice['revealRace']==true&&person.isNotEmpty)knownRaces.add(person);
     if(choice['fatal']==true){hp=0;lethalBattle=true;returned=true;}
     lastEvent=choice['outcome'] as String? ?? '';return true;
@@ -56,7 +57,12 @@ class DualState {
       if(rescuedStudents.contains(id)||deadStudents.contains(id))continue;
       if(e['requiresFlag'] is String&&!flags.contains(e['requiresFlag']))continue;
       if(e['excludesFlag'] is String&&flags.contains(e['excludesFlag']))continue;
-      if(grades.length>=(e['deadline'] as int)){deadStudents.add(id);rumors.add(id);rescueMissions.remove(id);}
+      if(grades.length>=(e['deadline'] as int)){
+        final rescuer=e['fallbackRescuer'];
+        if(rescuer is String&&!deadStudents.contains(rescuer)&&!rescueMissions.containsKey(rescuer)){rescuedStudents.add(id);flags.add('fallback_'+id);}
+        else{deadStudents.add(id);rumors.add(id);}
+        rescueMissions.remove(id);
+      }
     }
   }
   bool canCapture(Map spirit){final id=spirit['id'];return !inBattle&&place=='Dungeon'&&world=='school'&&!spirits.contains(id)&&intelligence>(spirit['intelligence'] as int)&&grades.length>=((spirit['minClasses'] as int?)??0)&&(spirit['requiresWin']==null||wins.contains('battle_'+spirit['requiresWin'].toString()));}
