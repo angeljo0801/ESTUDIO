@@ -19,9 +19,9 @@ class LumenEconomy {
     'network':{'name':'Red comercial interregional','startup':350000,'unit':4000,'price':7400,'capacity':220,'demand':200,'rent':23000,'wage':16000,'expansion':450000,'grade':0},
   };
   static const starterJobs=<Map<String,dynamic>>[
-    {'id':'margin','question':'Un proveedor cobra 60 monedas y vendes a 95. Pagas 10 de transporte. ¿Beneficio de la operación?','answer':25,'pay':120,'hint':'Ingreso menos todos los costos: 95 − 60 − 10.'},
-    {'id':'cash','question':'Dispones de 200, cobras 150 y pagas 230. ¿Cuánto efectivo queda?','answer':120,'pay':180,'hint':'Caja inicial + cobros − pagos.'},
-    {'id':'break_even','question':'Gastos fijos 240 y margen por unidad 12. ¿Cuántas unidades necesitas vender para cubrir gastos?','answer':20,'pay':250,'hint':'Gastos fijos divididos por margen de contribución.'},
+    {'id':'margin','question':'Un proveedor cobra 60 monedas y vendes a 95. Pagas 10 de transporte. ¿Beneficio de la operación?','answer':25,'pay':350,'hint':'Calcula los ingresos menos el costo de compra y transporte.'},
+    {'id':'cash','question':'Dispones de 200, cobras 150 y pagas 230. ¿Cuánto efectivo queda?','answer':120,'pay':450,'hint':'Caja inicial + cobros − pagos.'},
+    {'id':'break_even','question':'Gastos fijos 240 y margen por unidad 12. ¿Cuántas unidades necesitas vender para cubrir gastos?','answer':20,'pay':700,'hint':'Gastos fijos divididos por margen de contribución.'},
   ];
   final Map<String,LumenBusiness> companies={};
   final Set<String> completedJobs={};
@@ -41,7 +41,8 @@ class LumenEconomy {
   Map<String,int> forecast(String sector,{int? atMonth,bool estimate=false}){
     final b=companies[sector]!;final m=atMonth??month;
     final normal=number(sector,'price'),unit=number(sector,'unit'),rent=number(sector,'rent'),wage=number(sector,'wage');
-    final capacity=min(number(sector,'capacity')*b.branches,number(sector,'capacity')*b.staff);
+    final totalCapacity=min(number(sector,'capacity')*b.branches,number(sector,'capacity')*b.staff);
+    final capacity=max(0,totalCapacity-(contractedUnits['$m:$sector']??0));
     final cycle=estimate?100:85+((m*17+sector.codeUnits.fold<int>(0,(a,c)=>a+c))%31);
     final base=number(sector,'demand')*b.branches;
     final priceFactor=max(0,200-b.price*100~/normal);
@@ -52,7 +53,7 @@ class LumenEconomy {
     final variable=sold*unit;
     final revenue=sold*b.price;
     final pretax=revenue-variable-fixed,tax=max(0,pretax~/10);
-    return {'capacity':capacity,'demand':demand,'sold':sold,'revenue':revenue,'variable':variable,'fixed':fixed,'tax':tax,'profit':pretax-tax,'workingCapital':variable+fixed};
+    return {'capacity':capacity,'demand':demand,'sold':sold,'revenue':revenue,'variable':variable,'fixed':fixed,'tax':tax,'profit':pretax-tax,'workingCapital':variable+fixed,'breakEven':b.price>unit?(fixed+b.price-unit-1)~/(b.price-unit):-1,'marginPct':revenue==0?0:(pretax-tax)*100~/revenue};
   }
   int? borrow(int principal,int cash){if(principal<=0||principal>loanLimit||debt!=0)return null;debt=principal;installments=12;loanPayment=(principal+11)~/12;return cash+principal;}
   int get nextInterest=>debt==0?0:max(1,(debt*2+99)~/100);
@@ -60,15 +61,16 @@ class LumenEconomy {
   int? repayEarly(int amount,int cash){if(amount<=0||amount>debt||amount>cash)return null;debt-=amount;if(debt==0){installments=0;loanPayment=0;}return cash-amount;}
   // Contract sizes scale with invested capacity; require funding before delivery. Each unique contract can only be accepted once per month.
   final Set<String> contracts={};
+  final Map<String,int> contractedUnits={};
   Map<String,int>? contractQuote(String sector){
     final b=companies[sector];if(b==null||contracts.contains('$month:$sector'))return null;
-    final units=number(sector,'capacity')*min(b.branches,b.staff)*2;
+    final units=max(1,number(sector,'capacity')*min(b.branches,b.staff)~/2);
     final revenue=units*(number(sector,'price')*88~/100);
-    final cost=units*number(sector,'unit')+number(sector,'rent')*b.branches+number(sector,'wage')*b.staff;
+    final cost=units*number(sector,'unit');
     final profit=revenue-cost-max(0,(revenue-cost)~/10);
     return {'units':units,'revenue':revenue,'cost':cost,'profit':profit};
   }
-  int? fulfill(String sector,int cash){final q=contractQuote(sector);if(q==null||cash<q['cost']!)return null;contracts.add('$month:$sector');totalRevenue+=q['revenue']!;totalProfit+=q['profit']!;return cash+q['profit']!;}
+  int? fulfill(String sector,int cash){final q=contractQuote(sector);if(q==null||cash<q['cost']!)return null;contracts.add('$month:$sector');contractedUnits['$month:$sector']=q['units']!;totalRevenue+=q['revenue']!;totalProfit+=q['profit']!;return cash+q['profit']!;}
   // Batch simulation: all companies settle one month together. No free overdraft; stop before an unfunded month.
   Map<String,int> advance(int cash,int requested){
     final count=requested.clamp(1,12).toInt();int completed=0,profit=0,revenue=0;
@@ -87,7 +89,7 @@ class LumenEconomy {
     }
     return {'cash':cash,'months':completed,'profit':profit,'revenue':revenue};
   }
-  Map<String,dynamic> toJson()=>{'companies':companies.map((k,v)=>MapEntry(k,v.toJson())),'jobs':completedJobs.toList(),'history':history,'month':month,'debt':debt,'installments':installments,'loanPayment':loanPayment,'totalProfit':totalProfit,'totalRevenue':totalRevenue,'totalInterest':totalInterest,'contracts':contracts.toList()};
-  factory LumenEconomy.fromJson(Map j){final s=LumenEconomy();if(j['companies'] is Map)for(final e in (j['companies'] as Map).entries){if(sectors.containsKey(e.key)&&e.value is Map)s.companies[e.key as String]=LumenBusiness.fromJson(e.value as Map);}int n(String k)=>j[k] is int?j[k] as int:0;s.month=n('month');s.debt=n('debt');s.installments=n('installments');s.loanPayment=n('loanPayment');s.totalProfit=n('totalProfit');s.totalRevenue=n('totalRevenue');s.totalInterest=n('totalInterest');if(j['jobs'] is List)s.completedJobs.addAll((j['jobs'] as List).whereType<String>());if(j['contracts'] is List)s.contracts.addAll((j['contracts'] as List).whereType<String>());if(j['history'] is List)s.history.addAll((j['history'] as List).whereType<Map>().map((x)=>Map<String,dynamic>.from(x)));return s;}
+  Map<String,dynamic> toJson()=>{'companies':companies.map((k,v)=>MapEntry(k,v.toJson())),'jobs':completedJobs.toList(),'history':history,'month':month,'debt':debt,'installments':installments,'loanPayment':loanPayment,'totalProfit':totalProfit,'totalRevenue':totalRevenue,'totalInterest':totalInterest,'contracts':contracts.toList(),'contractedUnits':contractedUnits};
+  factory LumenEconomy.fromJson(Map j){final s=LumenEconomy();if(j['companies'] is Map)for(final e in (j['companies'] as Map).entries){if(sectors.containsKey(e.key)&&e.value is Map)s.companies[e.key as String]=LumenBusiness.fromJson(e.value as Map);}int n(String k)=>j[k] is int?j[k] as int:0;s.month=n('month');s.debt=n('debt');s.installments=n('installments');s.loanPayment=n('loanPayment');s.totalProfit=n('totalProfit');s.totalRevenue=n('totalRevenue');s.totalInterest=n('totalInterest');if(j['jobs'] is List)s.completedJobs.addAll((j['jobs'] as List).whereType<String>());if(j['contracts'] is List)s.contracts.addAll((j['contracts'] as List).whereType<String>());if(j['contractedUnits'] is Map)for(final x in (j['contractedUnits'] as Map).entries){if(x.key is String&&x.value is int)s.contractedUnits[x.key as String]=x.value as int;}if(j['history'] is List)s.history.addAll((j['history'] as List).whereType<Map>().map((x)=>Map<String,dynamic>.from(x)));return s;}
   LumenEconomy();
 }
