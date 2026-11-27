@@ -8,24 +8,28 @@ import 'models.dart';
 import 'dual_world_engine.dart';
 
 class DualWorldContent {
-  const DualWorldContent(this.data,this.lessons,this.books,this.events,this.extraSkills);
+  const DualWorldContent(this.data,this.lessons,this.books,this.events,this.extraSkills,this.extraPeople,this.extraEnemies);
   final Map<String,dynamic> data;
-  final List<Map<String,dynamic>> lessons,books,events,extraSkills;
-  List<Map<String,dynamic>> get people=>list(data['people']);
+  final List<Map<String,dynamic>> lessons,books,events,extraSkills,extraPeople,extraEnemies;
+  List<Map<String,dynamic>> get people=>{for(final person in [...list(data['people']),...extraPeople]) person['id']:person}.values.toList();
+  List<Map<String,dynamic>> get races=>list(data['races']);
+  Map<String,dynamic> raceFor(dynamic id)=>races.firstWhere((r)=>r['id']==id,orElse:()=> <String,dynamic>{});
   List<Map<String,dynamic>> get skills=>{for(final sk in [...list(data['skills']),...extraSkills]) sk['id']:sk}.values.toList();
-  List<Map<String,dynamic>> get enemies=>list(data['enemies']);
+  List<Map<String,dynamic>> get enemies=>{for(final enemy in [...list(data['enemies']),...extraEnemies]) enemy['id']:enemy}.values.toList();
   static List<Map<String,dynamic>> list(dynamic raw)=>raw is List?raw.whereType<Map>().map((x)=>Map<String,dynamic>.from(x)).toList():[];
   static DualWorldContent? fromGuide(StudyGuide g){
-    Map<String,dynamic>? root;final lessons=<Map<String,dynamic>>[],books=<Map<String,dynamic>>[],events=<Map<String,dynamic>>[],extraSkills=<Map<String,dynamic>>[];
+    Map<String,dynamic>? root;final lessons=<Map<String,dynamic>>[],books=<Map<String,dynamic>>[],events=<Map<String,dynamic>>[],extraSkills=<Map<String,dynamic>>[],extraPeople=<Map<String,dynamic>>[],extraEnemies=<Map<String,dynamic>>[];
     for(final c in g.cards){try{final v=jsonDecode(c.adventureStory);if(v is! Map)continue;
       if(v['kind']=='memora_dual_world_v1')root=Map<String,dynamic>.from(v);
       if(v['kind']=='memora_dual_lesson_v1')lessons.add(Map<String,dynamic>.from(v));
       if(v['kind']=='memora_dual_book_v1')books.add(Map<String,dynamic>.from(v));
       if(v['kind']=='memora_dual_events_v1')events.addAll(list(v['events']));
       if(v['kind']=='memora_dual_skills_v1')extraSkills.addAll(list(v['skills']));
+      if(v['kind']=='memora_dual_people_v1')extraPeople.addAll(list(v['people']));
+      if(v['kind']=='memora_dual_enemies_v1')extraEnemies.addAll(list(v['enemies']));
     }catch(_){}}
     if(root==null||lessons.isEmpty||list(root['skills']).isEmpty||list(root['enemies']).isEmpty)return null;
-    return DualWorldContent(root,lessons,books,events,extraSkills);
+    return DualWorldContent(root,lessons,books,events,extraSkills,extraPeople,extraEnemies);
   }
 }
 class DualWorldPage extends StatefulWidget{
@@ -36,6 +40,8 @@ class DualWorldPage extends StatefulWidget{
 class _DualWorldPageState extends State<DualWorldPage>{
   DualState s=DualState();bool loading=true,busy=false;
   String message='';int qty=1,price=12;
+  String raceFilter='all';
+  String nameFilter='';
   final answer=TextEditingController();
   DualWorldContent get c=>widget.content;
   String get key=>'memora_dual_world_'+widget.guide.id;
@@ -82,13 +88,28 @@ class _DualWorldPageState extends State<DualWorldPage>{
     for(final book in c.books)...[const Divider(),Text(book['title'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text('Páginas: '+(s.readPages[book['id']]??0).toString()+'/'+(book['pages'] as List).length.toString()),btn('Leer libro',(){final id=book['id'] as String;final i=s.readPages[id]??0;final pages=book['pages'] as List;if(i>=pages.length)return 'Libro completado.';showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:Text(book['title'].toString()+' · '+(i+1).toString()),content:SingleChildScrollView(child:Text(pages[i].toString())),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cerrar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Página leída'))])).then((v){if(v==true&&mounted)act(()=>s.read(id,i,pages.length)?'Página registrada.':'Sin recompensa duplicada.');});return 'Lee la página y confirma al terminar.';})]
   ]);
   List<Map<String,dynamic>> visibleSkills(Map person)=>c.skills.where((sk)=>sk['owner']==person['id']&&s.skillAvailable(sk)).toList();
+  Map<String,dynamic> enemyProfile(int index){
+    final e=Map<String,dynamic>.from(c.enemies[index]);
+    final person=c.people.firstWhere((p)=>p['id']==e['person'],orElse:()=> <String,dynamic>{});
+    final race=c.raceFor(person['race']??e['race']);
+    e['raceName']=race['name'];
+    e['racialTrait']=race['trait'];
+    for(final k in ['attack','defense','evasion','regen','spellPower','hypnosis','lifesteal']){if(race[k] is int)e[k]=((e[k] as int?)??0)+(race[k] as int);}
+    if(person.isNotEmpty){e['techniques']=visibleSkills(person);}
+    return e;
+  }
   int studentLevel(Map person)=>((person['level'] as int?)??1)+s.grades.length~/3;
   Widget appraisal()=>section('Apreciación y adquisición',[
     const Text('Apreciación revela las técnicas actuales de un estudiante. Al avanzar los arcos, sus capacidades evolucionan. Vuelve a apreciar a tus compañeros para descubrir técnicas nuevas.'),
-    for(final person in c.people)...[
+    DropdownButton<String>(isExpanded:true,value:raceFilter,items:[const DropdownMenuItem(value:'all',child:Text('Todas las razas')),for(final r in c.races)DropdownMenuItem(value:r['id'].toString(),child:Text(r['name'].toString()))],onChanged:busy?null:(value)=>setState(()=>raceFilter=value??'all')),
+    TextField(decoration:const InputDecoration(labelText:'Buscar estudiante'),onChanged:(value)=>setState(()=>nameFilter=value.toLowerCase().trim())),
+    for(final person in c.people.where((p)=>(raceFilter=='all'||p['race']==raceFilter)&&p['name'].toString().toLowerCase().contains(nameFilter)))...[
       const Divider(),
       Text(person['name'].toString()+' · Año '+person['year'].toString()+' · Nv. '+studentLevel(person).toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
       Text(person['intro'].toString()),
+      if(person['race']!=null)Text('Raza: '+(c.raceFor(person['race'])['name']??person['race']).toString()),
+      if(person['appearance'] is String)Text(person['appearance'] as String),
+      if(visibleSkills(person).any((sk)=>s.appraised.contains(sk['id']))&&c.raceFor(person['race'])['trait'] is String)Text('Rasgo innato: '+c.raceFor(person['race'])['trait'].toString()),
       Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
       if(visibleSkills(person).any((sk)=>!s.appraised.contains(sk['id'])))btn('Apreciar '+person['name'].toString(),(){
         final discovered=visibleSkills(person).where((sk)=>!s.appraised.contains(sk['id'])).toList();
@@ -97,6 +118,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       }),
       for(final sk in visibleSkills(person).where((x)=>s.appraised.contains(x['id'])))...[
         Text(sk['name'].toString()+' · '+sk['type'].toString()+' · potencia '+sk['damage'].toString()+' · '+sk['price'].toString()+' monedas · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),
+        if(sk['innate']==true)const Text('Técnica racial · copiable mediante Robo'),
         if(sk['description'] is String)Text(sk['description'] as String),
         Text(s.skills.contains(sk['id'])?'Aprendida':'Disponible para adquirir en tu dormitorio.')
       ]
@@ -115,14 +137,15 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
     const Text('Los combates son por turnos. Las victorias iniciales otorgan XP, reputación y clasificación.'),
     if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),
-    if(!c.skills.any((sk)=>s.skills.contains(sk['id'])&&sk['type']=='attack'))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
+    if(!c.skills.any((sk)=>s.skills.contains(sk['id'])&&const ['attack','drain','bleed'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
     for(var i=0;i<c.enemies.length;i++)...[
-      Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()),
-      if(s.level>=(c.enemies[i]['level'] as int)&&c.skills.any((sk)=>s.skills.contains(sk['id'])&&sk['type']=='attack'))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,c.enemies[i]['hp'] as int)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
-  ]);final e=c.enemies[s.enemyIndex];return section('Combate · '+e['name'].toString(),[
+      Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
+      if(s.level>=(c.enemies[i]['level'] as int)&&c.skills.any((sk)=>s.skills.contains(sk['id'])&&const ['attack','drain','bleed'].contains(sk['type'])))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,enemyProfile(i)['hp'] as int)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
+  ]);final e=enemyProfile(s.enemyIndex);return section('Combate · '+e['name'].toString(),[
+    if(e['racialTrait'] is String)Text('Rasgo del rival: '+e['racialTrait'].toString()),
     Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()),
     Text('Estamina: '+s.energy.toString()+' · maná: '+s.mana.toString()),
-    Text('Guardia: '+s.guardTurns.toString()+' turnos · evasión: '+s.speedTurns.toString()+' turnos'),
+    Text('Guardia: '+s.guardTurns.toString()+' turnos · evasión: '+s.speedTurns.toString()+' turnos · sello: '+s.enemyWeakTurns.toString()+' · hemorragia: '+s.enemyBleedTurns.toString()),
     if((s.turn+1)%3==0)const Text('El rival prepara un ataque fuerte. Considera defenderte o esquivar.'),
     for(final sk in c.skills.where((x)=>s.skills.contains(x['id'])))btn(sk['name'].toString()+' · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina'),()=>s.action(sk,e)),
     btn('Retirarte',(){s.enemyIndex=-1;return 'Retirada sin recompensa.';})
