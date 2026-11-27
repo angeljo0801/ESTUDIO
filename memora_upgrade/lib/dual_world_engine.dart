@@ -36,6 +36,7 @@ class DualState {
     if(choice['duel'] is String)pendingDuel=choice['duel'] as String;
     lastEvent=choice['outcome'] as String? ?? '';return true;
   }
+  bool skillAvailable(Map sk)=>grades.length>=((sk['minClasses'] as int?)??0);
   int get level=>1+xp~/100;
   int get maxHp=>40+(level-1)*5;
   int get power=>strength+defense+stamina+intelligence+level*2+skills.length*3;

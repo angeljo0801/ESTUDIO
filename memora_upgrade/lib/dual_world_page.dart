@@ -8,23 +8,24 @@ import 'models.dart';
 import 'dual_world_engine.dart';
 
 class DualWorldContent {
-  const DualWorldContent(this.data,this.lessons,this.books,this.events);
+  const DualWorldContent(this.data,this.lessons,this.books,this.events,this.extraSkills);
   final Map<String,dynamic> data;
-  final List<Map<String,dynamic>> lessons,books,events;
+  final List<Map<String,dynamic>> lessons,books,events,extraSkills;
   List<Map<String,dynamic>> get people=>list(data['people']);
-  List<Map<String,dynamic>> get skills=>list(data['skills']);
+  List<Map<String,dynamic>> get skills=>{for(final sk in [...list(data['skills']),...extraSkills]) sk['id']:sk}.values.toList();
   List<Map<String,dynamic>> get enemies=>list(data['enemies']);
   static List<Map<String,dynamic>> list(dynamic raw)=>raw is List?raw.whereType<Map>().map((x)=>Map<String,dynamic>.from(x)).toList():[];
   static DualWorldContent? fromGuide(StudyGuide g){
-    Map<String,dynamic>? root;final lessons=<Map<String,dynamic>>[],books=<Map<String,dynamic>>[],events=<Map<String,dynamic>>[];
+    Map<String,dynamic>? root;final lessons=<Map<String,dynamic>>[],books=<Map<String,dynamic>>[],events=<Map<String,dynamic>>[],extraSkills=<Map<String,dynamic>>[];
     for(final c in g.cards){try{final v=jsonDecode(c.adventureStory);if(v is! Map)continue;
       if(v['kind']=='memora_dual_world_v1')root=Map<String,dynamic>.from(v);
       if(v['kind']=='memora_dual_lesson_v1')lessons.add(Map<String,dynamic>.from(v));
       if(v['kind']=='memora_dual_book_v1')books.add(Map<String,dynamic>.from(v));
       if(v['kind']=='memora_dual_events_v1')events.addAll(list(v['events']));
+      if(v['kind']=='memora_dual_skills_v1')extraSkills.addAll(list(v['skills']));
     }catch(_){}}
     if(root==null||lessons.isEmpty||list(root['skills']).isEmpty||list(root['enemies']).isEmpty)return null;
-    return DualWorldContent(root,lessons,books,events);
+    return DualWorldContent(root,lessons,books,events,extraSkills);
   }
 }
 class DualWorldPage extends StatefulWidget{
@@ -80,11 +81,25 @@ class _DualWorldPageState extends State<DualWorldPage>{
     const Text('Cada libro completo otorga exactamente +5 inteligencia. Las páginas leídas quedan guardadas; releer no duplica la recompensa.'),
     for(final book in c.books)...[const Divider(),Text(book['title'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text('Páginas: '+(s.readPages[book['id']]??0).toString()+'/'+(book['pages'] as List).length.toString()),btn('Leer libro',(){final id=book['id'] as String;final i=s.readPages[id]??0;final pages=book['pages'] as List;if(i>=pages.length)return 'Libro completado.';showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:Text(book['title'].toString()+' · '+(i+1).toString()),content:SingleChildScrollView(child:Text(pages[i].toString())),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cerrar')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Página leída'))])).then((v){if(v==true&&mounted)act(()=>s.read(id,i,pages.length)?'Página registrada.':'Sin recompensa duplicada.');});return 'Lee la página y confirma al terminar.';})]
   ]);
+  List<Map<String,dynamic>> visibleSkills(Map person)=>c.skills.where((sk)=>sk['owner']==person['id']&&s.skillAvailable(sk)).toList();
+  int studentLevel(Map person)=>((person['level'] as int?)??1)+s.grades.length~/3;
   Widget appraisal()=>section('Apreciación y adquisición',[
-    const Text('Apreciación descubre capacidades. El robo copia una habilidad; el personaje original la conserva. Cada habilidad tiene un precio según su potencia.'),
-    for(final person in c.people)...[const Divider(),Text(person['name'].toString()+' · Año '+person['year'].toString()+' · Nv. '+(person['level']??'?').toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(person['intro'].toString()),Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
-      for(final sk in c.skills.where((x)=>x['owner']==person['id']))...[
-        if(!s.appraised.contains(sk['id']))btn('Apreciar habilidad',(){s.appraised.add(sk['id'] as String);return 'Habilidad descubierta.';})else...[Text(sk['name'].toString()+' · '+sk['type'].toString()+' · costo: '+sk['price'].toString()+' monedas · energía: '+sk['cost'].toString()),if(!s.skills.contains(sk['id']))const Text('Disponible para adquirir en tu dormitorio.')else const Text('Aprendida')]]
+    const Text('Apreciación revela las técnicas actuales de un estudiante. Al avanzar los arcos, sus capacidades evolucionan. Vuelve a apreciar a tus compañeros para descubrir técnicas nuevas.'),
+    for(final person in c.people)...[
+      const Divider(),
+      Text(person['name'].toString()+' · Año '+person['year'].toString()+' · Nv. '+studentLevel(person).toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+      Text(person['intro'].toString()),
+      Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
+      if(visibleSkills(person).any((sk)=>!s.appraised.contains(sk['id'])))btn('Apreciar '+person['name'].toString(),(){
+        final discovered=visibleSkills(person).where((sk)=>!s.appraised.contains(sk['id'])).toList();
+        s.appraised.addAll(discovered.map((sk)=>sk['id'] as String));
+        return 'Técnicas descubiertas: '+discovered.length.toString()+'.';
+      }),
+      for(final sk in visibleSkills(person).where((x)=>s.appraised.contains(x['id'])))...[
+        Text(sk['name'].toString()+' · '+sk['type'].toString()+' · potencia '+sk['damage'].toString()+' · '+sk['price'].toString()+' monedas · '+sk['cost'].toString()+(sk['magic']==true?' maná':' estamina')),
+        if(sk['description'] is String)Text(sk['description'] as String),
+        Text(s.skills.contains(sk['id'])?'Aprendida':'Disponible para adquirir en tu dormitorio.')
+      ]
     ]
   ]);
   Widget skillRoom()=>section('Poderes secretos · Apreciación y Robo',[
@@ -125,6 +140,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     final school=s.world=='school';final current=s.place;
     final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo']:['Taller privado','Mercado','Gremio','Almacén','Puerto'];
     return Scaffold(appBar:AppBar(title:Text(school?'Academia · Entre dos mundos':'Mundo comercial')),body:ListView(padding:const EdgeInsets.all(14),children:[
+      if(c.data['player'] is Map)section((c.data['player']['name']??'Valcrest').toString(),[Text((c.data['player']['appearance']??'').toString()),const Text('Becario · Casa de Valcrest')]),
       Text('Nivel '+s.level.toString()+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
       Text('Fuerza '+s.strength.toString()+' · defensa/resistencia '+s.defense.toString()+' · estamina '+s.stamina.toString()+' · inteligencia '+s.intelligence.toString()),
       Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100 · reputación '+s.reputation.toString()),
