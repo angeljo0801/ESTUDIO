@@ -8,22 +8,23 @@ import 'models.dart';
 import 'dual_world_engine.dart';
 
 class DualWorldContent {
-  const DualWorldContent(this.data,this.lessons,this.books);
+  const DualWorldContent(this.data,this.lessons,this.books,this.events);
   final Map<String,dynamic> data;
-  final List<Map<String,dynamic>> lessons,books;
+  final List<Map<String,dynamic>> lessons,books,events;
   List<Map<String,dynamic>> get people=>list(data['people']);
   List<Map<String,dynamic>> get skills=>list(data['skills']);
   List<Map<String,dynamic>> get enemies=>list(data['enemies']);
   static List<Map<String,dynamic>> list(dynamic raw)=>raw is List?raw.whereType<Map>().map((x)=>Map<String,dynamic>.from(x)).toList():[];
   static DualWorldContent? fromGuide(StudyGuide g){
-    Map<String,dynamic>? root;final lessons=<Map<String,dynamic>>[],books=<Map<String,dynamic>>[];
+    Map<String,dynamic>? root;final lessons=<Map<String,dynamic>>[],books=<Map<String,dynamic>>[],events=<Map<String,dynamic>>[];
     for(final c in g.cards){try{final v=jsonDecode(c.adventureStory);if(v is! Map)continue;
       if(v['kind']=='memora_dual_world_v1')root=Map<String,dynamic>.from(v);
       if(v['kind']=='memora_dual_lesson_v1')lessons.add(Map<String,dynamic>.from(v));
       if(v['kind']=='memora_dual_book_v1')books.add(Map<String,dynamic>.from(v));
+      if(v['kind']=='memora_dual_events_v1')events.addAll(list(v['events']));
     }catch(_){}}
     if(root==null||lessons.isEmpty||list(root['skills']).isEmpty||list(root['enemies']).isEmpty)return null;
-    return DualWorldContent(root,lessons,books);
+    return DualWorldContent(root,lessons,books,events);
   }
 }
 class DualWorldPage extends StatefulWidget{
@@ -81,16 +82,27 @@ class _DualWorldPageState extends State<DualWorldPage>{
   ]);
   Widget appraisal()=>section('Apreciación y adquisición',[
     const Text('Apreciación descubre capacidades. El robo copia una habilidad; el personaje original la conserva. Cada habilidad tiene un precio según su potencia.'),
-    for(final person in c.people)...[const Divider(),Text(person['name'].toString()+' · Año '+person['year'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(person['intro'].toString()),
+    for(final person in c.people)...[const Divider(),Text(person['name'].toString()+' · Año '+person['year'].toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(person['intro'].toString()),Text('Confianza: '+s.relationship(person['id'] as String).toString()+(person['romance']==true?' · Afinidad: '+s.warmth(person['id'] as String).toString():'')),
       for(final sk in c.skills.where((x)=>x['owner']==person['id']))...[
-        if(!s.appraised.contains(sk['id']))btn('Apreciar habilidad',(){s.appraised.add(sk['id'] as String);return 'Habilidad descubierta.';})else...[Text(sk['name'].toString()+' · '+sk['type'].toString()+' · costo: '+sk['price'].toString()+' monedas · energía: '+sk['cost'].toString()),if(!s.skills.contains(sk['id']))btn('Adquirir habilidad',()=>s.buySkill(sk['id'] as String,sk['price'] as int)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]]
+        if(!s.appraised.contains(sk['id']))btn('Apreciar habilidad',(){s.appraised.add(sk['id'] as String);return 'Habilidad descubierta.';})else...[Text(sk['name'].toString()+' · '+sk['type'].toString()+' · costo: '+sk['price'].toString()+' monedas · energía: '+sk['cost'].toString()),if(!s.skills.contains(sk['id']))const Text('Disponible para adquirir en tu dormitorio.')else const Text('Aprendida')]]
     ]
   ]);
+  Widget skillRoom()=>section('Poderes secretos · Apreciación y Robo',[
+    const Text('Solo puedes adquirir las habilidades descubiertas en la academia cuando estás a solas en tu dormitorio. No tienes ninguna técnica de combate al empezar.'),
+    if(s.skills.isEmpty)const Text('Habilidades de combate: ninguna.'),
+    for(final sk in c.skills.where((x)=>s.appraised.contains(x['id'])))...[Text(sk['name'].toString()+' · '+sk['price'].toString()+' monedas'),if(!s.skills.contains(sk['id']))btn('Adquirir',()=>s.buySkill(sk['id'] as String,sk['price'] as int)?'Habilidad adquirida.':'No tienes dinero suficiente.')else const Text('Aprendida')]
+  ]);
+  Widget storyEvents()=>Column(children:[for(final e in c.events.where(s.eligible))section(e['title'].toString(),[
+    Text(e['scene'].toString()),const SizedBox(height:12),
+    for(final choice in DualWorldContent.list(e['choices']))FilledButton(onPressed:busy||s.cash<((choice['cost'] as int?)??0)?null:()=>act(()=>s.chooseEvent(e,choice)?s.lastEvent:'No puedes elegir esta opción.'),child:Text(choice['label'].toString())),
+  ])]);
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
-    const Text('Los combates son por turnos. Solo puedes usar las habilidades que has adquirido. Las victorias iniciales otorgan XP y puntos de clasificación.'),
+    const Text('Los combates son por turnos. Las victorias iniciales otorgan XP, reputación y clasificación.'),
+    if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),
+    if(!c.skills.any((sk)=>s.skills.contains(sk['id'])&&sk['type']=='attack'))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
     for(var i=0;i<c.enemies.length;i++)...[
       Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()),
-      if(s.level>=(c.enemies[i]['level'] as int))btn('Desafiar',()=>s.startBattle(i,c.enemies[i]['hp'] as int)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Nivel insuficiente')]
+      if(s.level>=(c.enemies[i]['level'] as int)&&c.skills.any((sk)=>s.skills.contains(sk['id'])&&sk['type']=='attack'))btn(s.pendingDuel==c.enemies[i]['id']?'Aceptar duelo pendiente':'Desafiar',()=>s.startBattle(i,c.enemies[i]['hp'] as int)?'Comienza el combate.':'Debes recuperarte antes.')else const Text('Requiere nivel y una técnica de ataque')]
   ]);final e=c.enemies[s.enemyIndex];return section('Combate · '+e['name'].toString(),[
     Text('Tu vida: '+s.hp.toString()+'/'+s.maxHp.toString()+' · rival: '+s.enemyHp.toString()),
     Text('Estamina: '+s.energy.toString()+' · maná: '+s.mana.toString()),
@@ -110,15 +122,18 @@ class _DualWorldPageState extends State<DualWorldPage>{
   @override Widget build(BuildContext context){
     if(loading)return const Scaffold(body:Center(child:CircularProgressIndicator()));
     final school=s.world=='school';final current=s.place;
-    final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking']:['Taller privado','Mercado','Gremio'];
+    final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo']:['Taller privado','Mercado','Gremio','Almacén','Puerto'];
     return Scaffold(appBar:AppBar(title:Text(school?'Academia · Entre dos mundos':'Mundo comercial')),body:ListView(padding:const EdgeInsets.all(14),children:[
       Text('Nivel '+s.level.toString()+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
       Text('Fuerza '+s.strength.toString()+' · defensa/resistencia '+s.defense.toString()+' · estamina '+s.stamina.toString()+' · inteligencia '+s.intelligence.toString()),
-      Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100'),
+      Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100 · reputación '+s.reputation.toString()),
+      Text('Arco '+(1+s.grades.length~/4).toString()+' · '+s.decisions.length.toString()+' acontecimientos resueltos'),
       if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
       if(s.inBattle)battle()else...[
         Wrap(spacing:6,children:[for(final l in locations)ChoiceChip(label:Text(l),selected:l==current,onSelected:busy?null:(_)=>act((){s.place=l;answer.clear();return 'Llegaste a '+l+'.';}))]),
         if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida, maná y estamina recuperados.';})]),
+        if(current=='Dormitorio')skillRoom(),
+        storyEvents(),
         if(current=='Gremio')section('Gremio · encargos financieros',[const Text('Los encargos se pagan aquí, una sola vez por examen superado.'),for(final l in c.lessons.where((x)=>s.grades.containsKey(x['id'])&&!s.wins.contains('guild_'+x['id'].toString())))btn('Cobrar '+l['title'].toString(),(){final n=s.claimGuild(l['id'] as String);return 'Recibiste '+n.toString()+' monedas por tu informe.';})]),
         if(current=='Clases')...[
           for(var i=0;i<c.lessons.length;i++)if(i<=s.grades.length&&(i!=2||s.wins.contains('battle_darian_practice'))&&(i!=4||s.wins.contains('battle_stone_beast'))&&(i!=6||s.wins.contains('battle_seren_duel')))lesson(c.lessons[i])else ListTile(leading:const Icon(Icons.lock),title:Text(c.lessons[i]['title'].toString()),subtitle:Text(i==2?'Supera el duelo de práctica de Darian.':i==4?'Derrota a la bestia de piedra.':i==6?'Supera el torneo de Seren.':'Supera las clases anteriores.'))

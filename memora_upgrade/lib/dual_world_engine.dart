@@ -3,10 +3,39 @@ class DualState {
   int cash=0,stock=0,inventoryCost=0,day=0,xp=0,strength=4,defense=3,stamina=10,intelligence=5,rankPoints=0,chapter=0;
   int hp=40,energy=10,mana=5,enemyHp=0,turn=0,enemyIndex=-1,guardPower=0,guardTurns=0,speedPower=0,speedTurns=0;
   String world='school',place='Dormitorio',workoutDate='';
-  final Set<String> skills={'strike'};
+  final Set<String> skills={};
+  int reputation=-30;
+  final Map<String,int> trust={},affection={};
+  final Map<String,String> decisions={};
+  final Set<String> flags={};
+  String pendingDuel='';
+  String lastEvent='';
   final Set<String> appraised={};
   final Map<String,int> readPages={},grades={},attempts={};
   final Set<String> wins={};
+  int relationship(String id)=>trust[id]??0;
+  int warmth(String id)=>affection[id]??0;
+  bool eligible(Map e){
+    if(decisions.containsKey(e['id'])||e['world']!=world||e['place']!=place)return false;
+    if(grades.length<((e['minClasses'] as int?)??0)||reputation<((e['minRep'] as int?)??-100))return false;
+    if(e['requiresFlag'] is String&&!flags.contains(e['requiresFlag']))return false;
+    if(e['requiresWin'] is String&&!wins.contains('battle_'+(e['requiresWin'] as String)))return false;
+    if(e['requiresTrust'] is int&&relationship(e['person'] as String)<(e['requiresTrust'] as int))return false;
+    if(e['requiresSkill'] is String&&!skills.contains(e['requiresSkill']))return false;
+    if(e['requiresEvent'] is String&&!decisions.containsKey(e['requiresEvent']))return false;
+    return true;
+  }
+  bool chooseEvent(Map e,Map choice){
+    if(!eligible(e)||!(e['choices'] as List).any((x)=>x is Map&&x['id']==choice['id']))return false;
+    final cost=(choice['cost'] as int?)??0;if(cost<0||cash<cost)return false;
+    final person=e['person'] as String? ?? '';cash-=cost;
+    if(person.isNotEmpty){trust[person]=(relationship(person)+((choice['trust'] as int?)??0)).clamp(-100,100).toInt();affection[person]=(warmth(person)+((choice['affection'] as int?)??0)).clamp(0,100).toInt();}
+    reputation=(reputation+((choice['rep'] as int?)??0)).clamp(-100,100).toInt();
+    decisions[e['id'] as String]=choice['id'] as String;
+    if(choice['flag'] is String)flags.add(choice['flag'] as String);
+    if(choice['duel'] is String)pendingDuel=choice['duel'] as String;
+    lastEvent=choice['outcome'] as String? ?? '';return true;
+  }
   int get level=>1+xp~/100;
   int get maxHp=>40+(level-1)*5;
   int get power=>strength+defense+stamina+intelligence+level*2+skills.length*3;
@@ -16,9 +45,9 @@ class DualState {
   bool travel(){if(inBattle||!privatePlace)return false;world=world=='school'?'trade':'school';place=world=='school'?'Dormitorio':'Taller privado';return true;}
   bool read(String id,int page,int count){final old=readPages[id]??0;if(count<=0||page!=old||page>=count)return false;final before=(old*5)~/count;final after=((old+1)*5)~/count;readPages[id]=old+1;intelligence+=after-before;mana=min(intelligence,mana+after-before);return true;}
   bool workout(String date){if(date.isEmpty||workoutDate.compareTo(date)>=0)return false;workoutDate=date;strength+=2;defense+=2;stamina+=2;return true;}
-  int rewardExam(String id,bool correct){if(grades.containsKey(id))return grades[id]!;attempts[id]=(attempts[id]??0)+1;if(!correct)return 0;final grade=max(60,100-10*((attempts[id]??1)-1));grades[id]=grade;rankPoints+=grade;xp+=30;return grade;}
+  int rewardExam(String id,bool correct){if(grades.containsKey(id))return grades[id]!;attempts[id]=(attempts[id]??0)+1;if(!correct)return 0;final grade=max(60,100-10*((attempts[id]??1)-1));grades[id]=grade;rankPoints+=grade;reputation=min(100,reputation+max(1,grade~/20));xp+=30;return grade;}
   int claimGuild(String id){final grade=grades[id];if(grade==null||!wins.add('guild_'+id))return 0;cash+=grade;return grade;}
-  bool buySkill(String id,int price){if(!appraised.contains(id)||skills.contains(id)||cash<price||price<=0)return false;cash-=price;skills.add(id);return true;}
+  bool buySkill(String id,int price){if(!privatePlace||world!='school'||!appraised.contains(id)||skills.contains(id)||cash<price||price<=0)return false;cash-=price;skills.add(id);return true;}
   int commission(){final id='commission_'+day.toString();if(wins.contains(id))return 0;wins.add(id);cash+=30;day++;return 30;}
   Map<String,int>? trade(int qty,int price,int demand,int cost,int fixed){if(qty<0||qty>100||price<1||price>100||demand<0||cost<=0||fixed<0||cash<qty*cost+fixed||qty+stock<=0)return null;final total=stock+qty,combined=inventoryCost+qty*cost;final sold=min(total,demand);final cogs=(combined*sold/total).round();final revenue=sold*price;cash+=revenue-qty*cost-fixed;stock=total-sold;inventoryCost=combined-cogs;day++;return {'sold':sold,'revenue':revenue,'profit':revenue-cogs-fixed,'cash':cash,'stock':stock};}
   void rest(){if(inBattle)return;hp=maxHp;mana=intelligence;energy=stamina;}
@@ -33,7 +62,7 @@ class DualState {
     final guard=guardTurns>0?guardPower:0,evade=speedTurns>0?speedPower:0;
     final dealt=kind=='defense'||kind=='speed'?0:max(1,damage+(magic?intelligence:strength)~/2-(enemy['defense'] as int));
     enemyHp=max(0,enemyHp-dealt);turn++;
-    if(enemyHp==0){final key=enemy['id'] as String;final first=wins.add('battle_'+key);xp+=first?(enemy['xp'] as int):0;rankPoints+=first?25:0;enemyIndex=-1;return 'Victoria. '+(first?'Experiencia y ranking aumentados.':'Práctica sin recompensa repetida.');}
+    if(enemyHp==0){final key=enemy['id'] as String;final first=wins.add('battle_'+key);xp+=first?(enemy['xp'] as int):0;rankPoints+=first?25:0;if(first)reputation=min(100,reputation+8);if(pendingDuel==key)pendingDuel='';enemyIndex=-1;return 'Victoria. '+(first?'Experiencia y ranking aumentados.':'Práctica sin recompensa repetida.');}
     final roll=Random(turn*31+xp*7+enemyHp).nextInt(100);
     final enemyAttack=(enemy['attack'] as int)+(turn%3==0?4:0);
     final hit=roll<min(70,10+evade*5)?0:max(1,enemyAttack-defense~/2-guard);
@@ -41,12 +70,12 @@ class DualState {
     hp=max(0,hp-hit);if(hp==0){enemyIndex=-1;return 'Derrota. Regresa al dormitorio para recuperarte.';}
     return 'Daño causado: '+dealt.toString()+' · daño recibido: '+hit.toString()+(guard>0?' · guardia activa':evade>0?' · evasión activa':'');
   }
-  Map<String,dynamic> toJson()=>{'cash':cash,'stock':stock,'inventoryCost':inventoryCost,'day':day,'xp':xp,'strength':strength,'defense':defense,'stamina':stamina,'intelligence':intelligence,'rankPoints':rankPoints,'chapter':chapter,'hp':hp,'energy':energy,'mana':mana,'enemyHp':enemyHp,'turn':turn,'enemyIndex':enemyIndex,'guardPower':guardPower,'guardTurns':guardTurns,'speedPower':speedPower,'speedTurns':speedTurns,'world':world,'place':place,'workoutDate':workoutDate,'skills':skills.toList(),'appraised':appraised.toList(),'readPages':readPages,'grades':grades,'attempts':attempts,'wins':wins.toList()};
+  Map<String,dynamic> toJson()=>{'cash':cash,'stock':stock,'inventoryCost':inventoryCost,'day':day,'xp':xp,'strength':strength,'defense':defense,'stamina':stamina,'intelligence':intelligence,'rankPoints':rankPoints,'chapter':chapter,'hp':hp,'energy':energy,'mana':mana,'enemyHp':enemyHp,'turn':turn,'enemyIndex':enemyIndex,'guardPower':guardPower,'guardTurns':guardTurns,'speedPower':speedPower,'speedTurns':speedTurns,'world':world,'place':place,'workoutDate':workoutDate,'skills':skills.toList(),'appraised':appraised.toList(),'readPages':readPages,'grades':grades,'attempts':attempts,'wins':wins.toList(),'reputation':reputation,'trust':trust,'affection':affection,'decisions':decisions,'flags':flags.toList(),'pendingDuel':pendingDuel,'lastEvent':lastEvent};
   factory DualState.fromJson(Map j){final s=DualState();int n(String k,int fallback)=>j[k] is int?j[k] as int:fallback;
     s.cash=n('cash',0);s.stock=n('stock',0);s.inventoryCost=n('inventoryCost',0);s.day=n('day',0);s.xp=n('xp',0);s.strength=n('strength',4);s.defense=n('defense',3);s.stamina=n('stamina',10);s.intelligence=n('intelligence',5);s.rankPoints=n('rankPoints',0);s.chapter=n('chapter',0);s.hp=n('hp',40);s.energy=n('energy',10);s.mana=n('mana',5);s.enemyHp=n('enemyHp',0);s.turn=n('turn',0);s.enemyIndex=n('enemyIndex',-1);s.guardPower=n('guardPower',0);s.guardTurns=n('guardTurns',0);s.speedPower=n('speedPower',0);s.speedTurns=n('speedTurns',0);s.world=j['world']=='trade'?'trade':'school';s.place=j['place'] is String?j['place'] as String:'Dormitorio';s.workoutDate=j['workoutDate'] is String?j['workoutDate'] as String:'';
-    for(final e in [MapEntry('skills',s.skills),MapEntry('appraised',s.appraised),MapEntry('wins',s.wins)]){if(j[e.key] is List)e.value.addAll((j[e.key] as List).whereType<String>());}
-    for(final e in [MapEntry('readPages',s.readPages),MapEntry('grades',s.grades),MapEntry('attempts',s.attempts)]){if(j[e.key] is Map)for(final item in (j[e.key] as Map).entries){if(item.key is String&&item.value is int)e.value[item.key as String]=item.value as int;}}
-    return s;
+    for(final e in [MapEntry('skills',s.skills),MapEntry('appraised',s.appraised),MapEntry('wins',s.wins),MapEntry('flags',s.flags)]){if(j[e.key] is List)e.value.addAll((j[e.key] as List).whereType<String>());}
+    for(final e in [MapEntry('readPages',s.readPages),MapEntry('grades',s.grades),MapEntry('attempts',s.attempts),MapEntry('trust',s.trust),MapEntry('affection',s.affection)]){if(j[e.key] is Map)for(final item in (j[e.key] as Map).entries){if(item.key is String&&item.value is int)e.value[item.key as String]=item.value as int;}}
+    s.skills.remove('strike');s.reputation=n('reputation',-30);s.pendingDuel=j['pendingDuel'] is String?j['pendingDuel'] as String:'';s.lastEvent=j['lastEvent'] is String?j['lastEvent'] as String:'';if(j['decisions'] is Map)for(final e in (j['decisions'] as Map).entries){if(e.key is String&&e.value is String)s.decisions[e.key as String]=e.value as String;}return s;
   }
   DualState();
 }
