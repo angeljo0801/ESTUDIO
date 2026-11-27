@@ -70,6 +70,25 @@ class DualState {
   }
   bool canCapture(Map spirit){final id=spirit['id'];return !inBattle&&place=='Dungeon'&&world=='school'&&!spirits.contains(id)&&intelligence>(spirit['intelligence'] as int)&&grades.length>=((spirit['minClasses'] as int?)??0)&&(spirit['requiresWin']==null||wins.contains('battle_'+spirit['requiresWin'].toString()));}
   bool capture(Map spirit){if(!canCapture(spirit))return false;spirits.add(spirit['id'] as String);return true;}
+  static int spiritualCapacity(Map person,int intelligence){
+    final affinity=(person['spiritualAffinity'] as int?)??35;
+    final role=person['spiritClass']?.toString()??'ordinary';
+    final cap=role=='elementalist'?15:role=='specialist'||role=='chosen'?10:person['race']=='elf'?5:1;
+    if(cap==1)return 1;
+    return min(cap,1+affinity~/20+max(0,intelligence)~/15);
+  }
+  static int elementalAffinity(Map person,Map spirit){
+    final base=((person['spiritualAffinity'] as int?)??35).clamp(0,100).toInt();
+    final elements=person['elements'] is List?(person['elements'] as List):const [];
+    final element=spirit['element']??'neutral';
+    final matching=element=='neutral'||elements.contains(element);
+    final racial=spirit['affinity']=='neutral'||spirit['affinity']==person['race'];
+    final role=person['spiritClass']?.toString()??'ordinary';
+    if(role=='elementalist')return matching?min(100,base+15):base~/4;
+    if(role=='specialist'||role=='chosen')return min(100,base+(matching?10:racial?0:-15));
+    return matching?min(100,base+(racial?10:0)):racial?base~/2:base~/3;
+  }
+  static String spiritualRank(int affinity,int intelligence){final score=affinity+max(0,intelligence)~/2;return score>=185?'SS':score>=150?'S':score>=115?'A':score>=85?'B':score>=60?'C':score>=35?'D':'E';}
   int spiritChance(Map spirit,int affinity){if(!canCapture(spirit)||affinity<((spirit['minAffinity'] as int?)??25))return 0;return (20+affinity~/2+(intelligence-(spirit['intelligence'] as int))*2).clamp(5,100).toInt();}
   bool freshSpiritAttempt(Map spirit){final encounter=spirit['requiresWin']?.toString()??'';final count=battleCounts[encounter]??(wins.contains('battle_'+encounter)?1:0);return count>(spiritAttempts[spirit['id']]??0);}
   String trySpirit(Map spirit,int affinity){final chance=spiritChance(spirit,affinity);if(chance==0||!freshSpiritAttempt(spirit))return 'Necesitas afinidad, inteligencia o superar de nuevo su encuentro.';final encounter=spirit['requiresWin']?.toString()??'',id=spirit['id'] as String;spiritAttempts[id]=battleCounts[encounter]??1;if(Random().nextInt(100)>=chance)return 'El espíritu no acepta el vínculo. Supera de nuevo el encuentro para intentar otra vez.';spirits.add(id);return 'Espíritu vinculado.';}
