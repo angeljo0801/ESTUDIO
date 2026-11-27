@@ -303,15 +303,43 @@ class _DualWorldPageState extends State<DualWorldPage>{
     final location=enemy['location'];
     if(location is String){if(location!=s.place)return false;if(enemy['repeatable']!=true&&s.wins.contains('battle_'+enemy['id'].toString()))return false;}else if((enemy['lethal']==true)!=(s.place=='Dungeon')||!const ['Arena','Dungeon'].contains(s.place))return false;
     if(s.grades.length<((enemy['minClasses'] as int?)??0))return false;if(enemy['maxClasses'] is int&&s.grades.length>(enemy['maxClasses'] as int))return false;if(enemy['requiresFlag'] is String&&!s.flags.contains(enemy['requiresFlag'])&&!(enemy['requiresFlag']=='mercenary_member'&&s.canFightWar))return false;if(!s.warEnemyAvailable(enemy))return false;if(enemy['rescueOnly']==true&&!s.rescueMissions.containsValue(enemy['id']))return false;return true;}
+  Future<void> showWisdomTrial(int index)async{
+    if(busy||index<0||index>=c.enemies.length||!enemyVisible(c.enemies[index]))return;
+    final enemy=enemyProfile(index);
+    if(!s.canUseWisdom(enemy))return;
+    final trial=s.wisdomTrial(enemy),answers=List<String>.filled(trial.questions.length,'');
+    final result=await showDialog<List<String>>(context:context,barrierDismissible:false,builder:(ctx)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
+      title:Text('Sabiduría · '+trial.name),
+      content:SizedBox(width:520,child:SingleChildScrollView(child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,mainAxisSize:MainAxisSize.min,children:[
+        enemyArt(enemy),
+        Text(enemy['name'].toString()+' · Nivel '+enemy['level'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+        const Text('Supera todas las pruebas para derrotar al enemigo sin combate. Responde con números, sin símbolos ni separadores de miles; redondea únicamente el resultado final a dos decimales.'),
+        const SizedBox(height:12),
+        for(var i=0;i<trial.questions.length;i++)...[
+          Text('Prueba '+(i+1).toString()+'/'+trial.questions.length.toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+          Text(trial.questions[i].prompt),
+          TextField(key:ValueKey('wisdom_'+i.toString()),keyboardType:const TextInputType.numberWithOptions(decimal:true,signed:true),decoration:const InputDecoration(labelText:'Respuesta numérica'),onChanged:(v)=>update(()=>answers[i]=v)),
+          const SizedBox(height:16),
+        ],
+      ]))),
+      actions:[
+        TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Retirarse')),
+        FilledButton(onPressed:answers.every((a)=>double.tryParse(a.trim().replaceAll(',','.'))?.isFinite==true)?()=>Navigator.pop(ctx,List<String>.of(answers)):null,child:const Text('Resolver desafío')),
+      ],
+    )));
+    if(result==null||!mounted)return;
+    await act(()=>s.resolveWisdom(enemy,result));
+  }
   Widget battle(){if(!s.inBattle)return section('Arena y monstruos',[
     const Text('Los combates son por turnos. Las técnicas físicas consumen estamina; las mágicas consumen maná.'),
     for(final sp in c.spirits.where((sp)=>s.spirits.contains(sp['id'])))btn((s.activeSpirit==sp['id']?'Activo: ':'Vincular para combate: ')+sp['name'].toString(),()=>s.selectSpirit(sp)?'Espíritu seleccionado.':'No disponible.'),
     if(s.pendingDuel.isNotEmpty)const Text('Tienes un desafío personal pendiente. Busca a tu rival.'),
-    if(!combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))const Text('No tienes ninguna técnica de ataque. Usa Apreciación, consigue monedas en Lumen y adquiere una en tu dormitorio.'),
+    if(!combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))const Text('No tienes técnicas de ataque. Puedes resolver una prueba de Sabiduría o adquirir habilidades mediante Apreciación.'),
     for(var i=0;i<c.enemies.length;i++)if(enemyVisible(c.enemies[i]))...[
       Text(c.enemies[i]['name'].toString()+' · nivel '+c.enemies[i]['level'].toString()+(c.enemies[i]['rank']!=null?' · Rango '+c.enemies[i]['rank'].toString():'')+' · '+s.victoryXp(enemyProfile(i),!s.wins.contains('battle_'+c.enemies[i]['id'].toString())).toString()+' XP'+(enemyProfile(i)['raceName']!=null?' · '+enemyProfile(i)['raceName'].toString():'')),
       if(DualState.numOf(enemyProfile(i),'warEvolution',0)>0)Text('Evolución de la Ruptura · fase '+DualState.numOf(enemyProfile(i),'warEvolution',0).toString()),
       enemyArt(enemyProfile(i)),
+      if(s.canUseWisdom(enemyProfile(i)))FilledButton.icon(onPressed:busy?null:()=>showWisdomTrial(i),icon:const Icon(Icons.auto_stories),label:Text('Sabiduría · '+s.wisdomTrial(enemyProfile(i)).name))else const Text('Sabiduría: desafío no disponible en este momento.'),
       if(c.enemies[i]['raid']==true)...[
         Text((c.enemies[i]['form']=='humanoid'?'Entidad divina humanoide · ':'Amenaza legendaria · ')+(c.enemies[i]['description']??'Entidad invasora').toString()),
         if(combatSkills.any((sk)=>const ['attack','drain','bleed','void'].contains(sk['type'])))...[
@@ -363,7 +391,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
       Text('Nivel '+s.level.toString()+' · Rango '+s.playerCombatRank+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
       Text('Fuerza '+s.strength.toString()+' · defensa/resistencia '+s.defense.toString()+' · estamina '+s.stamina.toString()+' · inteligencia '+s.intelligence.toString()),
       Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100 · reputación '+s.reputation.toString()),
-      Text('Habilidades de combate: '+s.skills.length.toString()+' · poderes innatos: Apreciación, Robo y Retorno'),
+      Text('Habilidades de combate: '+s.skills.length.toString()+' · poderes innatos: Apreciación, Robo, Retorno y Sabiduría'),
+      Text('Sabiduría: '+s.wisdom.toString()+' · Dominio demostrado en pruebas financieras'),
       Text(arcTitle+' · '+s.decisions.length.toString()+' acontecimientos resueltos'),
       section('Crónica de la guerra · semana '+s.warWeek.toString(),[
         if(s.warWeek>=6)art('war_colossus_arrival',height:240),
