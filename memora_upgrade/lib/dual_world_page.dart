@@ -68,7 +68,15 @@ class _DualWorldPageState extends State<DualWorldPage>{
     try{var next=fn();s.resolveWar();if(s.returned&&s.lethalBattle&&s.hp==0){final destroyed=s.worldDestroyed;s=s.returnToBeginning();next=(destroyed?'FIN DEL MUNDO · La Ruptura ha consumido el reino. RETORNO: despiertas el día de ingreso y conservas tu inteligencia. ':'RETORNO · Despiertas en tu dormitorio, el día de ingreso. Solo conservas inteligencia. ')+next;raceFilter='all';nameFilter='';answer.clear();}s.resolveFates(c.events);final p=await SharedPreferences.getInstance();if(!await p.setString(key,jsonEncode(s.toJson())))throw StateError('No se pudo guardar');if(mounted)setState(()=>message=next);}
     catch(e){if(mounted)setState(()=>message=e.toString());}finally{if(mounted)setState(()=>busy=false);}
   }
-  Widget btn(String label,String Function() fn)=>FilledButton(onPressed:busy?null:()=>act(fn),child:Text(label));
+  static final _actionButtonStyle=FilledButton.styleFrom(
+    minimumSize:const Size(0,48),
+    padding:const EdgeInsets.symmetric(horizontal:20,vertical:16),
+    shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
+  );
+  Widget btn(String label,String Function() fn)=>FilledButton(
+    style:_actionButtonStyle,onPressed:busy?null:()=>act(fn),
+    child:Text(label,textAlign:TextAlign.center,softWrap:true),
+  );
   Widget section(String title,List<Widget> children)=>Card(child:ExpansionTile(key:PageStorageKey('section_'+s.world+'_'+s.place+'_'+title),initiallyExpanded:s.inBattle&&title.startsWith('Combate')||title=='Lugar privado',maintainState:true,title:Text(title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w600)),childrenPadding:const EdgeInsets.fromLTRB(14,0,14,14),expandedCrossAxisAlignment:CrossAxisAlignment.stretch,children:children));
   Widget art(String id,{double height=160,String? fallback})=>ValueListenableBuilder<int>(
     valueListenable:MemoraArtStore.revision,
@@ -89,7 +97,12 @@ class _DualWorldPageState extends State<DualWorldPage>{
   Future<void> checkArt()async{
     final assets=await AdventureArtStore.load(widget.guide.id);
     if(!mounted)return;
-    if(!assets.containsKey('hero')||!assets.containsKey('scene_dormitorio'))await repairArt();
+    final required=<String>{
+      'hero','scene_dormitorio',
+      for(final person in c.people)person['id'].toString(),
+      for(final person in c.people.where((p)=>p['hiddenRace']==true))person['id'].toString()+'_cover',
+    };
+    if(required.any((id)=>!assets.containsKey(id)))await repairArt();
   }
   Future<void> repairArt()async{
     if(artSyncing)return;
@@ -362,7 +375,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
         ]))),
         if(step<blocks.length-1)FilledButton.icon(onPressed:()=>change(()=>step++),icon:const Icon(Icons.arrow_forward),label:const Text('Continuar'))
         else if(replay)FilledButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Volver al lugar'))
-        else for(final ch in DualWorldContent.list(e['choices']))Padding(padding:const EdgeInsets.symmetric(vertical:4),child:FilledButton(onPressed:s.cash<((ch['cost'] as int?)??0)?null:()=>Navigator.pop(ctx,ch),child:Text(ch['label'].toString()))),
+        else for(final ch in DualWorldContent.list(e['choices']))Padding(padding:const EdgeInsets.symmetric(vertical:4),child:FilledButton(style:_actionButtonStyle,onPressed:s.cash<((ch['cost'] as int?)??0)?null:()=>Navigator.pop(ctx,ch),child:Text(ch['label'].toString(),textAlign:TextAlign.center,softWrap:true))),
       ])),
     ))));
     if(choice!=null&&mounted&&!replay)await act(()=>s.chooseEvent(e,choice)?s.lastEvent:'No puedes elegir esta opción.');
