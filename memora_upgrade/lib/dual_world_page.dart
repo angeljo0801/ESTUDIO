@@ -8,6 +8,7 @@ import 'models.dart';
 import 'dual_world_engine.dart';
 import 'lumen_business_panel.dart';
 import 'nebula_art.dart';
+import 'chatgpt_sync_page.dart' show AsteriaArtSync;
 
 String dualWorldLandscapeKey(String place)=>const <String,String>{
   'Dormitorio':'scene_dormitorio','Clases':'scene_clases','Biblioteca':'scene_biblioteca','Patio':'scene_patio','Arena':'scene_arena','Gimnasio':'scene_gimnasio','Ranking':'scene_ranking','Jardín':'scene_jardin','Consejo':'scene_consejo','Pasillo antiguo':'scene_pasillo','Dungeon':'scene_dungeon','Iglesia':'scene_iglesia','Palacio':'scene_palacio','Taller privado':'scene_taller','Mercado':'scene_mercado','Gremio':'scene_gremio','Almacén':'scene_almacen','Puerto':'scene_puerto','Armería':'scene_armeria','Empresas':'scene_empresas',
@@ -51,6 +52,8 @@ class _DualWorldPageState extends State<DualWorldPage>{
   DualState s=DualState();bool loading=true,busy=false;
   String message='';int qty=1,price=12;
   int rpgTab=0;
+  bool artSyncing=false;
+  String artStatus='';
   String raceFilter='all';
   String bookFilter='all',bookSearch='';
   String nameFilter='';
@@ -59,7 +62,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
   String get key=>'memora_dual_world_'+widget.guide.id;
   @override void initState(){super.initState();load();}
   @override void dispose(){answer.dispose();super.dispose();}
-  Future<void> load()async{final p=await SharedPreferences.getInstance();try{final raw=p.getString(key);if(raw!=null)s=DualState.fromJson(jsonDecode(raw) as Map);}catch(_){}if(mounted)setState(()=>loading=false);}
+  Future<void> load()async{final p=await SharedPreferences.getInstance();try{final raw=p.getString(key);if(raw!=null)s=DualState.fromJson(jsonDecode(raw) as Map);}catch(_){}if(mounted){setState(()=>loading=false);await checkArt();}}
   Future<void> act(String Function() fn)async{
     if(busy)return;setState(()=>busy=true);
     try{var next=fn();s.resolveWar();if(s.returned&&s.lethalBattle&&s.hp==0){final destroyed=s.worldDestroyed;s=s.returnToBeginning();next=(destroyed?'FIN DEL MUNDO · La Ruptura ha consumido el reino. RETORNO: despiertas el día de ingreso y conservas tu inteligencia. ':'RETORNO · Despiertas en tu dormitorio, el día de ingreso. Solo conservas inteligencia. ')+next;raceFilter='all';nameFilter='';answer.clear();}s.resolveFates(c.events);final p=await SharedPreferences.getInstance();if(!await p.setString(key,jsonEncode(s.toJson())))throw StateError('No se pudo guardar');if(mounted)setState(()=>message=next);}
@@ -83,6 +86,25 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(person.isNotEmpty)return personArt(person);
     return art(enemy['id'].toString(),height:200);
   }
+  Future<void> checkArt()async{
+    final assets=await AdventureArtStore.load(widget.guide.id);
+    if(!mounted)return;
+    if(!assets.containsKey('hero')||!assets.containsKey('scene_dormitorio'))await repairArt();
+  }
+  Future<void> repairArt()async{
+    if(artSyncing)return;
+    setState((){artSyncing=true;artStatus='Descargando ilustraciones de Asteria…';});
+    try{
+      final count=await AsteriaArtSync.repair(widget.guide);
+      if(mounted)setState(()=>artStatus='Ilustraciones instaladas y comprobadas: $count.');
+    }catch(e){
+      if(mounted)setState(()=>artStatus=e is FormatException?e.message.toString():'No se pudo descargar el arte: '+e.toString());
+    }finally{if(mounted)setState(()=>artSyncing=false);}
+  }
+  Widget artSyncBanner()=>artStatus.isEmpty?const SizedBox.shrink():Card(child:ListTile(
+    leading:artSyncing?const SizedBox(width:24,height:24,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.image_outlined),
+    title:Text(artStatus),trailing:artSyncing?null:IconButton(onPressed:repairArt,icon:const Icon(Icons.refresh),tooltip:'Volver a descargar las ilustraciones'),
+  ));
   Future<void> importArt()async{
     try{final n=await AdventureArtStore.importLocal(widget.guide);if(n!=null&&mounted)setState(()=>message='Arte instalado: '+n.toString()+' imágenes.');}catch(e){if(mounted)setState(()=>message=e.toString());}
   }
@@ -532,7 +554,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     final tab=s.inBattle?0:rpgTab;
     return Scaffold(
       appBar:AppBar(title:Text(s.inBattle?'Combate':tab==0?current:tab==1?'Mapa':tab==2?'Mi personaje':'Crónica'),
-        actions:[IconButton(onPressed:busy?null:importArt,icon:const Icon(Icons.image_outlined),tooltip:'Importar arte de Asteria')]),
+        actions:[IconButton(onPressed:artSyncing?null:repairArt,icon:const Icon(Icons.cloud_download_outlined),tooltip:'Reparar ilustraciones de Asteria'),IconButton(onPressed:busy?null:importArt,icon:const Icon(Icons.image_outlined),tooltip:'Importar arte de Asteria')]),
       bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:s.inBattle?null:(i)=>setState(()=>rpgTab=i),destinations:const [
         NavigationDestination(icon:Icon(Icons.explore_outlined),label:'Lugar'),
         NavigationDestination(icon:Icon(Icons.map_outlined),label:'Mapa'),
@@ -541,6 +563,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       ]),
       body:ListView(key:PageStorageKey('rpg_${tab}_${s.world}_${current}_${s.inBattle}'),padding:const EdgeInsets.all(12),children:[
         if(tab==0)...[
+          artSyncBanner(),
           if(!s.inBattle)landscape(current),
           playerHud(),
           if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
