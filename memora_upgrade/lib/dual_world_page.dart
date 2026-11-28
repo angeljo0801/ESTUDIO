@@ -345,6 +345,21 @@ class _DualWorldPageState extends State<DualWorldPage>{
     ))));
     if(choice!=null&&mounted&&!replay)await act(()=>s.chooseEvent(e,choice)?s.lastEvent:'No puedes elegir esta opción.');
   }
+  Future<void> openKnownPerson(Map<String,dynamic> p,Map<String,dynamic> previous)async{
+    if(busy||!knownPerson(p))return;
+    final action=await showModalBottomSheet<String>(context:context,showDragHandle:true,builder:(ctx)=>SafeArea(child:Padding(padding:const EdgeInsets.all(16),child:Column(mainAxisSize:MainAxisSize.min,children:[
+      Text(p['name'].toString(),style:Theme.of(ctx).textTheme.titleLarge),
+      const SizedBox(height:8),
+      Row(children:[conversationPortrait('hero',(c.data['player']?['name']??'Valcrest').toString()),conversationPortrait(portraitKey(p),p['name'].toString())]),
+      ListTile(leading:const Icon(Icons.chat_bubble_outline),title:const Text('Conversar'),onTap:()=>Navigator.pop(ctx,'talk')),
+      ListTile(leading:const Icon(Icons.history),title:const Text('Recordar último encuentro'),onTap:()=>Navigator.pop(ctx,'history')),
+    ]))));
+    if(!mounted)return;
+    if(action=='history'){await openConversation(previous,replay:true);}
+    if(action=='talk'){
+      await openConversation(<String,dynamic>{'title':'Conversación con '+p['name'].toString(),'person':p['id'],'scene':(p['intro']??'Tu compañero te saluda.').toString()+' Tu relación actual: '+s.relationship(p['id'] as String).toString()+'.'},replay:true);
+    }
+  }
   Widget objectiveCard(){
     final e=mainEvent;
     if(e==null)return const SizedBox.shrink();
@@ -357,13 +372,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
     final visited=allStoryEvents.where((e)=>atEvent(e)&&s.decisions.containsKey(e['id'])&&e['person'] is String&&e['person']!='').toList();
     final known=c.people.where((p)=>knownPerson(p)&&visited.any((e)=>e['person']==p['id'])).toList();
     return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-      if(main!=null&&atEvent(main))Card(child:ListTile(leading:const Icon(Icons.auto_stories),title:Text(main['title'].toString()),subtitle:const Text('Historia principal · iniciar escena'),trailing:const Icon(Icons.play_arrow),onTap:busy?null:()=>openConversation(main))),
+      
       if(!openingPending&&(main==null||!atEvent(main)))...[
         if(optional.isNotEmpty)section('Encuentros del lugar',[
           for(final e in optional)ListTile(leading:const Icon(Icons.chat_bubble_outline),title:Text(e['title'].toString()),subtitle:Text(peopleForEvent(e).map((p)=>p['name'].toString()).join(' · ')),trailing:const Icon(Icons.chevron_right),onTap:busy?null:()=>openConversation(e)),
         ]),
         if(known.isNotEmpty)section('Personajes conocidos',[
-          for(final p in known)ListTile(leading:SizedBox(width:48,height:48,child:AnimePortrait(id:portraitKey(p),guide:widget.guide)),title:Text(p['name'].toString()),subtitle:Text('Confianza: '+s.relationship(p['id'] as String).toString()),trailing:const Icon(Icons.chat_outlined),onTap:busy?null:()=>openConversation(visited.lastWhere((e)=>e['person']==p['id']),replay:true)),
+          for(final p in known)ListTile(leading:SizedBox(width:48,height:48,child:AnimePortrait(id:portraitKey(p),guide:widget.guide)),title:Text(p['name'].toString()),subtitle:Text('Confianza: '+s.relationship(p['id'] as String).toString()),trailing:const Icon(Icons.chat_outlined),onTap:busy?null:()=>openKnownPerson(p,visited.lastWhere((e)=>e['person']==p['id']))),
         ]),
       ],
     ]);
@@ -496,7 +511,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
       gridDelegate:const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent:190,mainAxisExtent:132,crossAxisSpacing:8,mainAxisSpacing:8),
       itemBuilder:(context,i){final location=locations[i],selected=location==current;
         final objective=mainEvent,highlight=objective!=null&&objective['world']==s.world&&objective['place']==location;
-        final locked=openingPending&&!selected&&!highlight;
+        final locked=openingPending&&!selected&&!highlight&&!(s.world!='school'&&location=='Taller privado');
         return Card(clipBehavior:Clip.antiAlias,color:selected?Theme.of(context).colorScheme.primaryContainer:null,
           child:InkWell(onTap:busy||selected||locked?null:()=>goToLocation(location),child:Padding(padding:const EdgeInsets.all(8),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
             Expanded(child:ValueListenableBuilder<int>(valueListenable:MemoraArtStore.revision,builder:(context,_,child)=>FutureBuilder(future:AdventureArtStore.load(widget.guide.id),builder:(context,snapshot){
@@ -534,6 +549,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
             objectiveCard(),
             Row(children:[Expanded(child:Text('Explorar '+current,style:Theme.of(context).textTheme.titleLarge)),TextButton.icon(onPressed:busy?null:()=>setState(()=>rpgTab=1),icon:const Icon(Icons.map_outlined),label:const Text('Viajar'))]),
         storyEvents(),
+        if(openingPending&&s.world!='school'&&s.privatePlace)btn('Regresar a la academia',()=>s.travel()?'Regresaste a Asteria.':'No puedes viajar aquí.'),
         if(!openingPending)...[
         if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida, maná y estamina recuperados.';})]),
         if(current=='Dormitorio')ListTile(leading:const Icon(Icons.person_outline),title:const Text('Habilidades, equipo y entrenamiento'),trailing:const Icon(Icons.chevron_right),onTap:()=>setState(()=>rpgTab=2)),
