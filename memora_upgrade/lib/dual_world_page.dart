@@ -192,7 +192,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     const Text('Apreciación revela las técnicas actuales de un estudiante. Al avanzar los arcos, sus capacidades evolucionan. Vuelve a apreciar a tus compañeros para descubrir técnicas nuevas.'),
     DropdownButton<String>(isExpanded:true,value:raceFilter,items:[const DropdownMenuItem(value:'all',child:Text('Todas las razas')),for(final r in c.races.where((r)=>r['secret']!=true||c.people.any((p)=>p['race']==r['id']&&s.knownRaces.contains(p['id']))))DropdownMenuItem(value:r['id'].toString(),child:Text(r['name'].toString()))],onChanged:busy?null:(value)=>setState(()=>raceFilter=value??'all')),
     TextField(decoration:const InputDecoration(labelText:'Buscar estudiante'),onChanged:(value)=>setState(()=>nameFilter=value.toLowerCase().trim())),
-    for(final person in c.people.where((p)=>!s.deadStudents.contains(p['id'])&&(s.place=='Sala de profesores'?p['teacher']==true:p['teacher']!=true)&&(raceFilter=='all'||publicRace(p)==raceFilter)&&p['name'].toString().toLowerCase().contains(nameFilter)))...[
+    for(final person in c.people.where((p)=>knownPerson(p)&&(s.place=='Sala de profesores'?p['teacher']==true:p['teacher']!=true)&&(raceFilter=='all'||publicRace(p)==raceFilter)&&p['name'].toString().toLowerCase().contains(nameFilter)))...[
       const Divider(),
       personArt(person),
       Text(person['name'].toString()+(person['teacher']==true?' · Profesor':' · Año '+person['year'].toString())+' · Nv. '+studentLevel(person).toString()+' · '+(person['origin']??'Origen desconocido').toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
@@ -284,11 +284,90 @@ class _DualWorldPageState extends State<DualWorldPage>{
     if(!s.royalChoiceMade)for(final side in ['evelyne','aldren','neutral'])btn(side=='neutral'?'Permanecer neutral':'Unirme a '+DualState.royalFactions[side]!,()=>s.chooseRoyalFaction(side)?(side=='neutral'?'No juras lealtad a ninguno. Conservas tu independencia.':'Tu alianza queda registrada. La facción rival te observa con desconfianza.'):'No puedes cambiar tu postura ahora.'),
     if(s.royalChoiceMade)const Text('Tu decisión abre determinadas misiones. La confianza personal sigue dependiendo de tus actos.'),
   ]);
-  Widget storyEvents()=>Column(children:[for(final e in [...c.events,...royalEvents].where(s.eligible))section(e['title'].toString(),[
-    for(final p in c.people.where((p)=>p['id']==e['person']))personArt(p),
-    Text(e['scene'].toString()),const SizedBox(height:12),
-    for(final choice in DualWorldContent.list(e['choices']))FilledButton(onPressed:busy||s.cash<((choice['cost'] as int?)??0)?null:()=>act(()=>s.chooseEvent(e,choice)?s.lastEvent:'No puedes elegir esta opción.'),child:Text(choice['label'].toString())),
-  ])]);
+  List<Map<String,dynamic>> get allStoryEvents=>[...c.events,...royalEvents];
+  static const openingIds=['admission','first_mock','riven_offer'];
+  static const mainIds=['admission','first_mock','riven_offer','lumen_arrival','lyra_meeting','althea_study','mirael_market','darian_after','nerea_book','archive_secret','lyra_garden','lumen_supplier','seren_training','elara_greenhouse','council_invite','port_secret','rival_warning','isolde_question','elian_crossroads','kaia_meeting','secret_council','final_invitation'];
+  bool get openingPending=>s.grades.isEmpty&&openingIds.any((id)=>!s.decisions.containsKey(id)&&c.events.any((e)=>e['id']==id));
+  Map<String,dynamic>? get mainEvent{
+    final available=allStoryEvents.where((e)=>s.eligible(e,anywhere:true)).toList();
+    for(final id in mainIds){
+      if(openingPending&&!openingIds.contains(id))continue;
+      for(final e in available){if(e['id']==id)return e;}
+    }
+    return null;
+  }
+  bool atEvent(Map e)=>e['world']==s.world&&e['place']==s.place;
+  bool knownPerson(Map p){
+    final id=p['id'].toString();
+    return !s.deadStudents.contains(id)&&(s.flags.contains('met_'+id)||s.trust.containsKey(id)||allStoryEvents.any((e)=>e['person']==id&&s.decisions.containsKey(e['id']))||c.skills.any((sk)=>sk['owner']==id&&s.appraised.contains(sk['id'])));
+  }
+  List<Map<String,dynamic>> peopleForEvent(Map e){
+    final ids=<String>{if(e['person'] is String&&e['person']!='')e['person'] as String,if(e['participants'] is List)...(e['participants'] as List).whereType<String>()};
+    return c.people.where((p)=>ids.contains(p['id'])).take(3).toList();
+  }
+  Widget conversationPortrait(String id,String name)=>Expanded(child:Column(children:[
+    SizedBox(height:130,width:double.infinity,child:ClipRRect(borderRadius:BorderRadius.circular(12),child:AnimePortrait(id:id,guide:widget.guide,fit:BoxFit.contain))),
+    const SizedBox(height:4),Text(name,textAlign:TextAlign.center,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w600)),
+  ]));
+  Future<void> openConversation(Map<String,dynamic> e,{bool replay=false})async{
+    if(busy||(!replay&&!s.eligible(e)))return;
+    final cast=peopleForEvent(e);
+    final raw=(e['scene']??'').toString();
+    final blocks=<String>[];
+    var buffer='';
+    for(final match in RegExp(r'[^.!?]+[.!?]*').allMatches(raw)){
+      final part=match.group(0)!.trim();
+      if(buffer.isNotEmpty&&buffer.length+part.length>230){blocks.add(buffer);buffer='';}
+      buffer=buffer.isEmpty?part:buffer+' '+part;
+    }
+    if(buffer.isNotEmpty)blocks.add(buffer);
+    if(blocks.isEmpty)blocks.add(raw);
+    var step=0;
+    final choice=await Navigator.of(context).push<Map<String,dynamic>>(MaterialPageRoute(builder:(ctx)=>StatefulBuilder(builder:(ctx,change)=>Scaffold(
+      appBar:AppBar(title:Text(e['title'].toString()),actions:[if(replay)const Padding(padding:EdgeInsets.all(12),child:Icon(Icons.history))]),
+      body:SafeArea(child:ListView(padding:const EdgeInsets.all(14),children:[
+        AdventureSceneView(guide:widget.guide,location:s.place,visual:AdventureVisualSpec(background:dualWorldLandscapeKey(s.place),height:190)),
+        const SizedBox(height:12),
+        Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          conversationPortrait('hero',(c.data['player']?['name']??'Valcrest').toString()),
+          for(final person in cast)conversationPortrait(portraitKey(person),person['name'].toString()),
+        ]),
+        const SizedBox(height:12),
+        Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text(cast.isEmpty?'Narrador':cast.map((p)=>p['name'].toString()).join(' · '),style:Theme.of(ctx).textTheme.titleMedium),
+          const SizedBox(height:8),Text(blocks[step],style:const TextStyle(fontSize:17,height:1.5)),
+          const SizedBox(height:12),Text('${step+1}/${blocks.length}',style:Theme.of(ctx).textTheme.bodySmall),
+        ]))),
+        if(step<blocks.length-1)FilledButton.icon(onPressed:()=>change(()=>step++),icon:const Icon(Icons.arrow_forward),label:const Text('Continuar'))
+        else if(replay)FilledButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Volver al lugar'))
+        else for(final ch in DualWorldContent.list(e['choices']))Padding(padding:const EdgeInsets.symmetric(vertical:4),child:FilledButton(onPressed:s.cash<((ch['cost'] as int?)??0)?null:()=>Navigator.pop(ctx,ch),child:Text(ch['label'].toString()))),
+      ])),
+    ))));
+    if(choice!=null&&mounted&&!replay)await act(()=>s.chooseEvent(e,choice)?s.lastEvent:'No puedes elegir esta opción.');
+  }
+  Widget objectiveCard(){
+    final e=mainEvent;
+    if(e==null)return const SizedBox.shrink();
+    final here=atEvent(e);
+    return Card(child:ListTile(leading:const Icon(Icons.flag_outlined),title:Text('Objetivo · '+e['title'].toString()),subtitle:Text(here?'Evento disponible aquí':'Destino: '+e['place'].toString()+(e['world']==s.world?'':' · otro mundo')),trailing:const Icon(Icons.chevron_right),onTap:busy?null:here?()=>openConversation(e):()=>setState(()=>rpgTab=1)));
+  }
+  Widget storyEvents(){
+    final main=mainEvent;
+    final optional=allStoryEvents.where((e)=>s.eligible(e)&&!mainIds.contains(e['id'])).toList();
+    final visited=allStoryEvents.where((e)=>atEvent(e)&&s.decisions.containsKey(e['id'])&&e['person'] is String&&e['person']!='').toList();
+    final known=c.people.where((p)=>knownPerson(p)&&visited.any((e)=>e['person']==p['id'])).toList();
+    return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      if(main!=null&&atEvent(main))Card(child:ListTile(leading:const Icon(Icons.auto_stories),title:Text(main['title'].toString()),subtitle:const Text('Historia principal · iniciar escena'),trailing:const Icon(Icons.play_arrow),onTap:busy?null:()=>openConversation(main))),
+      if(!openingPending&&(main==null||!atEvent(main)))...[
+        if(optional.isNotEmpty)section('Encuentros del lugar',[
+          for(final e in optional)ListTile(leading:const Icon(Icons.chat_bubble_outline),title:Text(e['title'].toString()),subtitle:Text(peopleForEvent(e).map((p)=>p['name'].toString()).join(' · ')),trailing:const Icon(Icons.chevron_right),onTap:busy?null:()=>openConversation(e)),
+        ]),
+        if(known.isNotEmpty)section('Personajes conocidos',[
+          for(final p in known)ListTile(leading:SizedBox(width:48,height:48,child:AnimePortrait(id:portraitKey(p),guide:widget.guide)),title:Text(p['name'].toString()),subtitle:Text('Confianza: '+s.relationship(p['id'] as String).toString()),trailing:const Icon(Icons.chat_outlined),onTap:busy?null:()=>openConversation(visited.lastWhere((e)=>e['person']==p['id']),replay:true)),
+        ]),
+      ],
+    ]);
+  }
   Widget dungeon()=>section('Dungeons · expediciones y espíritus',[
     const Text('Los combates aquí pueden terminar en muerte real. El Retorno reinicia ambos mundos. Los duelos de academia son protegidos.'),
     Text('Tus vínculos espirituales: '+s.spirits.length.toString()+' · Sin límite fijo · rango innato '+DualState.spiritualRank((c.data['player']?['spiritualAffinity'] as int?)??85,0)),
@@ -416,13 +495,17 @@ class _DualWorldPageState extends State<DualWorldPage>{
     GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),itemCount:locations.length,
       gridDelegate:const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent:190,mainAxisExtent:132,crossAxisSpacing:8,mainAxisSpacing:8),
       itemBuilder:(context,i){final location=locations[i],selected=location==current;
+        final objective=mainEvent,highlight=objective!=null&&objective['world']==s.world&&objective['place']==location;
+        final locked=openingPending&&!selected&&!highlight;
         return Card(clipBehavior:Clip.antiAlias,color:selected?Theme.of(context).colorScheme.primaryContainer:null,
-          child:InkWell(onTap:busy||selected?null:()=>goToLocation(location),child:Padding(padding:const EdgeInsets.all(8),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+          child:InkWell(onTap:busy||selected||locked?null:()=>goToLocation(location),child:Padding(padding:const EdgeInsets.all(8),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
             Expanded(child:ValueListenableBuilder<int>(valueListenable:MemoraArtStore.revision,builder:(context,_,child)=>FutureBuilder(future:AdventureArtStore.load(widget.guide.id),builder:(context,snapshot){
               final bytes=snapshot.data?[dualWorldLandscapeKey(location)];
               return bytes==null?Icon(locationIcon(location),size:34):ClipRRect(borderRadius:BorderRadius.circular(6),child:Image.memory(bytes,width:double.infinity,fit:BoxFit.cover,errorBuilder:(context,error,stack)=>Icon(locationIcon(location),size:34)));
             }))),
             const SizedBox(height:5),Text(location,textAlign:TextAlign.center,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w600)),
+            if(highlight)const Text('Objetivo principal',style:TextStyle(fontSize:11,fontWeight:FontWeight.bold)),
+            if(locked)const Icon(Icons.lock_outline,size:15),
             if(selected)const Text('Estás aquí',style:TextStyle(fontSize:11)),
           ]))));
       }),
@@ -448,11 +531,13 @@ class _DualWorldPageState extends State<DualWorldPage>{
           if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
           if(s.inBattle)battle()else...[
             if(s.academyMobilized&&!s.warWon)ListTile(leading:const Icon(Icons.warning_amber),title:const Text('La academia está bajo amenaza'),trailing:const Icon(Icons.chevron_right),onTap:()=>setState(()=>rpgTab=3)),
+            objectiveCard(),
             Row(children:[Expanded(child:Text('Explorar '+current,style:Theme.of(context).textTheme.titleLarge)),TextButton.icon(onPressed:busy?null:()=>setState(()=>rpgTab=1),icon:const Icon(Icons.map_outlined),label:const Text('Viajar'))]),
+        storyEvents(),
+        if(!openingPending)...[
         if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida, maná y estamina recuperados.';})]),
         if(current=='Dormitorio')ListTile(leading:const Icon(Icons.person_outline),title:const Text('Habilidades, equipo y entrenamiento'),trailing:const Icon(Icons.chevron_right),onTap:()=>setState(()=>rpgTab=2)),
         if(current=='Armería')armory(store:true),
-        storyEvents(),
         if(current=='Palacio'||current=='Consejo')royalPolitics(),
         if(current=='Iglesia'||current=='Palacio'||current=='Consejo')section('Instituciones y relaciones políticas',[for(final faction in DualWorldContent.list(c.data['factions']))...[Text(faction['name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),Text(faction['description'].toString()),Text('Relación: '+(s.factionStanding[faction['id']]??0).toString())]]),
         if(current=='Gremio')section('Gremio · encargos financieros',[const Text('Los encargos se pagan aquí, una sola vez por examen superado.'),for(final l in c.lessons.where((x)=>s.grades.containsKey(x['id'])&&!s.wins.contains('guild_'+x['id'].toString())))btn('Cobrar '+l['title'].toString(),(){final n=s.claimGuild(l['id'] as String);return 'Recibiste '+n.toString()+' monedas por tu informe.';})]),
@@ -497,6 +582,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
           for(final row in ([{'name':'Tú','score':s.rankPoints},...c.people.where((x)=>!s.deadStudents.contains(x['id'])).map((x)=>{'name':x['name'],'score':x['rank']})]..sort((a,b)=>(b['score'] as int).compareTo(a['score'] as int))).asMap().entries)ListTile(title:Text((row.key+1).toString()+'. '+row.value['name'].toString()),trailing:Text(row.value['score'].toString()))
         ])
           ],
+        ]
         ]else if(tab==1)worldMap(locations,school,current)
         else if(tab==2)...[
           playerHud(),
