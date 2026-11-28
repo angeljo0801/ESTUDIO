@@ -378,6 +378,42 @@ class _Api {
 }
 
 
+/// Downloads Asteria's graphics independently from the large guide catalog,
+/// using the ID of the guide actually open on the device.
+class AsteriaArtSync {
+  static const adventure='entre-dos-mundos-academia';
+  static Future<int> repair(StudyGuide guide) async {
+    final prefs=await SharedPreferences.getInstance();
+    final repo=prefs.getString('memora_sync_repo_v1');
+    final token=await const FlutterSecureStorage().read(key:'memora_sync_token_v1');
+    if(repo==null||token==null||token.isEmpty)throw const FormatException('Configura Memora Sync primero.');
+    final api=_Api(repo,token);
+    await api.verify();
+    final manifest=await api.read('adventure-art/$adventure/manifest.json');
+    if(manifest==null)throw const FormatException('No se encontró el manifiesto de Asteria.');
+    final spec=manifest.data,parts=spec['parts'],revision=spec['revision'];
+    if(spec['schema']!=1||spec['adventure']!=adventure||revision is! int||revision<1||parts is! List||parts.isEmpty||parts.length>64)throw const FormatException('Manifiesto de Asteria inválido.');
+    final data=<dynamic>[],names=<String>{};
+    var bytes=0;
+    for(final item in parts){
+      final part=identifier(item);
+      if(!names.add(part))throw const FormatException('Parte duplicada.');
+      final file=await api.read('adventure-art/$adventure/$part.json');
+      if(file==null)throw FormatException('Falta el archivo gráfico: $part.');
+      bytes+=utf8.encode(jsonEncode(file.data)).length;
+      if(bytes>AdventureArtStore.maxBytes)throw const FormatException('Paquete gráfico demasiado grande.');
+      data.add(file.data);
+    }
+    final merged=AdventureArtStore.mergeParts(data,adventure);
+    if(!merged.containsKey('hero')||!merged.containsKey('scene_dormitorio'))throw const FormatException('El paquete no contiene el héroe o el dormitorio.');
+    final count=await AdventureArtStore.saveParts(guide.id,adventure,data);
+    final loaded=await AdventureArtStore.load(guide.id);
+    if(!loaded.containsKey('hero')||!loaded.containsKey('scene_dormitorio')||loaded.length!=count)throw const FormatException('El paquete se descargó, pero no se pudo leer del almacenamiento.');
+    await prefs.setInt('sync_art_revision_'+guide.id,revision);
+    return count;
+  }
+}
+
 /// A queued model provider, not a live OpenAI API. The authorized ChatGPT
 /// conversation reads pending jobs and writes responses to the private repo.
 class MemoraSyncModel {
