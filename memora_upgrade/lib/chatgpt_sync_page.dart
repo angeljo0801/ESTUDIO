@@ -136,7 +136,7 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
     final count=await _syncAdventureArt(a,p,artRows);
     return 'Guías actualizadas: ${pending.length}. Recursos gráficos actualizados: $count. Ábrelas en Biblioteca.';
   }
-  Future<int> _syncAdventureArt(_Api a,SharedPreferences p,List<Map<String,dynamic>> rows)async{
+  Future<int> _syncAdventureArt(_Api a,SharedPreferences p,List<Map<String,dynamic>> rows,{bool force=false})async{
     var total=0;
     for(final row in rows){
       final adventure=identifier(row['id']),guideId=a.prefix+adventure;
@@ -144,7 +144,7 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
       final rev=spec['revision'],parts=spec['parts'];
       if(rev is! int||rev<1||parts is! List||parts.isEmpty||parts.length>64)throw const FormatException('Manifiesto gráfico inválido.');
       final key='sync_art_revision_'+guideId;
-      if(rev<=(p.getInt(key)??0))continue;
+      if(!force&&rev<=(p.getInt(key)??0)&&(await AdventureArtStore.load(guideId)).isNotEmpty)continue;
       final names=<String>{},data=<dynamic>[];
       var bytes=0;
       for(final raw in parts){
@@ -169,11 +169,11 @@ class _ChatgptSyncPageState extends State<ChatgptSyncPage> {
     if(catalog!=null){
       final rows=catalog.data['guides'];
       if(catalog.data['schema']!=1||rows is! List||rows.length>100)throw const FormatException('Catálogo incompatible.');
-      count+=await _syncAdventureArt(a,p,rows.map(obj).where((row)=>row['art']!=null).toList());
+      count+=await _syncAdventureArt(a,p,rows.map(obj).where((row)=>row['art']!=null).toList(),force:true);
     }
     final legacy=await a.read('memora-art.json');
     if(legacy!=null)count+=await MemoraArtStore.save(legacy.data);
-    return count==0?'No hay arte nuevo. También puedes importarlo desde Personajes.':'Recursos gráficos recibidos: $count.';
+    return count==0?'No se encontraron recursos gráficos en el repositorio.':'Recursos gráficos descargados y reinstalados: $count.';
   }
   Future<String> sendRequest() async {
     final message = str(prompt.text,12000);
@@ -331,12 +331,13 @@ class _Api {
   }
   final String repo,token;
   String get prefix=>'chatgpt_'+base64Url.encode(utf8.encode(repo)).replaceAll('=','')+'_';
-  Future<http.Response> request(String method,String path,[Map<String,dynamic>? body]) async {
+  static const int maxRemoteReadBytes=8*1024*1024;
+  Future<http.Response> request(String method,String path,[Map<String,dynamic>? body,bool raw=false]) async {
     final client=http.Client();
     try {
       final req=http.Request(method,Uri.https('api.github.com','/repos/'+repo+path));
       req.followRedirects=false;
-      req.headers.addAll({'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'});
+      req.headers.addAll({'Authorization':'Bearer '+token,'Accept':raw?'application/vnd.github.raw+json':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'});
       if(body!=null){req.headers['Content-Type']='application/json';req.body=jsonEncode(body);}
       return await http.Response.fromStream(await client.send(req).timeout(const Duration(seconds:20))).timeout(const Duration(seconds:30));
     } finally {client.close();}
@@ -352,8 +353,19 @@ class _Api {
     if(r.statusCode==404)return null;
     if(r.statusCode!=200)throw FormatException('Error al leer '+path+': '+r.statusCode.toString());
     final info=obj(jsonDecode(r.body));
-    if(info['encoding']!='base64'||info['size'] is! int||(info['size'] as int)>900000)throw const FormatException('Archivo remoto demasiado grande o incompatible.');
-    final bytes=base64Decode((info['content'] as String).replaceAll(RegExp(r'\s'),''));
+    final size=info['size'];
+    if(size is! int||size<0||size>maxRemoteReadBytes)throw FormatException('Archivo remoto demasiado grande o incompatible: '+path);
+    if(info['encoding']=='base64'&&info['content'] is String){
+      final bytes=base64Decode((info['content'] as String).replaceAll(RegExp(r'\s'),''));
+      if(bytes.length!=size)throw FormatException('Descarga incompleta: '+path);
+      return _Remote(info['sha'] as String,obj(jsonDecode(utf8.decode(bytes))));
+    }
+    // GitHub omits inline base64 for files over 1 MiB. Fetch the same
+    // authenticated Contents endpoint using its raw media type instead.
+    final raw=await request('GET','/contents/'+path,null,true);
+    if(raw.statusCode!=200)throw FormatException('Error al descargar '+path+': '+raw.statusCode.toString());
+    final bytes=raw.bodyBytes;
+    if(bytes.length!=size||bytes.length>maxRemoteReadBytes)throw FormatException('Descarga incompleta o demasiado grande: '+path);
     return _Remote(info['sha'] as String,obj(jsonDecode(utf8.decode(bytes))));
   }
   Future<void> write(String path,Map<String,dynamic> data,String? sha) async {
