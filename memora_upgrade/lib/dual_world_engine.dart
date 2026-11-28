@@ -300,10 +300,10 @@ class DualState {
   bool royalEventAvailable(String side)=>royalChoiceMade&&(royalAlignment=='neutral'||royalAlignment==side);
   int relationship(String id)=>trust[id]??0;
   int warmth(String id)=>affection[id]??0;
-  bool eligible(Map e){
+  bool eligible(Map e,{bool anywhere=false}){
     if(deadStudents.contains(e['person']))return false;
     if(e['maxClasses'] is int&&grades.length>(e['maxClasses'] as int))return false;
-    if(decisions.containsKey(e['id'])||e['world']!=world||e['place']!=place)return false;
+    if(decisions.containsKey(e['id'])||(!anywhere&&(e['world']!=world||e['place']!=place)))return false;
     if(grades.length<((e['minClasses'] as int?)??0)||reputation<((e['minRep'] as int?)??-100))return false;
     if(e['requiresRoyalFaction'] is String&&!royalEventAvailable(e['requiresRoyalFaction'] as String))return false;
     if(e['requiresFlag'] is String&&!flags.contains(e['requiresFlag'])&&!(e['requiresFlag']=='mercenary_member'&&academyMobilized))return false;
