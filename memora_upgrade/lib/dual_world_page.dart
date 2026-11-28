@@ -50,6 +50,7 @@ class DualWorldPage extends StatefulWidget{
 class _DualWorldPageState extends State<DualWorldPage>{
   DualState s=DualState();bool loading=true,busy=false;
   String message='';int qty=1,price=12;
+  int rpgTab=0;
   String raceFilter='all';
   String bookFilter='all',bookSearch='';
   String nameFilter='';
@@ -65,7 +66,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
     catch(e){if(mounted)setState(()=>message=e.toString());}finally{if(mounted)setState(()=>busy=false);}
   }
   Widget btn(String label,String Function() fn)=>FilledButton(onPressed:busy?null:()=>act(fn),child:Text(label));
-  Widget section(String title,List<Widget> children)=>Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[Text(title,style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),const SizedBox(height:10),...children])));
+  Widget section(String title,List<Widget> children)=>Card(child:ExpansionTile(key:PageStorageKey('section_'+s.world+'_'+s.place+'_'+title),initiallyExpanded:s.inBattle&&title.startsWith('Combate')||title=='Lugar privado',maintainState:true,title:Text(title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w600)),childrenPadding:const EdgeInsets.fromLTRB(14,0,14,14),expandedCrossAxisAlignment:CrossAxisAlignment.stretch,children:children));
   Widget art(String id,{double height=160,String? fallback})=>ValueListenableBuilder<int>(
     valueListenable:MemoraArtStore.revision,
     builder:(context,_,child)=>FutureBuilder(future:AdventureArtStore.load(widget.guide.id),builder:(context,snapshot){
@@ -381,36 +382,75 @@ class _DualWorldPageState extends State<DualWorldPage>{
     btn('Abrir puesto',(){final r=s.trade(qty,price,demand,cost,2);if(r==null)return 'Plan inválido o sin caja suficiente.';return 'Vendiste '+r['sold'].toString()+' · beneficio '+r['profit'].toString()+' · inventario '+r['stock'].toString()+' · caja '+r['cash'].toString();}),
     btn('Trabajar por comisión (+30)',(){s.commission();return 'Entregaste un encargo comercial. +30 monedas.';})
   ]);}
+  IconData locationIcon(String name){
+    if(const ['Dormitorio','Taller privado'].contains(name))return Icons.home_outlined;
+    if(const ['Clases','Sala de profesores'].contains(name))return Icons.school_outlined;
+    if(name=='Biblioteca')return Icons.menu_book_outlined;
+    if(const ['Arena','Dungeon','Frente de guerra','Campamento mercenario'].contains(name))return Icons.shield_outlined;
+    if(const ['Bosque fronterizo','Jardín','Patio'].contains(name))return Icons.park_outlined;
+    if(const ['Mercado','Armería','Empresas'].contains(name))return Icons.storefront_outlined;
+    if(name=='Puerto')return Icons.directions_boat_outlined;
+    if(name=='Gimnasio')return Icons.fitness_center;
+    return Icons.place_outlined;
+  }
+  Widget meter(String label,num value,num maximum,Color color)=>Padding(
+    padding:const EdgeInsets.symmetric(vertical:3),
+    child:Row(children:[SizedBox(width:62,child:Text(label,style:const TextStyle(fontSize:12))),
+      Expanded(child:LinearProgressIndicator(value:maximum<=0?0.0:(value/maximum).clamp(0.0,1.0).toDouble(),minHeight:7,color:color,borderRadius:BorderRadius.circular(6))),
+      const SizedBox(width:8),Text('$value/$maximum',style:const TextStyle(fontSize:12))]));
+  Widget playerHud()=>Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Row(children:[Expanded(child:Text('Nv. ${s.level} · Rango ${s.playerCombatRank}',style:const TextStyle(fontWeight:FontWeight.bold))),const Icon(Icons.monetization_on_outlined,size:18),const SizedBox(width:5),Text(s.cash.toString())]),
+    meter('Vida',s.hp,s.maxHp,Colors.green),meter('Estamina',s.energy,s.stamina,Colors.orange),meter('Maná',s.mana,s.intelligence,Colors.blue),
+  ])));
+  Future<void> goToLocation(String location)async{
+    if(busy||s.inBattle)return;
+    await act((){s.place=location;answer.clear();return 'Llegaste a '+location+'.';});
+    if(mounted)setState(()=>rpgTab=0);
+  }
+  Widget worldMap(List<String> locations,bool school,String current)=>Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+    Text(school?'Mapa de Asteria':'Mapa de Lumen',style:Theme.of(context).textTheme.headlineSmall),
+    const Text('Selecciona un destino para viajar. Mapa esquemático de lugares disponibles.'),
+    const SizedBox(height:12),
+    landscape(current),
+    const SizedBox(height:8),
+    GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),itemCount:locations.length,
+      gridDelegate:const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent:190,mainAxisExtent:132,crossAxisSpacing:8,mainAxisSpacing:8),
+      itemBuilder:(context,i){final location=locations[i],selected=location==current;
+        return Card(clipBehavior:Clip.antiAlias,color:selected?Theme.of(context).colorScheme.primaryContainer:null,
+          child:InkWell(onTap:busy||selected?null:()=>goToLocation(location),child:Padding(padding:const EdgeInsets.all(8),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+            Expanded(child:ValueListenableBuilder<int>(valueListenable:MemoraArtStore.revision,builder:(context,_,child)=>FutureBuilder(future:AdventureArtStore.load(widget.guide.id),builder:(context,snapshot){
+              final bytes=snapshot.data?[dualWorldLandscapeKey(location)];
+              return bytes==null?Icon(locationIcon(location),size:34):ClipRRect(borderRadius:BorderRadius.circular(6),child:Image.memory(bytes,width:double.infinity,fit:BoxFit.cover,errorBuilder:(context,error,stack)=>Icon(locationIcon(location),size:34)));
+            }))),
+            const SizedBox(height:5),Text(location,textAlign:TextAlign.center,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w600)),
+            if(selected)const Text('Estás aquí',style:TextStyle(fontSize:11)),
+          ]))));
+      }),
+  ]);
   @override Widget build(BuildContext context){
     if(loading)return const Scaffold(body:Center(child:CircularProgressIndicator()));
     final school=s.world=='school';final current=s.place;
     final locations=school?['Dormitorio','Clases','Biblioteca','Patio','Arena','Gimnasio','Ranking','Jardín','Consejo','Pasillo antiguo','Dungeon','Iglesia','Palacio','Sala de profesores','Gremio de aventureros','Bosque fronterizo','Minas de Valdren','Campamento mercenario','Frente de guerra',...DualWorldContent.list(c.data['locations']).where((l)=>l['world']=='school').map((l)=>l['name'].toString())].toSet().toList():['Taller privado','Mercado','Gremio','Almacén','Puerto','Armería','Empresas',...DualWorldContent.list(c.data['locations']).where((l)=>l['world']=='trade').map((l)=>l['name'].toString())].toSet().toList();
-    return Scaffold(appBar:AppBar(title:Text(school?'Academia · Entre dos mundos':'Mundo comercial'),actions:[IconButton(onPressed:busy?null:importArt,icon:const Icon(Icons.image_outlined),tooltip:'Importar arte de Asteria')]),body:ListView(padding:const EdgeInsets.all(14),children:[
-      landscape(current),
-      if(c.data['player'] is Map)section((c.data['player']['name']??'Valcrest').toString(),[art('hero',height:180),Text((c.data['player']['appearance']??'').toString()),const Text('Becario · Casa de Valcrest')]),
-      Text('Nivel '+s.level.toString()+' · Rango '+s.playerCombatRank+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
-      Text('Fuerza '+s.strength.toString()+' · defensa/resistencia '+s.defense.toString()+' · estamina '+s.stamina.toString()+' · inteligencia '+s.intelligence.toString()),
-      Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100 · reputación '+s.reputation.toString()),
-      Text('Habilidades de combate: '+s.skills.length.toString()+' · poderes innatos: Apreciación, Robo, Retorno y Sabiduría'),
-      Text('Sabiduría: '+s.wisdom.toString()+' · Dominio demostrado en pruebas financieras'),
-      Text(arcTitle+' · '+s.decisions.length.toString()+' acontecimientos resueltos'),
-      section('Crónica de la guerra · semana '+s.warWeek.toString(),[
-        if(s.warWeek>=6)art('war_colossus_arrival',height:240),
-        if(s.warWon)const Text('La ofensiva ha sido repelida. La academia recupera la normalidad.'),
-        if(s.academyMobilized)...[
-          const Text('EMERGENCIA · La academia está bajo amenaza. Profesores y estudiantes han sido movilizados para defender el mundo. La defensa no exige jurar lealtad a la Corona.'),
-          if(!s.inBattle)btn('Acudir a la defensa de Asteria',(){s.world='school';s.place='Frente de guerra';return 'Te reúnes con las fuerzas defensoras de la academia.';}),
-        ],
-        if(!s.warWon)Text('Estimación de la horda invasora: '+s.remainingHorde.toString()+' criaturas'),
-        if(!s.warWon)Text('Situación aliada: '+(s.warThreat==0?'Defensas estables':s.warThreat<5?'Frontera en peligro':s.warThreat<9?'Derrotas graves':'Riesgo de colapso')),
-        ExpansionTile(title:Text(s.alliedReports.isEmpty?s.warNews.last:s.alliedReports.last),children:[for(final news in [...s.warNews,...s.alliedReports])Padding(padding:const EdgeInsets.all(6),child:Text(news))]),
-        if(!s.inBattle&&!s.warWon&&s.privatePlace)btn('Avanzar una semana de la historia',()=>s.advanceWarWeek()?'Ha pasado una semana. Consulta los nuevos informes de la guerra.':'No puedes avanzar ahora.'),
+    final tab=s.inBattle?0:rpgTab;
+    return Scaffold(
+      appBar:AppBar(title:Text(s.inBattle?'Combate':tab==0?current:tab==1?'Mapa':tab==2?'Mi personaje':'Crónica'),
+        actions:[IconButton(onPressed:busy?null:importArt,icon:const Icon(Icons.image_outlined),tooltip:'Importar arte de Asteria')]),
+      bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:s.inBattle?null:(i)=>setState(()=>rpgTab=i),destinations:const [
+        NavigationDestination(icon:Icon(Icons.explore_outlined),label:'Lugar'),
+        NavigationDestination(icon:Icon(Icons.map_outlined),label:'Mapa'),
+        NavigationDestination(icon:Icon(Icons.person_outline),label:'Héroe'),
+        NavigationDestination(icon:Icon(Icons.auto_stories_outlined),label:'Crónica'),
       ]),
-      if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
-      if(s.inBattle)battle()else...[
-        Wrap(spacing:6,children:[for(final l in locations)ChoiceChip(label:Text(l),selected:l==current,onSelected:busy?null:(_)=>act((){s.place=l;answer.clear();return 'Llegaste a '+l+'.';}))]),
+      body:ListView(key:PageStorageKey('rpg_${tab}_${s.world}_${current}_${s.inBattle}'),padding:const EdgeInsets.all(12),children:[
+        if(tab==0)...[
+          if(!s.inBattle)landscape(current),
+          playerHud(),
+          if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
+          if(s.inBattle)battle()else...[
+            if(s.academyMobilized&&!s.warWon)ListTile(leading:const Icon(Icons.warning_amber),title:const Text('La academia está bajo amenaza'),trailing:const Icon(Icons.chevron_right),onTap:()=>setState(()=>rpgTab=3)),
+            Row(children:[Expanded(child:Text('Explorar '+current,style:Theme.of(context).textTheme.titleLarge)),TextButton.icon(onPressed:busy?null:()=>setState(()=>rpgTab=1),icon:const Icon(Icons.map_outlined),label:const Text('Viajar'))]),
         if(s.privatePlace)section('Lugar privado',[Text(c.data['intro'].toString()),btn('Viajar al otro mundo',()=>s.travel()?'Atravesaste el portal.':'No puedes viajar aquí.'),btn('Descansar',(){s.rest();return 'Vida, maná y estamina recuperados.';})]),
-        if(current=='Dormitorio')...[skillRoom(),workshop(),classTree(),socialTraining(),armory(store:false)],
+        if(current=='Dormitorio')ListTile(leading:const Icon(Icons.person_outline),title:const Text('Habilidades, equipo y entrenamiento'),trailing:const Icon(Icons.chevron_right),onTap:()=>setState(()=>rpgTab=2)),
         if(current=='Armería')armory(store:true),
         storyEvents(),
         if(current=='Palacio'||current=='Consejo')royalPolitics(),
@@ -444,8 +484,7 @@ class _DualWorldPageState extends State<DualWorldPage>{
           Text(s.flags.contains('mercenary_member')?'Contrato activo · servicio voluntario':'Sin contrato'),
           const Text('La Guerra de la Ruptura lleva décadas activa. Las entidades de Dravenn y sus colosos invaden el mundo desde las grietas. La academia permanece neutral frente a los bandos políticos; el servicio exterior es voluntario.'),
         ]),
-        if(const ['Bosque fronterizo','Minas de Valdren','Frente de guerra'].contains(current)||c.enemies.any((e)=>e['location']==current))battle(),
-        if(current=='Arena')battle(),
+        if(const ['Arena','Bosque fronterizo','Minas de Valdren','Frente de guerra'].contains(current)||c.enemies.any((e)=>e['location']==current))battle(),
         if(current=='Dungeon')dungeon(),
         if(current=='Patio'&&s.flags.any((x)=>x.startsWith('fallback_')))section('Noticias de expediciones',[for(final person in c.people.where((p)=>s.flags.contains('fallback_'+p['id'].toString())))Text(person['name'].toString()+' regresó gracias al equipo de rescate.')]),
         if(current=='Patio'&&c.events.any((e)=>e['deadline'] is int&&s.grades.length>=((e['minClasses'] as int?)??0)&&s.grades.length<(e['deadline'] as int)&&!s.rescuedStudents.contains(e['person'])))section('Avisos de expedición',[const Text('Hay búsquedas pendientes en el Dungeon. Consulta los avisos antes de avanzar las clases.')]),
@@ -457,7 +496,37 @@ class _DualWorldPageState extends State<DualWorldPage>{
           Text('Tus puntos: '+s.rankPoints.toString()+' · poder '+s.power.toString()),
           for(final row in ([{'name':'Tú','score':s.rankPoints},...c.people.where((x)=>!s.deadStudents.contains(x['id'])).map((x)=>{'name':x['name'],'score':x['rank']})]..sort((a,b)=>(b['score'] as int).compareTo(a['score'] as int))).asMap().entries)ListTile(title:Text((row.key+1).toString()+'. '+row.value['name'].toString()),trailing:Text(row.value['score'].toString()))
         ])
-      ]
-    ]));
+          ],
+        ]else if(tab==1)worldMap(locations,school,current)
+        else if(tab==2)...[
+          playerHud(),
+      if(c.data['player'] is Map)section((c.data['player']['name']??'Valcrest').toString(),[art('hero',height:180),Text((c.data['player']['appearance']??'').toString()),const Text('Becario · Casa de Valcrest')]),
+      Text('Nivel '+s.level.toString()+' · Rango '+s.playerCombatRank+' · XP '+s.xp.toString()+' · monedas '+s.cash.toString(),style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
+      Text('Fuerza '+s.strength.toString()+' · defensa/resistencia '+s.defense.toString()+' · estamina '+s.stamina.toString()+' · inteligencia '+s.intelligence.toString()),
+      Text('Lugar: '+current+' · notas '+s.examAverage.toString()+'/100 · reputación '+s.reputation.toString()),
+      Text('Habilidades de combate: '+s.skills.length.toString()+' · poderes innatos: Apreciación, Robo, Retorno y Sabiduría'),
+      Text('Sabiduría: '+s.wisdom.toString()+' · Dominio demostrado en pruebas financieras'),
+
+          if(current=='Dormitorio')...[skillRoom(),workshop(),classTree(),socialTraining(),armory(store:false)]
+          else ListTile(leading:const Icon(Icons.home_outlined),title:const Text('Gestionar habilidades y equipo'),subtitle:const Text('Disponible en el dormitorio'),onTap:school?()=>goToLocation('Dormitorio'):null),
+        ]else...[
+          if(message.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(12),child:Text(message))),
+      Text(arcTitle+' · '+s.decisions.length.toString()+' acontecimientos resueltos'),
+      section('Crónica de la guerra · semana '+s.warWeek.toString(),[
+        if(s.warWeek>=6)art('war_colossus_arrival',height:240),
+        if(s.warWon)const Text('La ofensiva ha sido repelida. La academia recupera la normalidad.'),
+        if(s.academyMobilized)...[
+          const Text('EMERGENCIA · La academia está bajo amenaza. Profesores y estudiantes han sido movilizados para defender el mundo. La defensa no exige jurar lealtad a la Corona.'),
+          if(!s.inBattle)btn('Acudir a la defensa de Asteria',(){s.world='school';s.place='Frente de guerra';return 'Te reúnes con las fuerzas defensoras de la academia.';}),
+        ],
+        if(!s.warWon)Text('Estimación de la horda invasora: '+s.remainingHorde.toString()+' criaturas'),
+        if(!s.warWon)Text('Situación aliada: '+(s.warThreat==0?'Defensas estables':s.warThreat<5?'Frontera en peligro':s.warThreat<9?'Derrotas graves':'Riesgo de colapso')),
+        ExpansionTile(title:Text(s.alliedReports.isEmpty?s.warNews.last:s.alliedReports.last),children:[for(final news in [...s.warNews,...s.alliedReports])Padding(padding:const EdgeInsets.all(6),child:Text(news))]),
+        if(!s.inBattle&&!s.warWon&&s.privatePlace)btn('Avanzar una semana de la historia',()=>s.advanceWarWeek()?'Ha pasado una semana. Consulta los nuevos informes de la guerra.':'No puedes avanzar ahora.'),
+      ]),
+
+        ],
+      ]),
+    );
   }
 }
